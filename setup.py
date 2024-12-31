@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="home-index",
+    name="home_index",
     version="1.0.0",
     description="A package for running the home-index server.",
     author="Nash Spence",

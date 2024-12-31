@@ -15,5 +15,5 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY packages/home-index .
+COPY packages/home_index .
 ENTRYPOINT ["python3", "/app/main.py"]
