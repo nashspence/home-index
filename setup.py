@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="home-index",
@@ -7,6 +7,6 @@ setup(
     author="Nash Spence",
     author_email="nashspence@gmail.com",
     url="https://github.com/nashspence/home-index",
-    py_modules=["run_server"],
-    package_dir={"": "src"},
+    packages=find_packages(where="packages"),
+    package_dir={"": "packages"},
 )
