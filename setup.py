@@ -7,6 +7,5 @@ setup(
     author="Nash Spence",
     author_email="nashspence@gmail.com",
     url="https://github.com/nashspence/home-index",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=find_packages(),
 )
