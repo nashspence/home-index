@@ -1,11 +1,3 @@
----
-networks:
-  debug-net:
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.34.0.0/24
-
 services:
   home-index:
     build:
@@ -23,10 +15,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./bind-mounts/home-index:/storage
-      - /home/ns/shared:/files
-    networks:
-      debug-net:
-        ipv4_address: 172.34.0.10
+      - ./bind-mounts/test-files:/files
   meilisearch:
     container_name: meilisearch
     environment:
@@ -36,5 +25,3 @@ services:
     restart: unless-stopped
     volumes:
       - ./bind-mounts/meilisearch:/meili_data
-    networks:
-      - debug-net
