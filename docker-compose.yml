@@ -22,11 +22,11 @@ services:
       - '5678:5678' # debugpy
     restart: unless-stopped
     volumes:
-      - ./bind-mounts/storage:/storage
+      - ./bind-mounts/home-index:/storage
       - /home/ns/shared:/files
     networks:
       debug-net:
-        ipv4_address: 172.34.0.12
+        ipv4_address: 172.34.0.10
   meilisearch:
     container_name: meilisearch
     environment:
