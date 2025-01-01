@@ -1,6 +1,7 @@
 # region "debugpy"
 
 
+import logging.handlers
 import os
 import debugpy
 
@@ -20,31 +21,21 @@ import logging
 
 logging.basicConfig(level=logging.CRITICAL)
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-file_handler = logging.RotatingFileHandler(
-    "/storage/home-index-orchestrator.log", maxBytes=5_000_000, backupCount=10
+modules_logger = logging.getLogger("home-index-modules")
+modules_logger.setLevel(logging.INFO)
+file_handler = logging.handlers.RotatingFileHandler(
+    "/storage/modules.log", maxBytes=5_000_000, backupCount=10
 )
-stream_handler = logging.StreamHandler()
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-stream_handler.setFormatter(
-    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-)
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+modules_logger.addHandler(file_handler)
 
-synclog = logging.getLogger("home-index-sync")
-synclog.setLevel(logging.INFO)
-file_handler = logging.RotatingFileHandler(
-    "/storage/home-index-sync.log", maxBytes=5_000_000, backupCount=10
+files_logger = logging.getLogger("home-index-files")
+files_logger.setLevel(logging.INFO)
+file_handler = logging.handlers.RotatingFileHandler(
+    "/storage/files.log", maxBytes=5_000_000, backupCount=10
 )
-stream_handler = logging.StreamHandler()
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-stream_handler.setFormatter(
-    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-)
-synclog.addHandler(file_handler)
-synclog.addHandler(stream_handler)
+files_logger.addHandler(file_handler)
 
 # endregion
 # region "import"
@@ -100,19 +91,20 @@ hello_versions_file_path = "/storage/hello_versions.json"
 
 try:
     MODULES = os.environ.get("MODULES", "")
-    for module_host in MODULES.split(","):
-        proxy = ServerProxy(module_host.strip())
-        hello = proxy.hello()
-        name = hello["name"]
-        version = hello["version"]
-        hellos.append(hello)
-        hello_versions.append([name, version])
-        if name in modules:
-            raise ValueError(
-                f"multiple modules found with name {name}, this must be unique"
-            )
-        modules[name] = {"name": name, "proxy": proxy}
-        module_values.append(modules[name])
+    if MODULES:
+        for module_host in MODULES.split(","):
+            proxy = ServerProxy(module_host.strip())
+            hello = proxy.hello()
+            name = hello["name"]
+            version = hello["version"]
+            hellos.append(hello)
+            hello_versions.append([name, version])
+            if name in modules:
+                raise ValueError(
+                    f"multiple modules found with name {name}, this must be unique"
+                )
+            modules[name] = {"name": name, "proxy": proxy}
+            module_values.append(modules[name])
     hello_versions_json = {}
     if os.path.exists(hello_versions_file_path):
         with open(hello_versions_file_path, "r") as file:
@@ -431,6 +423,7 @@ def process_file(file_path, index_dir, metadata_docs_by_id):
             "status": initial_module_id,
             "copies": 1,
         }
+        
         # We return (doc_id, doc) so the main thread can persist + update dicts
         return (doc_id, doc)
     else:
@@ -485,10 +478,10 @@ def process_file(file_path, index_dir, metadata_docs_by_id):
 
 
 async def sync_documents():
-    synclog.info("Starting document sync")
+    files_logger.info("start")
 
     # Load metadata documents
-    synclog.info(f"Load metadata documents")
+    files_logger.info(f'get all metadata from "{METADATA_DIRECTORY}"')
     metadata_docs_by_id = {}
     for entry in os.scandir(METADATA_DIRECTORY):
         if entry.is_dir():
@@ -497,12 +490,12 @@ async def sync_documents():
                 metadata_docs_by_id[entry.name] = doc
 
     # Fetch MeiliSearch documents
-    synclog.info(f"Fetch MeiliSearch documents")
+    files_logger.info(f"get all meili documents")
     meili_docs = await get_all_documents()
     meili_docs_by_id = {d["id"]: d for d in meili_docs}
 
     # Identify documents to delete
-    synclog.info(f"Identify documents to delete")
+    files_logger.info(f"identify documents whose files have been deleted")
     docs_to_delete_in_meili = {
         doc_id
         for doc_id, doc in metadata_docs_by_id.items()
@@ -514,14 +507,14 @@ async def sync_documents():
     }
 
     # Remove outdated metadata entries on disk
-    synclog.info(f"Remove outdated metadata entries on disk")
+    files_logger.info(f"remove metadata for deleted documents")
     for doc_id in docs_to_delete_in_meili:
         metadata_entry_path = os.path.join(METADATA_DIRECTORY, doc_id)
         if os.path.exists(metadata_entry_path):
             shutil.rmtree(metadata_entry_path)
 
     # Gather files from INDEX_DIRECTORY
-    synclog.info(f'Gather all files from "{INDEX_DIRECTORY}"')
+    files_logger.info(f'get all existing file paths in "{INDEX_DIRECTORY}"')
     file_paths = []
     for root, _, files in os.walk(INDEX_DIRECTORY):
         # Skip if root is the METADATA_DIRECTORY
@@ -533,7 +526,7 @@ async def sync_documents():
     # Process files in parallel
     docs_to_add_or_update = {}
     # Use ThreadPoolExecutor or ProcessPoolExecutor (try both, measure performance)
-    synclog.info(f"Process files in parallel")
+    files_logger.info(f"determine which documents are new and/or updated")
     with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
         futures = [
             executor.submit(process_file, fp, INDEX_DIRECTORY, metadata_docs_by_id)
@@ -550,21 +543,21 @@ async def sync_documents():
                 docs_to_add_or_update[doc_id] = doc
 
     # Delete in Meili any doc that we've identified as stale
-    synclog.info(f"Delete in Meili any doc that we've identified as stale")
+    files_logger.info(f"delete out-dated documents from meili")
     final_docs_to_delete = docs_to_delete_in_meili & set(meili_docs_by_id)
     if final_docs_to_delete:
         await delete_documents_by_id(list(final_docs_to_delete))
         await wait_for_meili_idle()
 
     # Add or update in Meili
-    synclog.info(f"Add or update in Meili")
+    files_logger.info(f"add or update documents in meili")
     if docs_to_add_or_update:
         await add_or_update_documents(list(docs_to_add_or_update.values()))
         await wait_for_meili_idle()
 
     total_docs_in_meili = await get_document_count()
     save_modules_state()
-    synclog.info(f"Sync complete. MeiliSearch has {total_docs_in_meili} documents")
+    files_logger.info(f"{total_docs_in_meili} file are now searchable")
 
 
 # endregion
@@ -603,17 +596,17 @@ def update_document_status(name, document):
 
 async def run_module(name, proxy):
     try:
-        logging.debug(f"{name} select files")
+        modules_logger.debug(f"{name} select files")
         documents = await get_all_pending_jobs(name)
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
-            logging.info(f"{name} started for {len(documents)} documents")
+            modules_logger.info(f"{name} started for {len(documents)} documents")
             start_time = time.monotonic()
             for document in documents:
                 try:
                     elapsed_time = time.monotonic() - start_time
                     if elapsed_time > ALLOWED_TIME_PER_MODULE:
-                        logging.debug(f"{name} exceeded configured allowed time")
+                        modules_logger.debug(f"{name} exceeded configured allowed time")
                         return True
                     file_relpath = file_relpath_from_meili_doc(document)
                     metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
@@ -621,28 +614,31 @@ async def run_module(name, proxy):
                     if document.get("status", "idle") == name:
                         proxy.run(file_relpath, document, metadata_dir_relpath)
                         document = update_document_status(name, document)
-                    logging.info(f'{name} "{file_relpath}" commit update')
+                    modules_logger.info(f'{name} "{file_relpath}" commit update')
                     await add_or_update_document(document)
                 except Exception as e:
-                    logging.exception(
+                    modules_logger.exception(
                         f'{name} updating meili for document "{document}" failed: {e} '
                     )
-        logging.debug(f"{name} up-to-date")
+        modules_logger.debug(f"{name} up-to-date")
         return False
     except Exception as e:
-        logging.exception(f"{name} processing failed: {e}")
+        modules_logger.exception(f"{name} processing failed: {e}")
         return True
 
 
 async def run_modules():
-    logging.info(f"run modules")
-    while True:
-        run_again = False
-        for module in module_values:
-            module_did_not_finish = await run_module(module["name"], module["proxy"])
-            run_again = run_again or module_did_not_finish
-        if not run_again:
-            await asyncio.sleep(RECHECK_TIME_AFTER_COMPLETE)
+    if module_values:
+        modules_logger.info(f"run modules")
+        while True:
+            run_again = False
+            for module in module_values:
+                module_did_not_finish = await run_module(
+                    module["name"], module["proxy"]
+                )
+                run_again = run_again or module_did_not_finish
+            if not run_again:
+                await asyncio.sleep(RECHECK_TIME_AFTER_COMPLETE)
 
 
 # endregion
