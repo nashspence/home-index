@@ -13,7 +13,8 @@
 				"ms-python.vscode-pylance",
 				"ms-python.python",
 				"ms-python.debugpy",
-				"github.vscode-github-actions"
+				"github.vscode-github-actions",
+				"donjayamanne.githistory"
 			]
 		}
 	}

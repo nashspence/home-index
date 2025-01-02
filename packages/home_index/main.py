@@ -19,7 +19,9 @@ if str(os.environ.get("WAIT_FOR_DEBUG_CLIENT", "false")).lower() == "true":
 
 import logging
 
-logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(
+    level=logging.CRITICAL, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 modules_logger = logging.getLogger("home-index-modules")
 modules_logger.setLevel(logging.INFO)
@@ -47,16 +49,17 @@ import shutil
 import time
 import magic
 import mimetypes
-import concurrent.futures
 import xxhash
 from xmlrpc.client import ServerProxy
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from multiprocessing import Process
 from itertools import chain
 from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 
 # endregion
@@ -69,25 +72,24 @@ MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
 RECHECK_TIME_AFTER_COMPLETE = int(os.environ.get("RECHECK_TIME_AFTER_COMPLETE", "1800"))
+MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", 1))
+MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", 1))
 
-INDEX_DIRECTORY = os.environ.get("INDEX_DIRECTORY", "/files")
-if not os.path.exists(INDEX_DIRECTORY):
-    os.makedirs(INDEX_DIRECTORY)
+INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
+INDEX_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
-ARCHIVE_DIRECTORY = os.environ.get("ARCHIVE_DIRECTORY", "/files/archive")
-if not os.path.exists(ARCHIVE_DIRECTORY):
-    os.makedirs(ARCHIVE_DIRECTORY)
+ARCHIVE_DIRECTORY = Path(os.environ.get("ARCHIVE_DIRECTORY", "/files/archive"))
+ARCHIVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
-METADATA_DIRECTORY = os.environ.get("METADATA_DIRECTORY", "/files/metadata")
-if not os.path.exists(METADATA_DIRECTORY):
-    os.makedirs(METADATA_DIRECTORY)
+METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
+METADATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 modules = {}
 module_values = []
 hellos = []
 hello_versions = []
 hello_versions_changed = False
-hello_versions_file_path = "/storage/hello_versions.json"
+hello_versions_file_path = Path("/storage/hello_versions.json")
 
 try:
     MODULES = os.environ.get("MODULES", "")
@@ -106,8 +108,8 @@ try:
             modules[name] = {"name": name, "proxy": proxy}
             module_values.append(modules[name])
     hello_versions_json = {}
-    if os.path.exists(hello_versions_file_path):
-        with open(hello_versions_file_path, "r") as file:
+    if hello_versions_file_path.exists():
+        with hello_versions_file_path.open("r") as file:
             hello_versions_json = json.load(file)
     known_hello_versions = hello_versions_json.get("hello_versions", "")
     hello_versions_changed = hello_versions != known_hello_versions
@@ -121,8 +123,8 @@ initial_module_id = module_values[0]["name"] if module_values else "idle"
 
 
 def save_modules_state():
-    os.makedirs(os.path.dirname(hello_versions_file_path), exist_ok=True)
-    with open(hello_versions_file_path, "w") as file:
+    hello_versions_file_path.parent.mkdir(parents=True, exist_ok=True)
+    with hello_versions_file_path.open("w") as file:
         json.dump({"hello_versions": hello_versions}, file)
 
 
@@ -325,26 +327,25 @@ async def wait_for_meili_idle():
 
 def write_document_json(document_dict):
     doc_id = document_dict["id"]
-    doc_path = os.path.join(METADATA_DIRECTORY, doc_id, "document.json")
-    metadata_directory_path = os.path.join(METADATA_DIRECTORY, doc_id)
-    if not os.path.exists(metadata_directory_path):
-        os.makedirs(metadata_directory_path)
-    with open(doc_path, "w") as file:
+    doc_path = METADATA_DIRECTORY / doc_id / "document.json"
+    metadata_directory_path = METADATA_DIRECTORY / doc_id
+    metadata_directory_path.mkdir(parents=True, exist_ok=True)
+    with doc_path.open("w") as file:
         json.dump(document_dict, file, indent=4, separators=(", ", ": "))
-    version_path = os.path.join(metadata_directory_path, "version.json")
+    version_path = metadata_directory_path / "version.json"
     version_data = {"version": VERSION}
-    with open(version_path, "w") as version_file:
+    with version_path.open("w") as version_file:
         json.dump(version_data, version_file, indent=4, separators=(", ", ": "))
 
 
 def read_document_json(id):
-    doc_path = os.path.join(METADATA_DIRECTORY, id, "document.json")
-    if not os.path.exists(doc_path):
+    doc_path = METADATA_DIRECTORY / id / "document.json"
+    if not doc_path.exists():
         return None, False
-    with open(doc_path, "r") as file:
+    with doc_path.open("r") as file:
         document = json.load(file)
-    version_path = os.path.join(METADATA_DIRECTORY, id, "version.json")
-    with open(version_path, "r") as version_file:
+    version_path = METADATA_DIRECTORY / id / "version.json"
+    with version_path.open("r") as version_file:
         version_data = json.load(version_file)
         saved_version = version_data.get("version")
     version_changed = saved_version != VERSION
@@ -365,21 +366,16 @@ def get_mime_type(file_path):
 
 
 def path_from_relative_path(relative_path):
-    absolute_path = os.path.join(INDEX_DIRECTORY, relative_path)
-    absolute_path = os.path.normpath(absolute_path)
-    return absolute_path
+    return INDEX_DIRECTORY / relative_path
 
 
 def is_in_archive_directory(path):
-    try:
-        return os.path.commonpath([path, ARCHIVE_DIRECTORY]) == ARCHIVE_DIRECTORY
-    except ValueError:
-        return False
+    return ARCHIVE_DIRECTORY in path.parents
 
 
 def compute_file_hash(file_path):
     hasher = xxhash.xxh64()
-    with open(file_path, "rb") as f:
+    with file_path.open("rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
@@ -389,19 +385,19 @@ def should_rehash(file_path, existing_doc, rel_path):
     if not existing_doc:
         return True
     existing_mtime = existing_doc["paths"].get(rel_path, 0)
-    current_mtime = os.stat(file_path).st_mtime
+    current_mtime = file_path.stat().st_mtime
     return abs(existing_mtime - current_mtime) >= 1e-6
 
 
-def process_file(file_path, index_dir, metadata_docs_by_id):
-    rel_path = os.path.relpath(file_path, index_dir)
-    stat_info = os.stat(file_path)
+def process_file(file_path, metadata_docs_by_id, metadata_docs_by_relpath):
+    rel_path = file_path.relative_to(INDEX_DIRECTORY).as_posix()
+    stat_info = file_path.stat()
     file_mtime = stat_info.st_mtime
 
     # Check if we already know a doc that references this rel_path
-    existing_doc = next(
-        (doc for doc in metadata_docs_by_id.values() if rel_path in doc["paths"]), None
-    )
+    existing_doc = None
+    if rel_path in metadata_docs_by_relpath:
+        existing_doc = metadata_docs_by_relpath[rel_path]
 
     # Only compute the file hash if needed
     if existing_doc and not should_rehash(file_path, existing_doc, rel_path):
@@ -423,7 +419,7 @@ def process_file(file_path, index_dir, metadata_docs_by_id):
             "status": initial_module_id,
             "copies": 1,
         }
-        
+
         # We return (doc_id, doc) so the main thread can persist + update dicts
         return (doc_id, doc)
     else:
@@ -446,9 +442,9 @@ def process_file(file_path, index_dir, metadata_docs_by_id):
             updated = True
 
         # Recalculate size based on the first path
-        p = doc["paths"][0]
+        p = next(iter(doc["paths"]))
         abs_p = path_from_relative_path(p)
-        new_size = os.stat(abs_p).st_size
+        new_size = abs_p.stat().st_size
         if new_size != doc.get("size", 0):
             doc["size"] = new_size
             updated = True
@@ -478,86 +474,169 @@ def process_file(file_path, index_dir, metadata_docs_by_id):
 
 
 async def sync_documents():
-    files_logger.info("start")
+    try:
+        files_logger.info("start")
 
-    # Load metadata documents
-    files_logger.info(f'get all metadata from "{METADATA_DIRECTORY}"')
-    metadata_docs_by_id = {}
-    for entry in os.scandir(METADATA_DIRECTORY):
-        if entry.is_dir():
-            doc, _ = read_document_json(entry.name)
-            if doc and isinstance(doc.get("paths", {}), dict):
-                metadata_docs_by_id[entry.name] = doc
+        def handle_metadata_walk_entry(entry):
+            if entry.is_dir():
+                no_longer_exists = False
+                is_updated = False
+                doc, _ = read_document_json(entry.name)
+                if doc and isinstance(doc.get("paths", {}), dict):
+                    paths_that_still_exist = {}
+                    for rel_path in doc["paths"].keys():
+                        path = path_from_relative_path(rel_path)
+                        exists = path.exists()
+                        archive = is_in_archive_directory(path)
+                        if (
+                            (
+                                archive
+                                and exists
+                                and path.stat().st_mtime == doc["paths"][rel_path]
+                            )
+                            or (archive and not exists)
+                            or (exists and not archive)
+                        ):
+                            paths_that_still_exist[rel_path] = doc["paths"][rel_path]
+                            metadata_docs_by_relpath[rel_path] = doc
+                        else:
+                            is_updated = True
+                            continue
+                    if not paths_that_still_exist:
+                        no_longer_exists = True
+                    else:
+                        if is_updated:
+                            doc["paths"] = paths_that_still_exist
+                            doc["copies"] = len(doc["paths"])
+                            doc["mtime"] = max(doc["paths"].values())
+                            doc["is_archived"] = any(
+                                is_in_archive_directory(path_from_relative_path(p))
+                                for p in doc["paths"]
+                            )
+                return doc, no_longer_exists, is_updated
 
-    # Fetch MeiliSearch documents
-    files_logger.info(f"get all meili documents")
-    meili_docs = await get_all_documents()
-    meili_docs_by_id = {d["id"]: d for d in meili_docs}
+        # Load metadata documents
+        files_logger.info(f'get all metadata from "{METADATA_DIRECTORY}"')
+        metadata_docs_by_id = {}
+        metadata_docs_by_relpath = {}
+        docs_to_delete = {}
+        docs_to_add_or_update = {}
 
-    # Identify documents to delete
-    files_logger.info(f"identify documents whose files have been deleted")
-    docs_to_delete_in_meili = {
-        doc_id
-        for doc_id, doc in metadata_docs_by_id.items()
-        if not any(
-            is_in_archive_directory(path_from_relative_path(rel_path))
-            or os.path.exists(path_from_relative_path(rel_path))
-            for rel_path in doc["paths"]
-        )
-    }
+        def handle_walk_entry_result(result):
+            doc, no_longer_exists, is_updated = result
+            if no_longer_exists:
+                docs_to_delete[doc["id"]] = doc
+            else:
+                if is_updated:
+                    docs_to_add_or_update[doc["id"]] = doc
+                metadata_docs_by_id[doc["id"]] = doc
+                metadata_docs_by_relpath.update(
+                    {relpath: doc for relpath, _ in doc["paths"].items()}
+                )
 
-    # Remove outdated metadata entries on disk
-    files_logger.info(f"remove metadata for deleted documents")
-    for doc_id in docs_to_delete_in_meili:
-        metadata_entry_path = os.path.join(METADATA_DIRECTORY, doc_id)
-        if os.path.exists(metadata_entry_path):
-            shutil.rmtree(metadata_entry_path)
+        if MAX_FILE_WORKERS < 2:
+            for entry in METADATA_DIRECTORY.iterdir():
+                handle_walk_entry_result(handle_metadata_walk_entry(entry))
+        else:
+            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(handle_metadata_walk_entry, entry)
+                    for entry in METADATA_DIRECTORY.iterdir()
+                ):
+                    handle_walk_entry_result(completed.result())
 
-    # Gather files from INDEX_DIRECTORY
-    files_logger.info(f'get all existing file paths in "{INDEX_DIRECTORY}"')
-    file_paths = []
-    for root, _, files in os.walk(INDEX_DIRECTORY):
-        # Skip if root is the METADATA_DIRECTORY
-        if os.path.abspath(root) == os.path.abspath(METADATA_DIRECTORY):
-            continue
-        for f in files:
-            file_paths.append(os.path.join(root, f))
+        # Fetch MeiliSearch documents
+        files_logger.info(f"get all meili documents")
+        meili_docs = await get_all_documents()
+        meili_docs_by_id = {d["id"]: d for d in meili_docs}
 
-    # Process files in parallel
-    docs_to_add_or_update = {}
-    # Use ThreadPoolExecutor or ProcessPoolExecutor (try both, measure performance)
-    files_logger.info(f"determine which documents are new and/or updated")
-    with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
-        futures = [
-            executor.submit(process_file, fp, INDEX_DIRECTORY, metadata_docs_by_id)
-            for fp in file_paths
-        ]
-        for fut in concurrent.futures.as_completed(futures):
-            result = fut.result()
+        # Gather files from INDEX_DIRECTORY
+        files_logger.info(f'get all existing file paths in "{INDEX_DIRECTORY}"')
+        file_paths = []
+        for root, _, files in INDEX_DIRECTORY.walk():
+            # Skip if root is the METADATA_DIRECTORY or any of its subdirectories
+            if METADATA_DIRECTORY in root.parents:
+                continue
+            for f in files:
+                file_paths.append(root / f)
+
+        # Process files in parallel
+        files_logger.info(f"check for new and/or updated documents")
+
+        def handle_document_update(result):
             if result is not None:
                 doc_id, doc = result
-                # Persist updated doc to disk
-                write_document_json(doc)
-                # Update local caches
-                metadata_docs_by_id[doc_id] = doc
                 docs_to_add_or_update[doc_id] = doc
 
-    # Delete in Meili any doc that we've identified as stale
-    files_logger.info(f"delete out-dated documents from meili")
-    final_docs_to_delete = docs_to_delete_in_meili & set(meili_docs_by_id)
-    if final_docs_to_delete:
-        await delete_documents_by_id(list(final_docs_to_delete))
-        await wait_for_meili_idle()
+        if MAX_HASH_WORKERS < 2:
+            for fp in file_paths:
+                handle_document_update(
+                    process_file(
+                        fp,
+                        metadata_docs_by_id,
+                        metadata_docs_by_relpath,
+                    )
+                )
+        else:
+            with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(
+                        process_file,
+                        fp,
+                        metadata_docs_by_id,
+                        metadata_docs_by_relpath,
+                    )
+                    for fp in file_paths
+                ):
+                    handle_document_update(completed.result())
 
-    # Add or update in Meili
-    files_logger.info(f"add or update documents in meili")
-    if docs_to_add_or_update:
-        await add_or_update_documents(list(docs_to_add_or_update.values()))
-        await wait_for_meili_idle()
+        # Delete any doc that we've identified as stale
+        if docs_to_delete:
+            files_logger.info(f"delete {len(docs_to_delete)} out-dated documents")
 
-    total_docs_in_meili = await get_document_count()
-    save_modules_state()
-    files_logger.info(f"{total_docs_in_meili} file are now searchable")
+            if MAX_FILE_WORKERS < 2:
+                for id in docs_to_delete.keys():
+                    shutil.rmtree(METADATA_DIRECTORY / id)
+            else:
+                with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+                    for completed in as_completed(
+                        executor.submit(shutil.rmtree, METADATA_DIRECTORY / id)
+                        for id in docs_to_delete.keys()
+                    ):
+                        completed.result()
+
+            out_dated_documents = docs_to_delete.keys() | (
+                meili_docs_by_id.keys() - metadata_docs_by_id.keys()
+            )
+
+            await delete_documents_by_id(list(out_dated_documents))
+            await wait_for_meili_idle()
+
+        # Add or update
+        if docs_to_add_or_update:
+            files_logger.info(f"add or update {len(docs_to_add_or_update)} documents")
+
+            if MAX_FILE_WORKERS < 2:
+                for doc in docs_to_add_or_update.values():
+                    write_document_json(doc)
+            else:
+                with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+                    for completed in as_completed(
+                        executor.submit(write_document_json, doc)
+                        for doc in docs_to_add_or_update.values()
+                    ):
+                        completed.result()
+
+            await add_or_update_documents(list(docs_to_add_or_update.values()))
+            await wait_for_meili_idle()
+
+        total_docs_in_meili = await get_document_count()
+        save_modules_state()
+        files_logger.info(f"{total_docs_in_meili} hashes are now searchable")
+        files_logger.info("done")
+    except:
+        files_logger.exception("sync failed")
+        raise
 
 
 # endregion
@@ -616,29 +695,24 @@ async def run_module(name, proxy):
                         document = update_document_status(name, document)
                     modules_logger.info(f'{name} "{file_relpath}" commit update')
                     await add_or_update_document(document)
-                except Exception as e:
-                    modules_logger.exception(
-                        f'{name} updating meili for document "{document}" failed: {e} '
-                    )
+                except:
+                    modules_logger.exception(f'{name} "{document}" failed')
         modules_logger.debug(f"{name} up-to-date")
         return False
-    except Exception as e:
-        modules_logger.exception(f"{name} processing failed: {e}")
+    except:
+        modules_logger.exception(f"{name} failed")
         return True
 
 
 async def run_modules():
-    if module_values:
-        modules_logger.info(f"run modules")
-        while True:
-            run_again = False
-            for module in module_values:
-                module_did_not_finish = await run_module(
-                    module["name"], module["proxy"]
-                )
-                run_again = run_again or module_did_not_finish
-            if not run_again:
-                await asyncio.sleep(RECHECK_TIME_AFTER_COMPLETE)
+    modules_logger.info(f"begin modules loop")
+    while True:
+        run_again = False
+        for module in module_values:
+            module_did_not_finish = await run_module(module["name"], module["proxy"])
+            run_again = run_again or module_did_not_finish
+        if not run_again:
+            await asyncio.sleep(RECHECK_TIME_AFTER_COMPLETE)
 
 
 # endregion
@@ -660,10 +734,11 @@ async def main():
     scheduler = BackgroundScheduler()
     scheduler.add_job(
         run_in_process,
-        CronTrigger(hour=3, minute=0),
+        IntervalTrigger(seconds=60),  # CronTrigger(hour=3, minute=0),
         args=[sync_documents],
         max_instances=1,
     )
+    modules_logger.info(f"perform initial sync on start")
     await sync_documents()
     scheduler.start()
     await run_modules()
