@@ -50,6 +50,7 @@ import time
 import magic
 import mimetypes
 import xxhash
+import copy
 from xmlrpc.client import ServerProxy
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -90,6 +91,8 @@ ARCHIVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 APP_DIRECTORY = Path(os.environ.get("APP_DIRECTORY", "/home-index-root/app"))
 APP_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
+RESERVED_FILES_DIRS = [METADATA_DIRECTORY, APP_DIRECTORY]
 
 
 modules = {}
@@ -237,7 +240,7 @@ async def add_or_update_documents(docs):
             raise
 
 
-async def delete_documents_by_id(ids):
+async def delete_docs_by_id(ids):
     if not index:
         raise Exception("meili index did not init")
 
@@ -333,357 +336,283 @@ async def wait_for_meili_idle():
 # region "sync"
 
 
-def write_document_json(document_dict):
-    files = list(document_dict["paths"].keys())
-    if not files:
-        return
-    primary_path = METADATA_DIRECTORY / files[0]
-    primary_path.mkdir(parents=True, exist_ok=True)
-    doc_path = primary_path / "document.json"
-    with doc_path.open("w") as file:
-        json.dump(document_dict, file, indent=4, separators=(", ", ": "))
-    version_path = primary_path / "version.json"
-    version_data = {"version": VERSION}
-    with version_path.open("w") as version_file:
-        json.dump(version_data, version_file, indent=4, separators=(", ", ": "))
-    for relpath in files[1:]:
-        link_path = METADATA_DIRECTORY / relpath
-        if link_path.exists():
-            link_path.unlink()
-        link_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path(os.path.relpath(primary_path, start=link_path.parent))
-        link_path.symlink_to(relative_path, target_is_directory=True)
+def path_from_relpath(relpath):
+    return INDEX_DIRECTORY / relpath
 
 
-def read_document_json(doc_json_abs_path):
-    doc_dir = Path(doc_json_abs_path).parent
-    doc_path = doc_dir / "document.json"
-    if not doc_path.exists():
-        return None, False
-    with doc_path.open("r") as file:
-        document = json.load(file)
-    version_path = doc_dir / "version.json"
-    with version_path.open("r") as version_file:
-        version_data = json.load(version_file)
-    version_changed = version_data.get("version") != VERSION
-    return document, version_changed
-
-
-def remove_document_path(deleted_relpath):
-    old_path_dir = METADATA_DIRECTORY / deleted_relpath
-    if old_path_dir.is_symlink():
-        old_path_dir.unlink()
-        return
-    doc_path = old_path_dir / "document.json"
-    with doc_path.open("r") as file:
-        document = json.load(file)
-    if deleted_relpath in document["paths"]:
-        document["paths"].pop(deleted_relpath)
-    if not document["paths"]:
-        shutil.rmtree(old_path_dir)
-        return
-    new_master = list(document["paths"].keys())[0]
-    new_master_dir = METADATA_DIRECTORY / new_master
-    if new_master_dir.exists():
-        if new_master_dir.is_symlink():
-            new_master_dir.unlink()
-        else:
-            shutil.rmtree(new_master_dir)
-    old_path_dir.rename(new_master_dir)
-    for rp in document["paths"]:
-        if rp == new_master:
-            continue
-        link_dir = METADATA_DIRECTORY / rp
-        if link_dir.exists():
-            if link_dir.is_symlink():
-                link_dir.unlink()
-            else:
-                shutil.rmtree(link_dir)
-        relative_target = os.path.relpath(new_master_dir, link_dir.parent)
-        link_dir.symlink_to(relative_target, target_is_directory=True)
-    doc_path = new_master_dir / "document.json"
-    with doc_path.open("w") as file:
-        json.dump(document, file, indent=4, separators=(", ", ": "))
-    version_path = new_master_dir / "version.json"
-    version_data = {"version": VERSION}
-    with version_path.open("w") as version_file:
-        json.dump(version_data, version_file, indent=4, separators=(", ", ": "))
-
-
-def get_mime_type(file_path):
-    mime = magic.Magic(mime=True)
-    mime_type = mime.from_file(file_path)
-
-    if mime_type == "application/octet-stream":
-        mime_type, _ = mimetypes.guess_type(file_path)
-
-        if mime_type is None:
-            mime_type = "application/octet-stream"
-
-    return mime_type
-
-
-def path_from_relative_path(relative_path):
-    return INDEX_DIRECTORY / relative_path
-
-
-def is_in_archive_directory(path):
+def is_in_archive_dir(path):
     return ARCHIVE_DIRECTORY in path.parents
 
 
-def compute_file_hash(file_path):
-    hasher = xxhash.xxh64()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+def write_doc_json(doc):
+    path = METADATA_DIRECTORY / doc["paths"][0]
+    if not path.exists():
+        path.mkdir(parents=True)
+    with (path / "document.json").open("w") as file:
+        json.dump(doc, file, indent=4, separators=(", ", ": "))
 
 
-def should_rehash(file_path, existing_doc, rel_path):
-    if not existing_doc:
-        return True
-    existing_mtime = existing_doc["paths"].get(rel_path, 0)
-    current_mtime = file_path.stat().st_mtime
-    return abs(existing_mtime - current_mtime) >= 1e-6
+def index_metadata():
+    metadata_docs_by_hash = {}
+    metadata_hashes_by_relpath = {}
 
+    files_logger.info(f" * recursively walk metadata")
+    file_paths = []
+    for root, _, files in METADATA_DIRECTORY.walk(follow_symlinks=False):
+        for f in files:
+            if f == "document.json":
+                file_paths.append(root / f)
+                break
 
-def hash_if_necessary(file_path, metadata_docs_by_relpath):
-    rel_path = file_path.relative_to(INDEX_DIRECTORY).as_posix()
-    stat_info = file_path.stat()
-    file_mtime = stat_info.st_mtime
+    def read_doc_json(doc_json_path):
+        with doc_json_path.open("r") as file:
+            return json.load(file)
 
-    # Check if we already know a doc that references this rel_path
-    existing_doc = None
-    if rel_path in metadata_docs_by_relpath:
-        existing_doc = metadata_docs_by_relpath[rel_path]
+    def handle_doc(doc):
+        hash = doc["id"]
+        if hash in metadata_docs_by_hash:
+            return
+        metadata_docs_by_hash[hash] = doc
+        metadata_hashes_by_relpath.update(
+            {relpath: [hash, mtime] for relpath, mtime in doc["paths"].items()}
+        )
 
-    # Only compute the file hash if needed
-    if existing_doc and not should_rehash(file_path, existing_doc, rel_path):
-        # Reuse old doc_id
-        doc_id = existing_doc["id"]
-    else:
-        doc_id = compute_file_hash(file_path)
-
-    return doc_id, file_mtime, rel_path, stat_info
-
-
-def create_document(doc_id, file_mtime, rel_path, stat_info):
-    file_path = path_from_relative_path(rel_path)
-    return {
-        "id": doc_id,
-        "paths": {rel_path: file_mtime},
-        "mtime": file_mtime,
-        "size": stat_info.st_size,
-        "type": get_mime_type(file_path),
-        "is_archived": is_in_archive_directory(file_path),
-        "status": initial_module_id,
-        "copies": 1,
-    }
-
-
-def update_document(doc, file_mtime, rel_path):
-    file_path = path_from_relative_path(rel_path)
-
-    updated = False
-    old_mtime = doc["paths"].get(rel_path)
-    if old_mtime is None or abs(old_mtime - file_mtime) >= 1e-6:
-        doc["paths"][rel_path] = file_mtime
-        updated = True
-
-    # Recount copies
-    copies_count = len(doc["paths"])
-    if doc.get("copies", 0) != copies_count:
-        doc["copies"] = copies_count
-        updated = True
-
-    # Update doc["mtime"] if this file is the newest
-    if file_mtime > doc.get("mtime", 0):
-        doc["mtime"] = file_mtime
-        updated = True
-
-    # Recalculate size based on the first path
-    p = next(iter(doc["paths"]))
-    abs_p = path_from_relative_path(p)
-    new_size = abs_p.stat().st_size
-    if new_size != doc.get("size", 0):
-        doc["size"] = new_size
-        updated = True
-
-    # If the new path is archived or if any path is archived => doc is archived
-    was_archived = doc.get("is_archived", False)
-    is_archived = any(
-        is_in_archive_directory(path_from_relative_path(p)) for p in doc["paths"]
-    )
-    if is_archived != was_archived:
-        doc["is_archived"] = is_archived
-        updated = True
-
-    # Update doc type if needed
-    new_type = get_mime_type(file_path)
-    if new_type != doc.get("type"):
-        doc["type"] = new_type
-        updated = True
-
-    if hello_versions_changed:
-        doc["status"] = initial_module_id
-
-    return updated
-
-
-def handle_metadata_walk_entry(entry):
-    has_empty_paths_dict = False
-    paths_dict_has_changed = False
-    doc, _ = read_document_json(entry)
-    paths_that_still_exist = {}
-
-    for rel_path in doc["paths"].keys():
-        path = path_from_relative_path(rel_path)
-        exists = path.exists()
-        archive = is_in_archive_directory(path)
-        last_mtime = doc["paths"][rel_path]
-        if archive or (exists and last_mtime == path.stat().st_mtime):
-            paths_that_still_exist[rel_path] = last_mtime
+    if file_paths:
+        files_logger.info(f" * check {len(file_paths)} file hashes")
+        if MAX_HASH_WORKERS < 2:
+            for fp in file_paths:
+                handle_doc(read_doc_json(fp))
         else:
-            paths_dict_has_changed = True
-            remove_document_path(rel_path)
+            with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(read_doc_json, fp) for fp in file_paths
+                ):
+                    handle_doc(completed.result())
 
-    if not paths_that_still_exist:
-        has_empty_paths_dict = True
-    else:
-        if paths_dict_has_changed:
-            doc["paths"] = paths_that_still_exist
-            doc["copies"] = len(doc["paths"])
-            doc["mtime"] = max(doc["paths"].values())
-            doc["is_archived"] = any(
-                is_in_archive_directory(path_from_relative_path(p))
-                for p in doc["paths"]
-            )
+    return metadata_docs_by_hash, metadata_hashes_by_relpath
 
-    return doc, has_empty_paths_dict, paths_dict_has_changed
+
+def index_files(metadata_docs_by_hash, metadata_hashes_by_relpath):
+    files_docs_by_hash = {}
+    files_hashes_by_relpath = {}
+
+    files_logger.info(f" * recursively walk files")
+    file_paths = []
+    for root, _, files in INDEX_DIRECTORY.walk():
+        if any(dir in root.parents for dir in RESERVED_FILES_DIRS):
+            continue
+        for f in files:
+            file_paths.append(root / f)
+
+    def determine_hash(path):
+        relpath = path.relative_to(INDEX_DIRECTORY)
+        hash = None
+        if relpath in metadata_hashes_by_relpath:
+            prev_hash, prev_mtime = metadata_hashes_by_relpath[relpath]
+            is_mtime_changed = path.stat().st_mtime != prev_mtime
+            if not is_mtime_changed:
+                hash = prev_hash
+        if not hash:
+            hasher = xxhash.xxh64()
+            with path.open("rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    hasher.update(chunk)
+            hash = hasher.hexdigest()
+        return path, hash
+
+    def get_mime_type(file_path):
+        mime = magic.Magic(mime=True)
+        mime_type = mime.from_file(file_path)
+        if mime_type == "application/octet-stream":
+            mime_type, _ = mimetypes.guess_type(file_path)
+            if mime_type is None:
+                mime_type = "application/octet-stream"
+        return mime_type
+
+    def handle_hash_at_path(args):
+        path, hash = args
+        relpath = path.relative_to(INDEX_DIRECTORY)
+        stat = path.stat()
+
+        if hash in metadata_docs_by_hash:
+            metadata_doc = copy.deepcopy(metadata_docs_by_hash[hash])
+        if hash in files_docs_by_hash:
+            files_doc = files_docs_by_hash[hash]
+
+        doc = {}
+        if metadata_doc and not files_doc:
+            metadata_doc["paths"] = {
+                relpath: mtime
+                for relpath, mtime in files_doc["paths"].items()
+                if is_in_archive_dir(path_from_relpath(relpath))
+                and (
+                    (not path_from_relpath(relpath).exists())
+                    or (path_from_relpath(relpath).stat().st_mtime == mtime)
+                )
+            }
+            doc = metadata_doc
+        elif files_doc:
+            doc = files_doc
+        else:
+            doc = {
+                "id": hash,
+                "paths": {},
+                "mtime": stat.st_mtime,
+                "size": stat.st_size,
+                "type": get_mime_type(path),
+                "status": initial_module_id,
+            }
+
+        doc["paths"][relpath] = stat.st_mtime
+        doc["copies"] = len(doc["paths"])
+        doc["is_archived"] = any(
+            is_in_archive_dir(path_from_relpath(relpath))
+            for relpath in doc["paths"].keys()
+        )
+
+        files_docs_by_hash[hash] = doc
+        files_hashes_by_relpath[relpath] = hash
+
+    if file_paths:
+        files_logger.info(f" * check {len(file_paths)} file hashes")
+        if MAX_HASH_WORKERS < 2:
+            for fp in file_paths:
+                handle_hash_at_path(determine_hash(fp))
+        else:
+            with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(determine_hash, fp) for fp in file_paths
+                ):
+                    handle_hash_at_path(completed.result())
+
+    return files_docs_by_hash, files_hashes_by_relpath
+
+
+def update_metadata(
+    metadata_docs_by_hash,
+    metadata_hashes_by_relpath,
+    files_docs_by_hash,
+    files_hashes_by_relpath,
+):
+    files_logger.info(f" * check for deleted documents")
+    deleted_hashes = list(
+        set(metadata_docs_by_hash.keys()) - set(files_docs_by_hash.keys())
+    )
+
+    files_logger.info(f" * check for upserted documents")
+    upserted_docs = [
+        files_doc
+        for hash, files_doc in files_docs_by_hash.items()
+        if (not hash in metadata_docs_by_hash)
+        or (metadata_docs_by_hash[hash]["paths"] != files_docs_by_hash[hash]["paths"])
+    ]
+
+    files_logger.info(f" * check for deleted file path")
+    deleted_relpaths = list(
+        set(metadata_hashes_by_relpath.keys()) - set(files_hashes_by_relpath.keys())
+    )
+
+    def handle_deleted_relpath(relpath):
+        path = METADATA_DIRECTORY / relpath
+        metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
+        if metadata_doc["copies"] == 1:
+            shutil.rmtree(path)
+            return
+        target_relpath = metadata_doc["paths"][0]
+        if not relpath == target_relpath:
+            path.unlink()
+            return
+        new_target_path = next(
+            (
+                METADATA_DIRECTORY / key
+                for key in metadata_doc["paths"]
+                if key in files_hashes_by_relpath
+                and metadata_hashes_by_relpath[key] == files_hashes_by_relpath[key]
+            ),
+            None,
+        )
+        if new_target_path:
+            new_target_path.unlink()
+            target_relpath.rename(new_target_path)
+        else:
+            shutil.rmtree(path)
+
+    def handle_upserted_doc(doc):
+        target_path = METADATA_DIRECTORY / doc["paths"][0]
+        if not target_path.exists():
+            target_path.mkdir(parents=True)
+        write_doc_json(doc)
+        with (target_path / "version.json").open("w") as file:
+            json.dump({"version": VERSION}, file, indent=4, separators=(", ", ": "))
+        for relpath in doc["paths"]:
+            copy_path = METADATA_DIRECTORY / relpath
+            if copy_path.is_symlink():
+                copy_path.unlink()
+            relative_target = os.path.relpath(target_path, copy_path.parent)
+            copy_path.symlink_to(relative_target, target_is_directory=True)
+
+    if deleted_relpaths:
+        files_logger.info(f" * delete {len(deleted_relpaths)} metadata paths")
+        if MAX_FILE_WORKERS < 2:
+            for relpath in deleted_relpaths:
+                handle_deleted_relpath(relpath)
+        else:
+            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(handle_deleted_relpath, relpath)
+                    for relpath in deleted_relpaths
+                ):
+                    completed.result()
+
+    if upserted_docs:
+        files_logger.info(f" * upsert {len(upserted_docs)} metadata documents")
+        if MAX_FILE_WORKERS < 2:
+            for doc in upserted_docs:
+                handle_upserted_doc(doc)
+        else:
+            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(handle_upserted_doc, doc) for doc in upserted_docs
+                ):
+                    completed.result()
+
+    return upserted_docs, deleted_hashes
+
+
+async def update_meilisearch(upserted_docs, deleted_hashes):
+    if deleted_hashes:
+        files_logger.info(f" * delete {len(deleted_hashes)} meilisearch documents")
+        await delete_docs_by_id(deleted_hashes)
+        await wait_for_meili_idle()
+    if upserted_docs:
+        files_logger.info(f" * upsert {len(upserted_docs)} meilisearch documents")
+        await add_or_update_documents(upserted_docs)
+        await wait_for_meili_idle()
+    total_docs_in_meili = await get_document_count()
+    files_logger.info(f"- {total_docs_in_meili} documents in meilisearch")
 
 
 async def sync_documents():
     try:
-        files_logger.info("start")
+        files_logger.info("index previously stored metadata")
+        metadata_docs_by_hash, metadata_hashes_by_relpath = index_metadata()
 
-        files_logger.info(f'get all metadata from "{METADATA_DIRECTORY}"')
-        metadata_docs_by_id = {}
-        metadata_docs_by_relpath = {}
-        docs_to_delete = {}
-        docs_to_add_or_update = {}
+        files_logger.info("index all files")
+        files_docs_by_hash, files_hashes_by_relpath = index_files(
+            metadata_docs_by_hash, metadata_hashes_by_relpath
+        )
 
-        def handle_walk_entry_result(result):
-            doc, has_empty_paths_dict, paths_dict_has_changed = result
-            id = doc["id"]
-            if has_empty_paths_dict:
-                docs_to_delete[id] = doc
-            else:
-                if paths_dict_has_changed:
-                    docs_to_add_or_update[id] = doc
-                metadata_docs_by_id[id] = doc
-                metadata_docs_by_relpath.update(
-                    {relpath: doc for relpath, _ in doc["paths"].items()}
-                )
+        files_logger.info("cross-index to update metadata")
+        upserted_docs, deleted_hashes = update_metadata(
+            metadata_docs_by_hash,
+            metadata_hashes_by_relpath,
+            files_docs_by_hash,
+            files_hashes_by_relpath,
+        )
 
-        if MAX_FILE_WORKERS < 2:
-            for root, _, files in METADATA_DIRECTORY.walk():
-                for f in files:
-                    if f == "document.json":
-                        handle_walk_entry_result(handle_metadata_walk_entry(root / f))
-        else:
-            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
-                for completed in as_completed(
-                    executor.submit(handle_metadata_walk_entry, root / f)
-                    for root, _, file_list in METADATA_DIRECTORY.walk()
-                    for f in file_list
-                    if f == "document.json"
-                ):
-                    handle_walk_entry_result(completed.result())
-
-        # Fetch MeiliSearch documents
-        files_logger.info(f"get all meili documents")
-        meili_docs = await get_all_documents()
-        meili_docs_by_id = {d["id"]: d for d in meili_docs}
-
-        # Gather files from INDEX_DIRECTORY
-        files_logger.info(f'get all existing file paths in "{INDEX_DIRECTORY}"')
-        file_paths = []
-        for root, _, files in INDEX_DIRECTORY.walk():
-            # Skip if root is the METADATA_DIRECTORY or any of its subdirectories
-            if METADATA_DIRECTORY in root.parents:
-                continue
-            for f in files:
-                file_paths.append(root / f)
-
-        # Process files in parallel
-        files_logger.info(f"check for new and/or updated documents")
-
-        def create_or_update_doc(result):
-            hash, file_mtime, rel_path, stat_info = result
-            if hash in docs_to_delete:
-                del docs_to_delete[hash]
-            doc = metadata_docs_by_id.get(hash)
-            if not doc:
-                doc = create_document(hash, file_mtime, rel_path, stat_info)
-                metadata_docs_by_id[hash] = doc
-            else:
-                if not update_document(doc, file_mtime, rel_path):
-                    return
-            docs_to_add_or_update[hash] = doc
-
-        if MAX_HASH_WORKERS < 2:
-            for fp in file_paths:
-                create_or_update_doc(
-                    hash_if_necessary(
-                        fp,
-                        metadata_docs_by_relpath,
-                    )
-                )
-        else:
-            with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
-                for completed in as_completed(
-                    executor.submit(
-                        hash_if_necessary,
-                        fp,
-                        metadata_docs_by_relpath,
-                    )
-                    for fp in file_paths
-                ):
-                    create_or_update_doc(completed.result())
-
-        # Delete any doc that we've identified as stale
-        if docs_to_delete:
-            files_logger.info(f"delete {len(docs_to_delete)} out-dated documents")
-
-            out_dated_documents = docs_to_delete.keys() | (
-                meili_docs_by_id.keys() - metadata_docs_by_id.keys()
-            )
-
-            await delete_documents_by_id(list(out_dated_documents))
-            await wait_for_meili_idle()
-
-        # Add or update
-        if docs_to_add_or_update:
-            files_logger.info(f"add or update {len(docs_to_add_or_update)} documents")
-
-            if MAX_FILE_WORKERS < 2:
-                for doc in docs_to_add_or_update.values():
-                    write_document_json(doc)
-            else:
-                with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
-                    for completed in as_completed(
-                        executor.submit(write_document_json, doc)
-                        for doc in docs_to_add_or_update.values()
-                    ):
-                        completed.result()
-
-            await add_or_update_documents(list(docs_to_add_or_update.values()))
-            await wait_for_meili_idle()
-
-        total_docs_in_meili = await get_document_count()
-        save_modules_state()
-        files_logger.info(f"{total_docs_in_meili} documents are searchable")
-        files_logger.info("done")
+        if upserted_docs or deleted_hashes:
+            files_logger.info("commit changes to meilisearch")
+            update_meilisearch(upserted_docs, deleted_hashes)
     except:
         files_logger.exception("sync failed")
         raise
@@ -704,8 +633,8 @@ def metadata_dir_relpath_from_doc(name, document):
 def update_document_status(name, document):
     is_archived = False
 
-    for relative_path in document["paths"]:
-        if relative_path.startswith(ARCHIVE_DIRECTORY):
+    for relpath in document["paths"]:
+        if relpath.startswith(ARCHIVE_DIRECTORY):
             is_archived = True
 
     document["is_archived"] = is_archived
@@ -719,7 +648,7 @@ def update_document_status(name, document):
             break
 
     document["status"] = status
-    write_document_json(document)
+    write_doc_json(document)
     return document
 
 
