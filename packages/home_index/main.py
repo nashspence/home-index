@@ -623,60 +623,58 @@ async def sync_documents():
 
 
 def file_relpath_from_meili_doc(document):
-    return Path(document["paths"][0])
+    return document["paths"][0]
 
 
 def metadata_dir_relpath_from_doc(name, document):
-    return Path(f"{document["id"]}/{name}")
+    path = Path(METADATA_DIRECTORY / document["paths"][0] / name)
+    path.mkdir(parents=True)
+    return path.relative_to(METADATA_DIRECTORY).as_posix()
 
 
-def update_document_status(name, document):
-    is_archived = False
-
-    for relpath in document["paths"]:
-        if relpath.startswith(ARCHIVE_DIRECTORY):
-            is_archived = True
-
-    document["is_archived"] = is_archived
-    status = "idle"
-
+async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
-    metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
+
+    status = "idle"
     for name, proxy in modules:
+        metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
         if proxy.check(file_relpath, document, metadata_dir_relpath):
             status = name
             break
 
     document["status"] = status
     write_doc_json(document)
+    await add_or_update_document(document)
     return document
 
 
 async def run_module(name, proxy):
     try:
-        modules_logger.debug(f"{name} select files")
+        modules_logger.debug(f"{name} query documents list")
         documents = await get_all_pending_jobs(name)
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
-            modules_logger.info(f"{name} started for {len(documents)} documents")
+            count = len(documents)
+            modules_logger.info(f"{name} start for {count} documents")
             start_time = time.monotonic()
             for document in documents:
                 try:
                     elapsed_time = time.monotonic() - start_time
                     if elapsed_time > ALLOWED_TIME_PER_MODULE:
-                        modules_logger.debug(f"{name} exceeded configured allowed time")
+                        modules_logger.info(f"{name} post-poned {count} documents")
                         return True
                     file_relpath = file_relpath_from_meili_doc(document)
                     metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
-                    document = update_document_status(name, document)
-                    if document.get("status", "idle") == name:
-                        proxy.run(file_relpath, document, metadata_dir_relpath)
-                        document = update_document_status(name, document)
-                    modules_logger.info(f'{name} "{file_relpath}" commit update')
-                    await add_or_update_document(document)
+                    document = await update_doc_from_module(document)
+                    if document["status"] == name:
+                        document = proxy.run(
+                            file_relpath, document, metadata_dir_relpath
+                        )
+                        await update_doc_from_module(document)
                 except:
                     modules_logger.exception(f'{name} "{document}" failed')
-        modules_logger.debug(f"{name} up-to-date")
+                count = count - 1
+        modules_logger.info(f"{name} ran for all documents")
         return False
     except:
         modules_logger.exception(f"{name} failed")
