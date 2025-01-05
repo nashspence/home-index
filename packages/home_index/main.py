@@ -105,32 +105,40 @@ hello_versions = []
 hello_versions_changed = False
 hello_versions_file_path = Path("/home-index/hello_versions.json")
 
-try:
-    MODULES = os.environ.get("MODULES", "")
-    if MODULES:
-        for module_host in MODULES.split(","):
+
+MODULES = os.environ.get("MODULES", "")
+if MODULES:
+    for module_host in MODULES.split(","):
+        try:
             proxy = ServerProxy(module_host.strip())
             hello = proxy.hello()
+        except ValueError:
+            raise ValueError(
+                "MODULES format should be 'http://domain:port,http://domain:port,...'"
+            )
+        try:
             name = hello["name"]
+        except:
+            raise ValueError(f'{module_host} did not return "name" on hello')
+        if name in modules:
+            raise ValueError(
+                f"multiple modules found with name {name}, this must be unique"
+            )
+        try:
             version = hello["version"]
-            hellos.append(hello)
-            hello_versions.append([name, version])
-            if name in modules:
-                raise ValueError(
-                    f"multiple modules found with name {name}, this must be unique"
-                )
-            modules[name] = {"name": name, "proxy": proxy}
-            module_values.append(modules[name])
-    hello_versions_json = {}
-    if hello_versions_file_path.exists():
-        with hello_versions_file_path.open("r") as file:
-            hello_versions_json = json.load(file)
-    known_hello_versions = hello_versions_json.get("hello_versions", "")
-    hello_versions_changed = hello_versions != known_hello_versions
-except ValueError:
-    raise ValueError(
-        "MODULES format should be 'http://domain:port,http://domain:port,...'"
-    )
+        except:
+            raise ValueError(f'{module_host} did not return "version" on hello')
+        hellos.append(hello)
+        hello_versions.append([name, version])
+
+        modules[name] = {"name": name, "proxy": proxy}
+        module_values.append(modules[name])
+hello_versions_json = {}
+if hello_versions_file_path.exists():
+    with hello_versions_file_path.open("r") as file:
+        hello_versions_json = json.load(file)
+known_hello_versions = hello_versions_json.get("hello_versions", "")
+hello_versions_changed = hello_versions != known_hello_versions
 
 
 initial_module_id = module_values[0]["name"] if module_values else ""

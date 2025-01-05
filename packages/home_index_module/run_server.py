@@ -4,6 +4,10 @@ from xmlrpc.server import SimpleXMLRPCServer
 from contextlib import contextmanager
 from pathlib import Path
 
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = os.environ.get("PORT", 9000)
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
@@ -44,7 +48,7 @@ def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             return hello_fn()
 
         def check(self, file_relpath, document, metadata_dir_relpath):
-            logging.info(f"check {file_relpath} {document} {metadata_dir_relpath}")
+            logging.debug(f"check {file_relpath} {document} {metadata_dir_relpath}")
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
@@ -57,7 +61,7 @@ def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
                 load_fn()
 
         def run(self, file_relpath, document, metadata_dir_relpath):
-            logging.info(f"run {file_relpath} {document} {metadata_dir_relpath}")
+            logging.debug(f"run {file_relpath} {document} {metadata_dir_relpath}")
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
