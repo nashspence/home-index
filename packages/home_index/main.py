@@ -310,7 +310,7 @@ async def get_all_pending_jobs(name):
     docs = []
     offset = 0
     limit = MEILISEARCH_BATCH_SIZE
-    filter_query = f"status = {name}"
+    filter_query = f"next = {name}"
 
     try:
         while True:
@@ -680,14 +680,14 @@ def metadata_dir_relpath_from_doc(name, document):
 async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
 
-    status = ""
+    next_module_name = ""
     for name, proxy in modules:
         metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
         if proxy.check(file_relpath, document, metadata_dir_relpath):
-            status = name
+            next_module_name = name
             break
 
-    document["next"] = status
+    document["next"] = next_module_name
     write_doc_json(document)
     await add_or_update_document(document)
     return document
