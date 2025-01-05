@@ -555,8 +555,6 @@ def update_metadata(
     def handle_upserted_doc(doc):
         by_id_path = METADATA_DIRECTORY / "by-id" / doc["id"]
         write_doc_json(doc)
-        with (by_id_path / "version.json").open("w") as file:
-            json.dump({"version": VERSION}, file, indent=4, separators=(", ", ": "))
         for relpath in doc["paths"].keys():
             by_path_path = METADATA_DIRECTORY / "by-path" / relpath
             by_path_path.parent.mkdir(parents=True, exist_ok=True)

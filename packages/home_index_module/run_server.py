@@ -7,8 +7,8 @@ from pathlib import Path
 HOST = os.environ.get("HOST", "localhost")
 PORT = os.environ.get("PORT", 9000)
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
-METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
-FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
+METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/home-index-root/metadata"))
+FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/home-index-root/files"))
 
 
 @contextmanager

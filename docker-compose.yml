@@ -6,8 +6,10 @@ services:
     container_name: home-index
     depends_on:
       - meilisearch
+      - home-index-test-module-1
     environment:
       - MEILISEARCH_HOST=http://meilisearch:7700
+      - MODULES=http://home-index-test-module-1:9000
       - TZ=America/Los_Angeles
       - WAIT_FOR_DEBUG_CLIENT
     ports:
@@ -25,16 +27,16 @@ services:
     restart: unless-stopped
     volumes:
       - ./bind-mounts/meilisearch:/meili_data
-  home-index-test_module_1:
+  home-index-test-module-1:
     build:
       context: ./test/test_module_1/
       dockerfile: Dockerfile
-    container_name: home-index-test_module_1
+    container_name: home-index-test-module-1
     environment:
       - TZ=America/Los_Angeles
       #- WAIT_FOR_DEBUG_CLIENT
     ports:
-      - '5678:5679' # debugpy
+      - '5679:5678' # debugpy
     restart: unless-stopped
     volumes:
-      - ./bind-mounts/test-files:/files
+      - ./bind-mounts/home-index-root:/home-index-root
