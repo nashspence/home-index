@@ -51,6 +51,7 @@ import magic
 import mimetypes
 import xxhash
 import copy
+from itertools import islice
 from xmlrpc.client import ServerProxy
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -83,6 +84,8 @@ METADATA_DIRECTORY = Path(
     os.environ.get("METADATA_DIRECTORY", "/home-index-root/metadata")
 )
 METADATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
+(METADATA_DIRECTORY / "by-id").mkdir(parents=True, exist_ok=True)
+(METADATA_DIRECTORY / "by-path").mkdir(parents=True, exist_ok=True)
 
 ARCHIVE_DIRECTORY = Path(
     os.environ.get("ARCHIVE_DIRECTORY", (INDEX_DIRECTORY / "archive").as_posix())
@@ -130,7 +133,16 @@ except ValueError:
     )
 
 
-initial_module_id = module_values[0]["name"] if module_values else "idle"
+initial_module_id = module_values[0]["name"] if module_values else ""
+
+
+def is_modules_changed():
+    if not hello_versions_file_path.exists():
+        return True
+    with hello_versions_file_path.open("r") as file:
+        hello_versions_json = json.load(file)
+    known_hello_versions = hello_versions_json.get("hello_versions", "")
+    return hello_versions != known_hello_versions
 
 
 def save_modules_state():
@@ -171,11 +183,10 @@ async def init_meili():
             raise
 
     filterable_attributes = [
-        "is_archived",
         "mtime",
         "paths",
         "size",
-        "status",
+        "next",
         "type",
     ] + list(chain(*[hello["filterable_attributes"] for hello in hellos]))
 
@@ -184,11 +195,10 @@ async def init_meili():
         await index.update_filterable_attributes(filterable_attributes)
         await index.update_sortable_attributes(
             [
-                "is_archived",
                 "mtime",
                 "paths",
                 "size",
-                "status",
+                "next",
                 "type",
             ]
             + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
@@ -216,12 +226,12 @@ async def add_or_update_document(doc):
 
     if doc:
         try:
-            logging.debug(f'index.update_documents "{doc["paths"][0]}" start')
+            logging.debug(f'index.update_documents "{next(iter(doc["paths"]))}" start')
             await index.update_documents([doc])
-            logging.debug(f'index.update_documents "{doc["paths"][0]}" done')
+            logging.debug(f'index.update_documents "{next(iter(doc["paths"]))}" done')
         except Exception:
             logging.exception(
-                f'index.update_documents "{doc["paths"][0]}" failed: "{[doc]}"'
+                f'index.update_documents "{next(iter(doc["paths"]))}" failed: "{[doc]}"'
             )
             raise
 
@@ -345,9 +355,9 @@ def is_in_archive_dir(path):
 
 
 def write_doc_json(doc):
-    path = METADATA_DIRECTORY / doc["paths"][0]
+    path = METADATA_DIRECTORY / "by-id" / doc["id"]
     if not path.exists():
-        path.mkdir(parents=True)
+        path.mkdir(parents=True, exist_ok=True)
     with (path / "document.json").open("w") as file:
         json.dump(doc, file, indent=4, separators=(", ", ": "))
 
@@ -355,14 +365,13 @@ def write_doc_json(doc):
 def index_metadata():
     metadata_docs_by_hash = {}
     metadata_hashes_by_relpath = {}
+    unmounted_archive_docs_by_hash = {}
+    unmounted_archive_hashes_by_relpath = {}
 
-    files_logger.info(f" * recursively walk metadata")
-    file_paths = []
-    for root, _, files in METADATA_DIRECTORY.walk(follow_symlinks=False):
-        for f in files:
-            if f == "document.json":
-                file_paths.append(root / f)
-                break
+    files_logger.info(f" * iterate metadata by-id")
+    file_paths = [
+        dir / "document.json" for dir in (METADATA_DIRECTORY / "by-id").iterdir()
+    ]
 
     def read_doc_json(doc_json_path):
         with doc_json_path.open("r") as file:
@@ -373,8 +382,25 @@ def index_metadata():
         if hash in metadata_docs_by_hash:
             return
         metadata_docs_by_hash[hash] = doc
+
+        if all(
+            is_in_archive_dir(path_from_relpath(relpath))
+            and not path_from_relpath(relpath).exists()
+            for relpath in doc["paths"].keys()
+        ):
+            unmounted_archive_docs_by_hash[hash] = copy.deepcopy(doc)
+
+        unmounted_archive_hashes_by_relpath.update(
+            {
+                relpath: hash
+                for relpath in doc["paths"].keys()
+                if is_in_archive_dir(path_from_relpath(relpath))
+                and not path_from_relpath(relpath).exists()
+            }
+        )
+
         metadata_hashes_by_relpath.update(
-            {relpath: [hash, mtime] for relpath, mtime in doc["paths"].items()}
+            {relpath: hash for relpath in doc["paths"].keys()}
         )
 
     if file_paths:
@@ -389,12 +415,22 @@ def index_metadata():
                 ):
                     handle_doc(completed.result())
 
-    return metadata_docs_by_hash, metadata_hashes_by_relpath
+    return (
+        metadata_docs_by_hash,
+        metadata_hashes_by_relpath,
+        unmounted_archive_docs_by_hash,
+        unmounted_archive_hashes_by_relpath,
+    )
 
 
-def index_files(metadata_docs_by_hash, metadata_hashes_by_relpath):
-    files_docs_by_hash = {}
-    files_hashes_by_relpath = {}
+def index_files(
+    metadata_docs_by_hash,
+    metadata_hashes_by_relpath,
+    unmounted_archive_docs_by_hash,
+    unmounted_archive_hashes_by_relpath,
+):
+    files_docs_by_hash = unmounted_archive_docs_by_hash
+    files_hashes_by_relpath = unmounted_archive_hashes_by_relpath
 
     files_logger.info(f" * recursively walk files")
     file_paths = []
@@ -403,22 +439,6 @@ def index_files(metadata_docs_by_hash, metadata_hashes_by_relpath):
             continue
         for f in files:
             file_paths.append(root / f)
-
-    def determine_hash(path):
-        relpath = path.relative_to(INDEX_DIRECTORY)
-        hash = None
-        if relpath in metadata_hashes_by_relpath:
-            prev_hash, prev_mtime = metadata_hashes_by_relpath[relpath]
-            is_mtime_changed = path.stat().st_mtime != prev_mtime
-            if not is_mtime_changed:
-                hash = prev_hash
-        if not hash:
-            hasher = xxhash.xxh64()
-            with path.open("rb") as f:
-                for chunk in iter(lambda: f.read(8192), b""):
-                    hasher.update(chunk)
-            hash = hasher.hexdigest()
-        return path, hash
 
     def get_mime_type(file_path):
         mime = magic.Magic(mime=True)
@@ -429,11 +449,30 @@ def index_files(metadata_docs_by_hash, metadata_hashes_by_relpath):
                 mime_type = "application/octet-stream"
         return mime_type
 
-    def handle_hash_at_path(args):
-        path, hash = args
-        relpath = path.relative_to(INDEX_DIRECTORY)
+    def determine_hash(path):
+        relpath = str(path.relative_to(INDEX_DIRECTORY).as_posix())
+        hash = None
         stat = path.stat()
+        if relpath in metadata_hashes_by_relpath:
+            prev_hash = metadata_hashes_by_relpath[relpath]
+            prev_mtime = metadata_docs_by_hash[prev_hash]["paths"][relpath]
+            is_mtime_changed = stat.st_mtime != prev_mtime
+            if not is_mtime_changed:
+                hash = prev_hash
+        if not hash:
+            hasher = xxhash.xxh64()
+            with path.open("rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    hasher.update(chunk)
+            hash = hasher.hexdigest()
+        mime_type = get_mime_type(path)
+        return path, hash, stat, mime_type
 
+    def handle_hash_at_path(args):
+        path, hash, stat, mime_type = args
+        relpath = str(path.relative_to(INDEX_DIRECTORY))
+
+        metadata_doc = files_doc = None
         if hash in metadata_docs_by_hash:
             metadata_doc = copy.deepcopy(metadata_docs_by_hash[hash])
         if hash in files_docs_by_hash:
@@ -443,12 +482,9 @@ def index_files(metadata_docs_by_hash, metadata_hashes_by_relpath):
         if metadata_doc and not files_doc:
             metadata_doc["paths"] = {
                 relpath: mtime
-                for relpath, mtime in files_doc["paths"].items()
+                for relpath, mtime in metadata_doc["paths"].items()
                 if is_in_archive_dir(path_from_relpath(relpath))
-                and (
-                    (not path_from_relpath(relpath).exists())
-                    or (path_from_relpath(relpath).stat().st_mtime == mtime)
-                )
+                and not path_from_relpath(relpath).exists()
             }
             doc = metadata_doc
         elif files_doc:
@@ -459,16 +495,13 @@ def index_files(metadata_docs_by_hash, metadata_hashes_by_relpath):
                 "paths": {},
                 "mtime": stat.st_mtime,
                 "size": stat.st_size,
-                "type": get_mime_type(path),
-                "status": initial_module_id,
+                "type": mime_type,
+                "next": initial_module_id,
             }
 
         doc["paths"][relpath] = stat.st_mtime
         doc["copies"] = len(doc["paths"])
-        doc["is_archived"] = any(
-            is_in_archive_dir(path_from_relpath(relpath))
-            for relpath in doc["paths"].keys()
-        )
+        doc["mtime"] = max(doc["paths"].values())
 
         files_docs_by_hash[hash] = doc
         files_hashes_by_relpath[relpath] = hash
@@ -494,62 +527,43 @@ def update_metadata(
     files_docs_by_hash,
     files_hashes_by_relpath,
 ):
-    files_logger.info(f" * check for deleted documents")
-    deleted_hashes = list(
-        set(metadata_docs_by_hash.keys()) - set(files_docs_by_hash.keys())
-    )
-
     files_logger.info(f" * check for upserted documents")
-    upserted_docs = [
-        files_doc
+    upserted_docs_by_hash = {
+        hash: files_doc
         for hash, files_doc in files_docs_by_hash.items()
         if (not hash in metadata_docs_by_hash)
         or (metadata_docs_by_hash[hash]["paths"] != files_docs_by_hash[hash]["paths"])
-    ]
+    }
 
     files_logger.info(f" * check for deleted file path")
-    deleted_relpaths = list(
-        set(metadata_hashes_by_relpath.keys()) - set(files_hashes_by_relpath.keys())
+    deleted_relpaths = set(metadata_hashes_by_relpath.keys()) - set(
+        files_hashes_by_relpath.keys()
     )
 
     def handle_deleted_relpath(relpath):
-        path = METADATA_DIRECTORY / relpath
         metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
-        if metadata_doc["copies"] == 1:
-            shutil.rmtree(path)
-            return
-        target_relpath = metadata_doc["paths"][0]
-        if not relpath == target_relpath:
-            path.unlink()
-            return
-        new_target_path = next(
-            (
-                METADATA_DIRECTORY / key
-                for key in metadata_doc["paths"]
-                if key in files_hashes_by_relpath
-                and metadata_hashes_by_relpath[key] == files_hashes_by_relpath[key]
-            ),
-            None,
-        )
-        if new_target_path:
-            new_target_path.unlink()
-            target_relpath.rename(new_target_path)
-        else:
-            shutil.rmtree(path)
+        by_id_path = METADATA_DIRECTORY / "by-id" / metadata_doc["id"]
+        by_path_path = METADATA_DIRECTORY / "by-path" / relpath
+        if not metadata_doc["id"] in files_docs_by_hash and by_id_path.exists():
+            shutil.rmtree(by_id_path)
+        by_path_path.unlink()
+        if by_path_path.parent != METADATA_DIRECTORY / "by-path":
+            total_count = len(list(by_path_path.parent.iterdir()))
+            if total_count == 0:
+                shutil.rmtree(by_path_path.parent)
 
     def handle_upserted_doc(doc):
-        target_path = METADATA_DIRECTORY / doc["paths"][0]
-        if not target_path.exists():
-            target_path.mkdir(parents=True)
+        by_id_path = METADATA_DIRECTORY / "by-id" / doc["id"]
         write_doc_json(doc)
-        with (target_path / "version.json").open("w") as file:
+        with (by_id_path / "version.json").open("w") as file:
             json.dump({"version": VERSION}, file, indent=4, separators=(", ", ": "))
-        for relpath in doc["paths"]:
-            copy_path = METADATA_DIRECTORY / relpath
-            if copy_path.is_symlink():
-                copy_path.unlink()
-            relative_target = os.path.relpath(target_path, copy_path.parent)
-            copy_path.symlink_to(relative_target, target_is_directory=True)
+        for relpath in doc["paths"].keys():
+            by_path_path = METADATA_DIRECTORY / "by-path" / relpath
+            by_path_path.parent.mkdir(parents=True, exist_ok=True)
+            if by_path_path.is_symlink():
+                by_path_path.unlink()
+            relative_target = os.path.relpath(by_id_path, by_path_path.parent)
+            by_path_path.symlink_to(relative_target, target_is_directory=True)
 
     if deleted_relpaths:
         files_logger.info(f" * delete {len(deleted_relpaths)} metadata paths")
@@ -564,55 +578,77 @@ def update_metadata(
                 ):
                     completed.result()
 
-    if upserted_docs:
-        files_logger.info(f" * upsert {len(upserted_docs)} metadata documents")
+    if upserted_docs_by_hash:
+        files_logger.info(f" * upsert {len(upserted_docs_by_hash)} metadata documents")
         if MAX_FILE_WORKERS < 2:
-            for doc in upserted_docs:
+            for doc in upserted_docs_by_hash.values():
                 handle_upserted_doc(doc)
         else:
             with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
                 for completed in as_completed(
-                    executor.submit(handle_upserted_doc, doc) for doc in upserted_docs
+                    executor.submit(handle_upserted_doc, doc)
+                    for doc in upserted_docs_by_hash.values()
                 ):
                     completed.result()
 
-    return upserted_docs, deleted_hashes
+    return upserted_docs_by_hash, files_docs_by_hash
 
 
-async def update_meilisearch(upserted_docs, deleted_hashes):
+async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
+    all_meili_docs = await get_all_documents()
+    meili_hashes = {doc["id"] for doc in all_meili_docs}
+
+    files_logger.info(f" * check for redundant meilisearch documents")
+    deleted_hashes = meili_hashes - set(files_docs_by_hash.keys())
+
+    files_logger.info(f" * check for missing meilisearch documents")
+    missing_meili_hashes = set(files_docs_by_hash.keys()) - meili_hashes
+    upserted_docs_by_hash.update(
+        {hash: files_docs_by_hash[hash] for hash in missing_meili_hashes}
+    )
+
     if deleted_hashes:
         files_logger.info(f" * delete {len(deleted_hashes)} meilisearch documents")
-        await delete_docs_by_id(deleted_hashes)
+        await delete_docs_by_id(list(deleted_hashes))
         await wait_for_meili_idle()
-    if upserted_docs:
-        files_logger.info(f" * upsert {len(upserted_docs)} meilisearch documents")
-        await add_or_update_documents(upserted_docs)
+    if upserted_docs_by_hash:
+        files_logger.info(
+            f" * upsert {len(upserted_docs_by_hash)} meilisearch documents"
+        )
+        await add_or_update_documents(list(upserted_docs_by_hash.values()))
         await wait_for_meili_idle()
     total_docs_in_meili = await get_document_count()
-    files_logger.info(f"- {total_docs_in_meili} documents in meilisearch")
+    files_logger.info(f" * counted {total_docs_in_meili} documents in meilisearch")
 
 
 async def sync_documents():
     try:
         files_logger.info("index previously stored metadata")
-        metadata_docs_by_hash, metadata_hashes_by_relpath = index_metadata()
+        (
+            metadata_docs_by_hash,
+            metadata_hashes_by_relpath,
+            unmounted_archive_docs_by_hash,
+            unmounted_archive_hashes_by_relpath,
+        ) = index_metadata()
 
         files_logger.info("index all files")
         files_docs_by_hash, files_hashes_by_relpath = index_files(
-            metadata_docs_by_hash, metadata_hashes_by_relpath
+            metadata_docs_by_hash,
+            metadata_hashes_by_relpath,
+            unmounted_archive_docs_by_hash,
+            unmounted_archive_hashes_by_relpath,
         )
 
         files_logger.info("cross-index to update metadata")
-        upserted_docs, deleted_hashes = update_metadata(
+        upserted_docs_by_hash, files_docs_by_hash = update_metadata(
             metadata_docs_by_hash,
             metadata_hashes_by_relpath,
             files_docs_by_hash,
             files_hashes_by_relpath,
         )
 
-        if upserted_docs or deleted_hashes:
-            files_logger.info("commit changes to meilisearch")
-            update_meilisearch(upserted_docs, deleted_hashes)
+        files_logger.info("commit changes to meilisearch")
+        await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
     except:
         files_logger.exception("sync failed")
         raise
@@ -623,26 +659,30 @@ async def sync_documents():
 
 
 def file_relpath_from_meili_doc(document):
-    return document["paths"][0]
+    for relpath in document["paths"].keys():
+        path = path_from_relpath(relpath)
+        if path.exists():
+            return relpath
+    return None
 
 
 def metadata_dir_relpath_from_doc(name, document):
     path = Path(METADATA_DIRECTORY / document["paths"][0] / name)
-    path.mkdir(parents=True)
-    return path.relative_to(METADATA_DIRECTORY).as_posix()
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path.relative_to(METADATA_DIRECTORY).as_posix())
 
 
 async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
 
-    status = "idle"
+    status = ""
     for name, proxy in modules:
         metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
         if proxy.check(file_relpath, document, metadata_dir_relpath):
             status = name
             break
 
-    document["status"] = status
+    document["next"] = status
     write_doc_json(document)
     await add_or_update_document(document)
     return document
@@ -655,27 +695,40 @@ async def run_module(name, proxy):
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
             count = len(documents)
+            modules_logger.info(f"{name} wait for module to load")
+            proxy.load()
             modules_logger.info(f"{name} start for {count} documents")
-            start_time = time.monotonic()
-            for document in documents:
-                try:
-                    elapsed_time = time.monotonic() - start_time
-                    if elapsed_time > ALLOWED_TIME_PER_MODULE:
-                        modules_logger.info(f"{name} post-poned {count} documents")
-                        return True
-                    file_relpath = file_relpath_from_meili_doc(document)
-                    metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
-                    document = await update_doc_from_module(document)
-                    if document["status"] == name:
-                        document = proxy.run(
-                            file_relpath, document, metadata_dir_relpath
+            try:
+                start_time = time.monotonic()
+                for document in documents:
+                    try:
+                        elapsed_time = time.monotonic() - start_time
+                        if elapsed_time > ALLOWED_TIME_PER_MODULE:
+                            modules_logger.info(f"{name} post-poned {count} documents")
+                            return True
+                        file_relpath = file_relpath_from_meili_doc(document)
+                        if not file_relpath:
+                            continue
+                        metadata_dir_relpath = metadata_dir_relpath_from_doc(
+                            name, document
                         )
-                        await update_doc_from_module(document)
-                except:
-                    modules_logger.exception(f'{name} "{document}" failed')
-                count = count - 1
-        modules_logger.info(f"{name} ran for all documents")
-        return False
+                        document = await update_doc_from_module(document)
+                        if document["next"] == name:
+                            document = proxy.run(
+                                file_relpath, document, metadata_dir_relpath
+                            )
+                            await update_doc_from_module(document)
+                    except:
+                        modules_logger.exception(f'{name} "{document}" failed')
+                    count = count - 1
+                modules_logger.info(f"{name} ran for all documents")
+                return False
+            except:
+                modules_logger.exception(f"{name} failed")
+                return True
+            finally:
+                modules_logger.info(f"{name} wait for module to unload")
+                proxy.unload()
     except:
         modules_logger.exception(f"{name} failed")
         return True
@@ -715,8 +768,10 @@ async def main():
         args=[sync_documents],
         max_instances=1,
     )
-    modules_logger.info(f"perform initial sync on start")
-    await sync_documents()
+    if is_modules_changed():
+        modules_logger.info(f"*** perform sync on MODULES changed")
+        await sync_documents()
+        save_modules_state()
     scheduler.start()
     await run_modules()
 
