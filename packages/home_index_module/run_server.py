@@ -4,10 +4,12 @@ from xmlrpc.server import SimpleXMLRPCServer
 from contextlib import contextmanager
 from pathlib import Path
 
-HOST = os.environ.get("HOST", "localhost")
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = os.environ.get("PORT", 9000)
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
-METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/home-index-root/metadata"))
+METADATA_DIRECTORY = Path(
+    os.environ.get("METADATA_DIRECTORY", "/home-index-root/metadata")
+)
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/home-index-root/files"))
 
 
@@ -38,9 +40,11 @@ def log_to_file_and_stdout(file_path):
 def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
     class Handler:
         def hello(self):
+            logging.info("hello")
             return hello_fn()
 
         def check(self, file_relpath, document, metadata_dir_relpath):
+            logging.info(f"check {file_relpath} {document} {metadata_dir_relpath}")
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
@@ -48,10 +52,12 @@ def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             return x
 
         def load(self):
+            logging.info(f"load")
             if load_fn:
                 load_fn()
 
         def run(self, file_relpath, document, metadata_dir_relpath):
+            logging.info(f"run {file_relpath} {document} {metadata_dir_relpath}")
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
@@ -59,6 +65,7 @@ def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             return x
 
         def unload(self):
+            logging.info(f"unload")
             if unload_fn:
                 unload_fn()
 
