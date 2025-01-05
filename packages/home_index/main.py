@@ -143,13 +143,16 @@ hello_versions_changed = hello_versions != known_hello_versions
 initial_module_id = module_values[0]["name"] if module_values else ""
 
 
-def is_modules_changed():
+def get_is_modules_changed():
     if not hello_versions_file_path.exists():
         return True
     with hello_versions_file_path.open("r") as file:
         hello_versions_json = json.load(file)
     known_hello_versions = hello_versions_json.get("hello_versions", "")
     return hello_versions != known_hello_versions
+
+
+is_modules_changed = get_is_modules_changed()
 
 
 def save_modules_state():
@@ -395,7 +398,10 @@ def index_metadata():
             and not path_from_relpath(relpath).exists()
             for relpath in doc["paths"].keys()
         ):
-            unmounted_archive_docs_by_hash[hash] = copy.deepcopy(doc)
+            doc_copy = copy.deepcopy(doc)
+            if is_modules_changed:
+                doc_copy["next"] = initial_module_id
+            unmounted_archive_docs_by_hash[hash] = doc_copy
 
         unmounted_archive_hashes_by_relpath.update(
             {
@@ -509,6 +515,9 @@ def index_files(
         doc["paths"][relpath] = stat.st_mtime
         doc["copies"] = len(doc["paths"])
         doc["mtime"] = max(doc["paths"].values())
+
+        if is_modules_changed:
+            doc["next"] = initial_module_id
 
         files_docs_by_hash[hash] = doc
         files_hashes_by_relpath[relpath] = hash
@@ -773,7 +782,7 @@ async def main():
         args=[sync_documents],
         max_instances=1,
     )
-    if is_modules_changed():
+    if is_modules_changed:
         modules_logger.info(f"*** perform sync on MODULES changed")
         await sync_documents()
         save_modules_state()
