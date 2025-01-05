@@ -36,6 +36,7 @@ NAME = os.environ.get("NAME", "test_module_1")
 def hello():
     return {
         "name": NAME,
+        "version": 1,
         "filterable_attributes": [],
         "sortable_attributes": [],
     }
