@@ -8,10 +8,11 @@ services:
       - meilisearch
       - home-index-test-module-1
     environment:
+      - DEBUG=True
       - MEILISEARCH_HOST=http://meilisearch:7700
       - MODULES=http://home-index-test-module-1:9000
       - TZ=America/Los_Angeles
-      - WAIT_FOR_DEBUG_CLIENT
+      - WAIT_FOR_DEBUGPY_CLIENT=True
     ports:
       - '5678:5678' # debugpy
     restart: unless-stopped
@@ -34,7 +35,6 @@ services:
     container_name: home-index-test-module-1
     environment:
       - TZ=America/Los_Angeles
-      #- WAIT_FOR_DEBUG_CLIENT
     ports:
       - '5679:5678' # debugpy
     restart: unless-stopped

@@ -7,7 +7,7 @@ import debugpy
 
 debugpy.listen(("0.0.0.0", 5678))
 
-if str(os.environ.get("WAIT_FOR_DEBUG_CLIENT", "false")).lower() == "true":
+if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
     print("Waiting for debugger to attach...")
     debugpy.wait_for_client()
     print("Debugger attached.")
@@ -67,11 +67,28 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_compl
 
 
 VERSION = 1
-ALLOWED_TIME_PER_MODULE = int(os.environ.get("ALLOWED_TIME_PER_MODULE", "300"))
+DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
+
+MODULES_MAX_SECONDS = int(
+    os.environ.get(
+        "MODULES_MAX_SECONDS",
+        5 if DEBUG else 300,
+    )
+)
+MODULES_SLEEP_SECONDS = int(
+    os.environ.get(
+        "MODULES_SLEEP_SECONDS",
+        os.environ.get(
+            "MODULES_MAX_SECONDS",
+            1 if DEBUG else 1800,
+        ),
+    )
+)
+
 MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
-RECHECK_TIME_AFTER_COMPLETE = int(os.environ.get("RECHECK_TIME_AFTER_COMPLETE", "1800"))
+
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", 1))
 MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", 1))
 
@@ -158,6 +175,22 @@ def save_modules_state():
     hello_versions_file_path.parent.mkdir(parents=True, exist_ok=True)
     with hello_versions_file_path.open("w") as file:
         json.dump({"hello_versions": hello_versions}, file)
+
+
+def parse_cron_env(env_var="CRON_EXPRESSION", default="0 0 * * *"):
+    cron_expression = os.getenv(env_var, default)
+    parts = cron_expression.split()
+    if len(parts) != 5:
+        raise ValueError(
+            f"Invalid cron expression in {env_var}: '{cron_expression}'. Must have 5 fields."
+        )
+    return {
+        "minute": parts[0],
+        "hour": parts[1],
+        "day": parts[2],
+        "month": parts[3],
+        "day_of_week": parts[4],
+    }
 
 
 # endregion
@@ -688,6 +721,7 @@ def metadata_dir_relpath_from_doc(name, document):
 
 async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
+    old_next_module_name = document["next"]
 
     next_module_name = ""
     for module in module_values:
@@ -697,8 +731,10 @@ async def update_doc_from_module(document):
             break
 
     document["next"] = next_module_name
-    write_doc_json(document)
-    await add_or_update_document(document)
+
+    if next_module_name != old_next_module_name:
+        write_doc_json(document)
+        await add_or_update_document(document)
     return document
 
 
@@ -717,7 +753,7 @@ async def run_module(name, proxy):
                 for document in documents:
                     try:
                         elapsed_time = time.monotonic() - start_time
-                        if elapsed_time > ALLOWED_TIME_PER_MODULE:
+                        if elapsed_time > MODULES_MAX_SECONDS:
                             modules_logger.info(f"{name} post-poned {count} documents")
                             return True
                         file_relpath = file_relpath_from_meili_doc(document)
@@ -757,7 +793,7 @@ async def run_modules():
             module_did_not_finish = await run_module(module["name"], module["proxy"])
             run_again = run_again or module_did_not_finish
         if not run_again:
-            await asyncio.sleep(RECHECK_TIME_AFTER_COMPLETE)
+            await asyncio.sleep(MODULES_SLEEP_SECONDS)
 
 
 # endregion
@@ -777,9 +813,10 @@ def run_in_process(func, *args):
 async def main():
     await init_meili()
     scheduler = BackgroundScheduler()
+
     scheduler.add_job(
         run_in_process,
-        IntervalTrigger(seconds=60),  # CronTrigger(hour=3, minute=0),
+        (IntervalTrigger(seconds=60) if DEBUG else CronTrigger(**parse_cron_env())),
         args=[sync_documents],
         max_instances=1,
     )
