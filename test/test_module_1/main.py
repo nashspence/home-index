@@ -47,13 +47,18 @@ def hello():
 
 
 def check(file_path, document, metadata_dir_path):
-    return True
+    version_path = metadata_dir_path / "version.json"
+    if not version_path.exists():
+        return True
+    with open(version_path, "r") as file:
+        version = json.load(file)
+    return version["version"] != VERSION
 
 
 def run(file_path, document, metadata_dir_path):
     global logging
     logging.info(f"start {file_path}")
-    version_path = metadata_dir_path / f"version.json"
+    version_path = metadata_dir_path / "version.json"
     with open(version_path, "w") as file:
         json.dump({"version": VERSION}, file, indent=4)
     logging.info("done")

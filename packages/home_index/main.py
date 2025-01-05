@@ -59,7 +59,6 @@ from multiprocessing import Process
 from itertools import chain
 from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 
@@ -547,7 +546,8 @@ def update_metadata(
     upserted_docs_by_hash = {
         hash: files_doc
         for hash, files_doc in files_docs_by_hash.items()
-        if (not hash in metadata_docs_by_hash)
+        if is_modules_changed
+        or (not hash in metadata_docs_by_hash)
         or (metadata_docs_by_hash[hash]["paths"] != files_docs_by_hash[hash]["paths"])
     }
 
@@ -681,7 +681,7 @@ def file_relpath_from_meili_doc(document):
 
 
 def metadata_dir_relpath_from_doc(name, document):
-    path = Path(METADATA_DIRECTORY / document["paths"][0] / name)
+    path = Path(METADATA_DIRECTORY / "by-id" / document["id"] / name)
     path.mkdir(parents=True, exist_ok=True)
     return str(path.relative_to(METADATA_DIRECTORY).as_posix())
 
@@ -690,10 +690,10 @@ async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
 
     next_module_name = ""
-    for name, proxy in modules:
-        metadata_dir_relpath = metadata_dir_relpath_from_doc(name, document)
-        if proxy.check(file_relpath, document, metadata_dir_relpath):
-            next_module_name = name
+    for module in module_values:
+        metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], document)
+        if module["proxy"].check(file_relpath, document, metadata_dir_relpath):
+            next_module_name = module["name"]
             break
 
     document["next"] = next_module_name
@@ -743,6 +743,7 @@ async def run_module(name, proxy):
             finally:
                 modules_logger.info(f"{name} wait for module to unload")
                 proxy.unload()
+                modules_logger.info(f"{name} finished")
     except:
         modules_logger.exception(f"{name} failed")
         return True
