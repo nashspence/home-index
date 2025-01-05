@@ -51,7 +51,6 @@ import magic
 import mimetypes
 import xxhash
 import copy
-from itertools import islice
 from xmlrpc.client import ServerProxy
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -304,14 +303,14 @@ async def get_all_documents():
         raise
 
 
-async def get_all_pending_jobs(module):
+async def get_all_pending_jobs(name):
     if not index:
         raise Exception("MeiliSearch index is not initialized.")
 
     docs = []
     offset = 0
     limit = MEILISEARCH_BATCH_SIZE
-    filter_query = f"status = {module.NAME}"
+    filter_query = f"status = {name}"
 
     try:
         while True:
@@ -326,7 +325,7 @@ async def get_all_pending_jobs(module):
             offset += limit
         return docs
     except Exception as e:
-        logging.error(f"Failed to get pending jobs from MeiliSearch: {e}")
+        logging.error(f"failed to get pending jobs from meilisearch: {e}")
         raise
 
 
