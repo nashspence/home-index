@@ -177,7 +177,7 @@ def save_modules_state():
         json.dump({"hello_versions": hello_versions}, file)
 
 
-def parse_cron_env(env_var="CRON_EXPRESSION", default="0 0 * * *"):
+def parse_cron_env(env_var="CRON_EXPRESSION", default="0 3 * * *"):
     cron_expression = os.getenv(env_var, default)
     parts = cron_expression.split()
     if len(parts) != 5:
@@ -721,7 +721,6 @@ def metadata_dir_relpath_from_doc(name, document):
 
 async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
-    old_next_module_name = document["next"]
 
     next_module_name = ""
     for module in module_values:
@@ -732,9 +731,8 @@ async def update_doc_from_module(document):
 
     document["next"] = next_module_name
 
-    if next_module_name != old_next_module_name:
-        write_doc_json(document)
-        await add_or_update_document(document)
+    write_doc_json(document)
+    await add_or_update_document(document)
     return document
 
 
