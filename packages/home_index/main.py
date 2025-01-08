@@ -129,8 +129,8 @@ RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 MODULES = os.environ.get("MODULES", "")
 
 
-def retry_until_ready(fn, msg):
-    for attempt in range(60):
+def retry_until_ready(fn, msg, seconds=60):
+    for attempt in range(seconds):
         try:
             return fn()
         except Exception as e:
@@ -622,7 +622,9 @@ def index_files(
 
     def set_next_module(doc):
         if is_modules_changed or not "next" in doc:
-            doc["next"] = get_next_module(doc)
+            doc["next"] = retry_until_ready(
+                lambda: get_next_module(doc), "failed to get next module after retries"
+            )
 
     if file_paths:
         files_logger.info(f" * check {len(file_paths)} file hashes")
