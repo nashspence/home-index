@@ -124,45 +124,69 @@ ARCHIVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
 
-modules = {}
-module_values = []
+MODULES = os.environ.get("MODULES", "")
+
+
+def setup_modules():
+    hellos = []
+    module_values = []
+    modules = {}
+    hello_versions = []
+    if MODULES:
+        for module_host in MODULES.split(","):
+            try:
+                proxy = ServerProxy(module_host.strip())
+                hello = json.loads(proxy.hello())
+            except ValueError:
+                raise ValueError(
+                    "MODULES format should be 'http://domain:port,http://domain:port,...'"
+                )
+            try:
+                name = hello["name"]
+            except:
+                raise ValueError(f'{module_host} did not return "name" on hello')
+            if name in modules:
+                raise ValueError(
+                    f"multiple modules found with name {name}, this must be unique"
+                )
+            try:
+                version = hello["version"]
+            except:
+                raise ValueError(f'{module_host} did not return "version" on hello')
+            hellos.append(hello)
+            hello_versions.append([name, version])
+
+            modules[name] = {"name": name, "proxy": proxy, "host": module_host.strip()}
+            module_values.append(modules[name])
+    return modules, module_values, hellos, hello_versions
+
+
 hellos = []
+module_values = []
+modules = {}
 hello_versions = []
+
+
+def set_global_modules():
+    global hellos, module_values, modules, hello_versions
+    m, mv, h, hv = setup_modules()
+    modules = m
+    module_values = mv
+    hellos = h
+    hello_versions = hv
+
+
+set_global_modules()
+
+
 hello_versions_changed = False
 hello_versions_file_path = Path("/home-index/hello_versions.json")
 
-
-MODULES = os.environ.get("MODULES", "")
-if MODULES:
-    for module_host in MODULES.split(","):
-        try:
-            proxy = ServerProxy(module_host.strip())
-            hello = json.loads(proxy.hello())
-        except ValueError:
-            raise ValueError(
-                "MODULES format should be 'http://domain:port,http://domain:port,...'"
-            )
-        try:
-            name = hello["name"]
-        except:
-            raise ValueError(f'{module_host} did not return "name" on hello')
-        if name in modules:
-            raise ValueError(
-                f"multiple modules found with name {name}, this must be unique"
-            )
-        try:
-            version = hello["version"]
-        except:
-            raise ValueError(f'{module_host} did not return "version" on hello')
-        hellos.append(hello)
-        hello_versions.append([name, version])
-
-        modules[name] = {"name": name, "proxy": proxy}
-        module_values.append(modules[name])
 hello_versions_json = {}
 if hello_versions_file_path.exists():
     with hello_versions_file_path.open("r") as file:
         hello_versions_json = json.load(file)
+
 known_hello_versions = hello_versions_json.get("hello_versions", "")
 hello_versions_changed = hello_versions != known_hello_versions
 
@@ -604,7 +628,9 @@ def index_files(
             for doc in files_docs_by_hash.values():
                 set_next_module(doc)
         else:
-            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+            with ThreadPoolExecutor(
+                max_workers=MAX_FILE_WORKERS, initializer=set_global_modules
+            ) as executor:
                 for completed in as_completed(
                     executor.submit(set_next_module, doc)
                     for doc in files_docs_by_hash.values()
@@ -784,11 +810,11 @@ async def update_doc_from_module(document):
 
 async def run_module(name, proxy):
     try:
-        modules_logger.info(f"start {name}")
-        modules_logger.info(f" * query documents list")
         documents = await get_all_pending_jobs(name)
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
+            modules_logger.info(f"---------------------------------------------------")
+            modules_logger.info(f"start {name}")
             count = len(documents)
             modules_logger.info(f" * call load")
             proxy.load()
@@ -828,11 +854,14 @@ async def run_module(name, proxy):
 
 
 async def run_modules():
-    modules_logger.info(f"begin modules loop {MODULES}")
+    modules_logger.info(f"")
+    modules_logger.info(f"start modules processing")
+    for index, module in enumerate(module_values):
+        modules_logger.info(f" {index + 1}. {module["name"]}")
+
     while True:
         run_again = False
         for module in module_values:
-            modules_logger.info(f"---------------------------------------------------")
             module_did_not_finish = await run_module(module["name"], module["proxy"])
             run_again = run_again or module_did_not_finish
         if not run_again:
