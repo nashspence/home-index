@@ -495,8 +495,11 @@ def get_next_module(doc):
     relpath = file_relpath_from_meili_doc(doc)
     for module in module_values:
         metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], doc)
-        if module["proxy"].check(
-            str(relpath), json.dumps(doc), str(metadata_dir_relpath)
+        if retry_until_ready(
+            lambda: module["proxy"].check(
+                str(relpath), json.dumps(doc), str(metadata_dir_relpath)
+            ),
+            f"failed to contact {module["host"]} during sync",
         ):
             return module["name"]
 
@@ -622,9 +625,7 @@ def index_files(
 
     def set_next_module(doc):
         if is_modules_changed or not "next" in doc:
-            doc["next"] = retry_until_ready(
-                lambda: get_next_module(doc), "failed to get next module after retries"
-            )
+            doc["next"] = get_next_module(doc)
 
     if file_paths:
         files_logger.info(f" * check {len(file_paths)} file hashes")
@@ -821,10 +822,12 @@ async def update_doc_from_module(document):
             if module["name"] == document["next"]:
                 found_previous_next = True
             continue
-        if module["proxy"].check(
-            str(file_relpath),
-            json.dumps(document),
-            str(metadata_dir_relpath_from_doc(module["name"], document)),
+        metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], document)
+        if retry_until_ready(
+            lambda: module["proxy"].check(
+                str(file_relpath), json.dumps(document), str(metadata_dir_relpath)
+            ),
+            f"failed to contact {module["host"]} after module run",
         ):
             next_module_name = module["name"]
             break
