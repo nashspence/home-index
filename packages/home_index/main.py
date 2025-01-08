@@ -175,6 +175,7 @@ def save_modules_state():
     hello_versions_file_path.parent.mkdir(parents=True, exist_ok=True)
     with hello_versions_file_path.open("w") as file:
         json.dump({"hello_versions": hello_versions}, file)
+    is_modules_changed = False
 
 
 def parse_cron_env(env_var="CRON_EXPRESSION", default="0 3 * * *"):
@@ -807,6 +808,9 @@ def run_in_process(func, *args):
     process.start()
     process.join()
 
+async def init_meili_and_sync():
+    await init_meili()
+    await sync_documents()
 
 async def main():
     await init_meili()
@@ -815,13 +819,15 @@ async def main():
     scheduler.add_job(
         run_in_process,
         (IntervalTrigger(seconds=60) if DEBUG else CronTrigger(**parse_cron_env())),
-        args=[sync_documents],
+        args=[init_meili_and_sync],
         max_instances=1,
     )
+
     if is_modules_changed:
         modules_logger.info(f"*** perform sync on MODULES changed")
-        await sync_documents()
+        await init_meili_and_sync()
         save_modules_state()
+        
     scheduler.start()
     await run_modules()
 
