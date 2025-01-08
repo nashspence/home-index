@@ -11,10 +11,8 @@ logging.basicConfig(
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = os.environ.get("PORT", 9000)
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
-METADATA_DIRECTORY = Path(
-    os.environ.get("METADATA_DIRECTORY", "/home-index-root/metadata")
-)
-FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/home-index-root/files"))
+METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
+FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
 
 
 @contextmanager

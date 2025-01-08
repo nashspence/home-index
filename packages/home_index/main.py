@@ -19,22 +19,30 @@ if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
 
 import logging
 
+LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
+LOGGING_MAX_BYTES = int(os.environ.get("LOGGING_MAX_BYTES", 5_000_000))
+LOGGING_BACKUP_COUNT = int(os.environ.get("LOGGING_BACKUP_COUNT", 10))
+
 logging.basicConfig(
     level=logging.CRITICAL, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
 modules_logger = logging.getLogger("home-index-modules")
-modules_logger.setLevel(logging.INFO)
+modules_logger.setLevel(LOGGING_LEVEL)
 file_handler = logging.handlers.RotatingFileHandler(
-    "/home-index/modules.log", maxBytes=5_000_000, backupCount=10
+    "/home-index/modules.log",
+    maxBytes=LOGGING_MAX_BYTES,
+    backupCount=LOGGING_BACKUP_COUNT,
 )
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 modules_logger.addHandler(file_handler)
 
 files_logger = logging.getLogger("home-index-files")
-files_logger.setLevel(logging.INFO)
+files_logger.setLevel(LOGGING_LEVEL)
 file_handler = logging.handlers.RotatingFileHandler(
-    "/home-index/files.log", maxBytes=5_000_000, backupCount=10
+    "/home-index/files.log",
+    maxBytes=LOGGING_MAX_BYTES,
+    backupCount=LOGGING_BACKUP_COUNT,
 )
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 files_logger.addHandler(file_handler)
@@ -90,28 +98,30 @@ MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
 
-MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", 1))
-MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", 1))
+CPU_COUNT = os.cpu_count()
+MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT / 2))
+MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT / 2))
 
-INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/home-index-root/files"))
+INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
 INDEX_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
-METADATA_DIRECTORY = Path(
-    os.environ.get("METADATA_DIRECTORY", "/home-index-root/metadata")
-)
+METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
 METADATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
-(METADATA_DIRECTORY / "by-id").mkdir(parents=True, exist_ok=True)
-(METADATA_DIRECTORY / "by-path").mkdir(parents=True, exist_ok=True)
+BY_ID_DIRECTORY = Path(
+    os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
+)
+BY_ID_DIRECTORY.mkdir(parents=True, exist_ok=True)
+BY_PATH_DIRECTORY = Path(
+    os.environ.get("BY_PATH_DIRECTORY", str(METADATA_DIRECTORY / "by-path"))
+)
+BY_PATH_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 ARCHIVE_DIRECTORY = Path(
     os.environ.get("ARCHIVE_DIRECTORY", (INDEX_DIRECTORY / "archive").as_posix())
 )
 ARCHIVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
-APP_DIRECTORY = Path(os.environ.get("APP_DIRECTORY", "/home-index-root/app"))
-APP_DIRECTORY.mkdir(parents=True, exist_ok=True)
-
-RESERVED_FILES_DIRS = [METADATA_DIRECTORY, APP_DIRECTORY]
+RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
 
 modules = {}
@@ -400,7 +410,7 @@ def is_in_archive_dir(path):
 
 
 def write_doc_json(doc):
-    path = METADATA_DIRECTORY / "by-id" / doc["id"]
+    path = BY_ID_DIRECTORY / doc["id"]
     if not path.exists():
         path.mkdir(parents=True, exist_ok=True)
     with (path / "document.json").open("w") as file:
@@ -411,6 +421,36 @@ def truncate_mtime(st_mtime):
     return math.floor(st_mtime * 10000) / 10000
 
 
+def get_mime_type(file_path):
+    mime = magic.Magic(mime=True)
+    mime_type = mime.from_file(file_path)
+    if mime_type == "application/octet-stream":
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type is None:
+            mime_type = "application/octet-stream"
+    return mime_type
+
+
+def determine_hash(path, metadata_docs_by_hash, metadata_hashes_by_relpath):
+    relpath = str(path.relative_to(INDEX_DIRECTORY).as_posix())
+    hash = None
+    stat = path.stat()
+    if relpath in metadata_hashes_by_relpath:
+        prev_hash = metadata_hashes_by_relpath[relpath]
+        prev_mtime = metadata_docs_by_hash[prev_hash]["paths"][relpath]
+        is_mtime_changed = truncate_mtime(stat.st_mtime) != prev_mtime
+        if not is_mtime_changed:
+            hash = prev_hash
+    if not hash:
+        hasher = xxhash.xxh64()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                hasher.update(chunk)
+        hash = hasher.hexdigest()
+    mime_type = get_mime_type(path)
+    return path, hash, stat, mime_type
+
+
 def index_metadata():
     metadata_docs_by_hash = {}
     metadata_hashes_by_relpath = {}
@@ -418,9 +458,7 @@ def index_metadata():
     unmounted_archive_hashes_by_relpath = {}
 
     files_logger.info(f" * iterate metadata by-id")
-    file_paths = [
-        dir / "document.json" for dir in (METADATA_DIRECTORY / "by-id").iterdir()
-    ]
+    file_paths = [dir / "document.json" for dir in (BY_ID_DIRECTORY).iterdir()]
 
     def read_doc_json(doc_json_path):
         with doc_json_path.open("r") as file:
@@ -461,7 +499,7 @@ def index_metadata():
             for fp in file_paths:
                 handle_doc(read_doc_json(fp))
         else:
-            with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
+            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
                 for completed in as_completed(
                     executor.submit(read_doc_json, fp) for fp in file_paths
                 ):
@@ -491,34 +529,6 @@ def index_files(
             continue
         for f in files:
             file_paths.append(root / f)
-
-    def get_mime_type(file_path):
-        mime = magic.Magic(mime=True)
-        mime_type = mime.from_file(file_path)
-        if mime_type == "application/octet-stream":
-            mime_type, _ = mimetypes.guess_type(file_path)
-            if mime_type is None:
-                mime_type = "application/octet-stream"
-        return mime_type
-
-    def determine_hash(path):
-        relpath = str(path.relative_to(INDEX_DIRECTORY).as_posix())
-        hash = None
-        stat = path.stat()
-        if relpath in metadata_hashes_by_relpath:
-            prev_hash = metadata_hashes_by_relpath[relpath]
-            prev_mtime = metadata_docs_by_hash[prev_hash]["paths"][relpath]
-            is_mtime_changed = truncate_mtime(stat.st_mtime) != prev_mtime
-            if not is_mtime_changed:
-                hash = prev_hash
-        if not hash:
-            hasher = xxhash.xxh64()
-            with path.open("rb") as f:
-                for chunk in iter(lambda: f.read(8192), b""):
-                    hasher.update(chunk)
-            hash = hasher.hexdigest()
-        mime_type = get_mime_type(path)
-        return path, hash, stat, mime_type
 
     def handle_hash_at_path(args):
         path, hash, stat, mime_type = args
@@ -565,11 +575,21 @@ def index_files(
         files_logger.info(f" * check {len(file_paths)} file hashes")
         if MAX_HASH_WORKERS < 2:
             for fp in file_paths:
-                handle_hash_at_path(determine_hash(fp))
+                handle_hash_at_path(
+                    determine_hash(
+                        fp, metadata_docs_by_hash, metadata_hashes_by_relpath
+                    )
+                )
         else:
             with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
                 for completed in as_completed(
-                    executor.submit(determine_hash, fp) for fp in file_paths
+                    executor.submit(
+                        determine_hash,
+                        fp,
+                        metadata_docs_by_hash,
+                        metadata_hashes_by_relpath,
+                    )
+                    for fp in file_paths
                 ):
                     handle_hash_at_path(completed.result())
 
@@ -598,21 +618,21 @@ def update_metadata(
 
     def handle_deleted_relpath(relpath):
         metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
-        by_id_path = METADATA_DIRECTORY / "by-id" / metadata_doc["id"]
-        by_path_path = METADATA_DIRECTORY / "by-path" / relpath
+        by_id_path = BY_ID_DIRECTORY / metadata_doc["id"]
+        by_path_path = BY_PATH_DIRECTORY / relpath
         if not metadata_doc["id"] in files_docs_by_hash and by_id_path.exists():
             shutil.rmtree(by_id_path)
         by_path_path.unlink()
-        if by_path_path.parent != METADATA_DIRECTORY / "by-path":
+        if by_path_path.parent != BY_PATH_DIRECTORY:
             total_count = len(list(by_path_path.parent.iterdir()))
             if total_count == 0:
                 shutil.rmtree(by_path_path.parent)
 
     def handle_upserted_doc(doc):
-        by_id_path = METADATA_DIRECTORY / "by-id" / doc["id"]
+        by_id_path = BY_ID_DIRECTORY / doc["id"]
         write_doc_json(doc)
         for relpath in doc["paths"].keys():
-            by_path_path = METADATA_DIRECTORY / "by-path" / relpath
+            by_path_path = BY_PATH_DIRECTORY / relpath
             by_path_path.parent.mkdir(parents=True, exist_ok=True)
             if by_path_path.is_symlink():
                 by_path_path.unlink()
@@ -721,7 +741,7 @@ def file_relpath_from_meili_doc(document):
 
 
 def metadata_dir_relpath_from_doc(name, document):
-    path = Path(METADATA_DIRECTORY / "by-id" / document["id"] / name)
+    path = Path(BY_ID_DIRECTORY / document["id"] / name)
     path.mkdir(parents=True, exist_ok=True)
     return str(path.relative_to(METADATA_DIRECTORY).as_posix())
 

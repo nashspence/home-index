@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./bind-mounts/home-index:/home-index
-      - ./bind-mounts/home-index-root:/home-index-root
+      - ./bind-mounts/files:/files
   meilisearch:
     container_name: meilisearch
     environment:
@@ -39,4 +39,4 @@ services:
       - '5679:5678' # debugpy
     restart: unless-stopped
     volumes:
-      - ./bind-mounts/home-index-root:/home-index-root
+      - ./bind-mounts/files:/files
