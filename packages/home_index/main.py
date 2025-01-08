@@ -137,7 +137,7 @@ if MODULES:
     for module_host in MODULES.split(","):
         try:
             proxy = ServerProxy(module_host.strip())
-            hello = proxy.hello()
+            hello = json.load(proxy.hello())
         except ValueError:
             raise ValueError(
                 "MODULES format should be 'http://domain:port,http://domain:port,...'"
@@ -165,9 +165,6 @@ if hello_versions_file_path.exists():
         hello_versions_json = json.load(file)
 known_hello_versions = hello_versions_json.get("hello_versions", "")
 hello_versions_changed = hello_versions != known_hello_versions
-
-
-initial_module_id = module_values[0]["name"] if module_values else ""
 
 
 def get_is_modules_changed():
@@ -451,6 +448,16 @@ def determine_hash(path, metadata_docs_by_hash, metadata_hashes_by_relpath):
     return path, hash, stat, mime_type
 
 
+def get_next_module(doc):
+    relpath = file_relpath_from_meili_doc(doc)
+    for module in module_values:
+        metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], doc)
+        if module["proxy"].check(
+            str(relpath), json.dump(doc), str(metadata_dir_relpath)
+        ):
+            return module["name"]
+
+
 def index_metadata():
     metadata_docs_by_hash = {}
     metadata_hashes_by_relpath = {}
@@ -476,8 +483,6 @@ def index_metadata():
             for relpath in doc["paths"].keys()
         ):
             doc_copy = copy.deepcopy(doc)
-            if is_modules_changed:
-                doc_copy["next"] = initial_module_id
             unmounted_archive_docs_by_hash[hash] = doc_copy
 
         unmounted_archive_hashes_by_relpath.update(
@@ -558,18 +563,18 @@ def index_files(
                 "mtime": truncate_mtime(stat.st_mtime),
                 "size": stat.st_size,
                 "type": mime_type,
-                "next": initial_module_id,
             }
 
         doc["paths"][relpath] = truncate_mtime(stat.st_mtime)
         doc["copies"] = len(doc["paths"])
         doc["mtime"] = max(doc["paths"].values())
 
-        if is_modules_changed:
-            doc["next"] = initial_module_id
-
         files_docs_by_hash[hash] = doc
         files_hashes_by_relpath[relpath] = hash
+
+    def set_next_module(doc):
+        if is_modules_changed or not "next" in doc:
+            doc["next"] = get_next_module(doc)
 
     if file_paths:
         files_logger.info(f" * check {len(file_paths)} file hashes")
@@ -592,6 +597,19 @@ def index_files(
                     for fp in file_paths
                 ):
                     handle_hash_at_path(completed.result())
+
+    if files_docs_by_hash:
+        files_logger.info(f" * set next modules")
+        if MAX_FILE_WORKERS < 2:
+            for doc in files_docs_by_hash.values():
+                set_next_module(doc)
+        else:
+            with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
+                for completed in as_completed(
+                    executor.submit(set_next_module, doc)
+                    for doc in files_docs_by_hash.values()
+                ):
+                    completed.result()
 
     return files_docs_by_hash, files_hashes_by_relpath
 
@@ -733,31 +751,32 @@ async def sync_documents():
 
 
 def file_relpath_from_meili_doc(document):
-    for relpath in document["paths"].keys():
-        path = path_from_relpath(relpath)
-        if path.exists():
-            return relpath
-    return None
+    return iter(document["paths"].keys())
 
 
 def metadata_dir_relpath_from_doc(name, document):
     path = Path(BY_ID_DIRECTORY / document["id"] / name)
     path.mkdir(parents=True, exist_ok=True)
-    return str(path.relative_to(METADATA_DIRECTORY).as_posix())
+    return path.relative_to(METADATA_DIRECTORY)
 
 
 async def update_doc_from_module(document):
     file_relpath = file_relpath_from_meili_doc(document)
-
     next_module_name = ""
+    found_previous_next = False
     for module in module_values:
-        metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], document)
-        if module["proxy"].check(file_relpath, document, metadata_dir_relpath):
+        if not found_previous_next:
+            if module["name"] == document["next"]:
+                found_previous_next = True
+            continue
+        if module["proxy"].check(
+            str(file_relpath),
+            json.dump(document),
+            str(metadata_dir_relpath_from_doc(module["name"], document)),
+        ):
             next_module_name = module["name"]
             break
-
     document["next"] = next_module_name
-
     write_doc_json(document)
     await add_or_update_document(document)
     return document
@@ -765,56 +784,55 @@ async def update_doc_from_module(document):
 
 async def run_module(name, proxy):
     try:
-        modules_logger.debug(f"{name} query documents list")
+        modules_logger.info(f"start {name}")
+        modules_logger.info(f" * query documents list")
         documents = await get_all_pending_jobs(name)
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
             count = len(documents)
-            modules_logger.info(f"{name} wait for module to load")
+            modules_logger.info(f" * call load")
             proxy.load()
-            modules_logger.info(f"{name} start for {count} documents")
+            modules_logger.info(f" * iterate and run for {count}")
             try:
                 start_time = time.monotonic()
                 for document in documents:
+                    relpath = file_relpath_from_meili_doc(document)
                     try:
                         elapsed_time = time.monotonic() - start_time
                         if elapsed_time > MODULES_MAX_SECONDS:
-                            modules_logger.info(f"{name} post-poned {count} documents")
+                            modules_logger.info(f"   * post-poned {count}")
                             return True
-                        file_relpath = file_relpath_from_meili_doc(document)
-                        if not file_relpath:
-                            continue
-                        metadata_dir_relpath = metadata_dir_relpath_from_doc(
-                            name, document
-                        )
-                        document = await update_doc_from_module(document)
-                        if document["next"] == name:
-                            document = proxy.run(
-                                file_relpath, document, metadata_dir_relpath
+                        document = json.load(
+                            proxy.run(
+                                str(file_relpath_from_meili_doc(document)),
+                                json.dump(document),
+                                str(metadata_dir_relpath_from_doc(name, document)),
                             )
-                            await update_doc_from_module(document)
+                        )
+                        await update_doc_from_module(document)
                     except:
-                        modules_logger.exception(f'{name} "{document}" failed')
+                        modules_logger.exception(f'   x run failed at "{relpath}"')
                     count = count - 1
-                modules_logger.info(f"{name} ran for all documents")
+                modules_logger.info(f"   * ran for all documents")
                 return False
             except:
-                modules_logger.exception(f"{name} failed")
+                modules_logger.exception(f" x failed")
                 return True
             finally:
-                modules_logger.info(f"{name} wait for module to unload")
+                modules_logger.info(f" * wait for module to unload")
                 proxy.unload()
-                modules_logger.info(f"{name} finished")
+                modules_logger.info(f" * finished")
     except:
-        modules_logger.exception(f"{name} failed")
+        modules_logger.exception(f" * failed")
         return True
 
 
 async def run_modules():
-    modules_logger.info(f"begin modules loop")
+    modules_logger.info(f"begin modules loop {MODULES}")
     while True:
         run_again = False
         for module in module_values:
+            modules_logger.info(f"---------------------------------------------------")
             module_did_not_finish = await run_module(module["name"], module["proxy"])
             run_again = run_again or module_did_not_finish
         if not run_again:

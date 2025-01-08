@@ -1,6 +1,8 @@
 import logging
 import os
+import json
 from xmlrpc.server import SimpleXMLRPCServer
+from socketserver import ThreadingMixIn
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -9,7 +11,7 @@ logging.basicConfig(
 )
 
 HOST = os.environ.get("HOST", "0.0.0.0")
-PORT = os.environ.get("PORT", 9000)
+PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
@@ -39,39 +41,41 @@ def log_to_file_and_stdout(file_path):
         root_logger.removeHandler(stream_handler)
 
 
+class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
+    pass
+
+
 def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
     class Handler:
         def hello(self):
             logging.info("hello")
-            return hello_fn()
+            return json.dump(hello_fn())
 
-        def check(self, file_relpath, document, metadata_dir_relpath):
-            logging.debug(f"check {file_relpath} {document} {metadata_dir_relpath}")
+        def check(self, file_relpath, document_json, metadata_dir_relpath):
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                x = check_fn(file_path, document, metadata_dir_path)
-            return x
+                x = check_fn(file_path, json.loads(document_json), metadata_dir_path)
+            return json.dump(x)
 
         def load(self):
-            logging.info(f"load")
+            logging.info("load")
             if load_fn:
                 load_fn()
 
-        def run(self, file_relpath, document, metadata_dir_relpath):
-            logging.debug(f"run {file_relpath} {document} {metadata_dir_relpath}")
+        def run(self, file_relpath, document_json, metadata_dir_relpath):
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                x = run_fn(file_path, document, metadata_dir_path)
-            return x
+                x = run_fn(file_path, json.loads(document_json), metadata_dir_path)
+            return json.dump(x)
 
         def unload(self):
-            logging.info(f"unload")
+            logging.info("unload")
             if unload_fn:
                 unload_fn()
 
-    server = SimpleXMLRPCServer((HOST, PORT), allow_none=True)
+    server = ThreadedXMLRPCServer((HOST, PORT), allow_none=True)
     server.register_instance(Handler())
-    print(f"Server running at {server.server_address}")
+    print(f"Threaded server running at {server.server_address}")
     server.serve_forever()
