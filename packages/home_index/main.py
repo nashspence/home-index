@@ -51,6 +51,7 @@ import magic
 import mimetypes
 import xxhash
 import copy
+import math
 from xmlrpc.client import ServerProxy
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -172,6 +173,7 @@ is_modules_changed = get_is_modules_changed()
 
 
 def save_modules_state():
+    global is_modules_changed
     hello_versions_file_path.parent.mkdir(parents=True, exist_ok=True)
     with hello_versions_file_path.open("w") as file:
         json.dump({"hello_versions": hello_versions}, file)
@@ -405,6 +407,10 @@ def write_doc_json(doc):
         json.dump(doc, file, indent=4, separators=(", ", ": "))
 
 
+def truncate_mtime(st_mtime):
+    return math.floor(st_mtime * 10000) / 10000
+
+
 def index_metadata():
     metadata_docs_by_hash = {}
     metadata_hashes_by_relpath = {}
@@ -502,7 +508,7 @@ def index_files(
         if relpath in metadata_hashes_by_relpath:
             prev_hash = metadata_hashes_by_relpath[relpath]
             prev_mtime = metadata_docs_by_hash[prev_hash]["paths"][relpath]
-            is_mtime_changed = stat.st_mtime != prev_mtime
+            is_mtime_changed = truncate_mtime(stat.st_mtime) != prev_mtime
             if not is_mtime_changed:
                 hash = prev_hash
         if not hash:
@@ -539,13 +545,13 @@ def index_files(
             doc = {
                 "id": hash,
                 "paths": {},
-                "mtime": stat.st_mtime,
+                "mtime": truncate_mtime(stat.st_mtime),
                 "size": stat.st_size,
                 "type": mime_type,
                 "next": initial_module_id,
             }
 
-        doc["paths"][relpath] = stat.st_mtime
+        doc["paths"][relpath] = truncate_mtime(stat.st_mtime)
         doc["copies"] = len(doc["paths"])
         doc["mtime"] = max(doc["paths"].values())
 
@@ -808,9 +814,11 @@ def run_in_process(func, *args):
     process.start()
     process.join()
 
+
 async def init_meili_and_sync():
     await init_meili()
     await sync_documents()
+
 
 async def main():
     await init_meili()
@@ -827,7 +835,7 @@ async def main():
         modules_logger.info(f"*** perform sync on MODULES changed")
         await init_meili_and_sync()
         save_modules_state()
-        
+
     scheduler.start()
     await run_modules()
 
