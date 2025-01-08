@@ -86,6 +86,7 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             if unload_fn:
                 unload_fn()
 
+    server = SimpleXMLRPCServer((HOST, PORT), allow_none=True)
     server.register_instance(Handler())
     print(f"Server running at {server.server_address}")
     server.serve_forever()
