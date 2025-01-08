@@ -68,7 +68,7 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
                 with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
                     if check_fn(file_path, document, metadata_dir_path):
                         response.add(document["id"])
-            return json.dumps(response)
+            return json.dumps(list(response))
 
         def load(self):
             logging.info("load")
