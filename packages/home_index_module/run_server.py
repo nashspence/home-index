@@ -2,7 +2,6 @@ import logging
 import os
 import json
 from xmlrpc.server import SimpleXMLRPCServer
-from socketserver import ThreadingMixIn
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -21,7 +20,8 @@ BY_ID_DIRECTORY = Path(
 
 
 def file_path_from_meili_doc(document):
-    return Path(FILES_DIRECTORY / iter(document["paths"].keys()))
+    relpath = next(iter(document["paths"].keys()))
+    return Path(FILES_DIRECTORY / relpath)
 
 
 def metadata_dir_path_from_doc(name, document):
@@ -50,10 +50,6 @@ def log_to_file_and_stdout(file_path):
         root_logger.removeHandler(file_handler)
         file_handler.close()
         root_logger.removeHandler(stream_handler)
-
-
-class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
-    pass
 
 
 def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
@@ -90,7 +86,6 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             if unload_fn:
                 unload_fn()
 
-    server = ThreadedXMLRPCServer((HOST, PORT), allow_none=True)
     server.register_instance(Handler())
-    print(f"Threaded server running at {server.server_address}")
+    print(f"Server running at {server.server_address}")
     server.serve_forever()

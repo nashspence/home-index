@@ -802,7 +802,7 @@ async def sync_documents():
 
 
 def file_relpath_from_meili_doc(document):
-    return iter(document["paths"].keys())
+    return next(iter(document["paths"].keys()))
 
 
 def metadata_dir_relpath_from_doc(name, document):
