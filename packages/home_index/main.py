@@ -1,23 +1,25 @@
 # region "debugpy"
 
 
-import logging.handlers
 import os
-import debugpy
 
-debugpy.listen(("0.0.0.0", 5678))
+if str(os.environ.get("DEBUG", "False")) == "True":
+    import debugpy
 
-if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
-    print("Waiting for debugger to attach...")
-    debugpy.wait_for_client()
-    print("Debugger attached.")
-    debugpy.breakpoint()
+    debugpy.listen(("0.0.0.0", 5678))
+
+    if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
+        print("Waiting for debugger to attach...")
+        debugpy.wait_for_client()
+        print("Debugger attached.")
+        debugpy.breakpoint()
 
 
 # endregion
 # region "logging"
 
 import logging
+import logging.handlers
 
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 LOGGING_MAX_BYTES = int(os.environ.get("LOGGING_MAX_BYTES", 5_000_000))
