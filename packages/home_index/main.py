@@ -814,11 +814,11 @@ async def run_module(name, proxy):
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
             modules_logger.info(f"---------------------------------------------------")
-            modules_logger.info(f"start {name}")
+            modules_logger.info(f'start "{name}"')
             count = len(documents)
             modules_logger.info(f" * call load")
             proxy.load()
-            modules_logger.info(f" * iterate and run for {count}")
+            modules_logger.info(f" * run for {count}")
             try:
                 start_time = time.monotonic()
                 for document in documents:
@@ -826,6 +826,7 @@ async def run_module(name, proxy):
                     try:
                         elapsed_time = time.monotonic() - start_time
                         if elapsed_time > MODULES_MAX_SECONDS:
+                            modules_logger.info(f"   * time up")
                             modules_logger.info(f"   * post-poned {count}")
                             return True
                         document = json.loads(
@@ -837,17 +838,17 @@ async def run_module(name, proxy):
                         )
                         await update_doc_from_module(document)
                     except:
-                        modules_logger.exception(f'   x run failed at "{relpath}"')
+                        modules_logger.exception(f'   x failed at "{relpath}"')
                     count = count - 1
-                modules_logger.info(f"   * ran for all documents")
+                modules_logger.info(f"   * done")
                 return False
             except:
                 modules_logger.exception(f" x failed")
                 return True
             finally:
-                modules_logger.info(f" * wait for module to unload")
+                modules_logger.info(f" * call unload")
                 proxy.unload()
-                modules_logger.info(f" * finished")
+                modules_logger.info(f" * done")
     except:
         modules_logger.exception(f" * failed")
         return True
