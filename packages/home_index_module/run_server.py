@@ -15,6 +15,17 @@ PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
+BY_ID_DIRECTORY = Path(
+    os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
+)
+
+
+def file_path_from_meili_doc(document):
+    return Path(FILES_DIRECTORY / iter(document["paths"].keys()))
+
+
+def metadata_dir_path_from_doc(name, document):
+    return Path(BY_ID_DIRECTORY / document["id"] / name)
 
 
 @contextmanager
@@ -45,29 +56,33 @@ class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
 
-def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
+def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
     class Handler:
         def hello(self):
             logging.info("hello")
             return json.dumps(hello_fn())
 
-        def check(self, file_relpath, document_json, metadata_dir_relpath):
-            file_path = FILES_DIRECTORY / file_relpath
-            metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
-            with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                x = check_fn(file_path, json.loads(document_json), metadata_dir_path)
-            return json.dumps(x)
+        def check(self, docs):
+            response = set()
+            for document in json.loads(docs):
+                file_path = file_path_from_meili_doc(document)
+                metadata_dir_path = metadata_dir_path_from_doc(name, document)
+                with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
+                    if check_fn(file_path, document, metadata_dir_path):
+                        response.add(document["id"])
+            return json.dumps(response)
 
         def load(self):
             logging.info("load")
             if load_fn:
                 load_fn()
 
-        def run(self, file_relpath, document_json, metadata_dir_relpath):
-            file_path = FILES_DIRECTORY / file_relpath
-            metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
+        def run(self, document_json):
+            document = json.loads(document_json)
+            file_path = file_path_from_meili_doc(document)
+            metadata_dir_path = metadata_dir_path_from_doc(name, document)
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                x = run_fn(file_path, json.loads(document_json), metadata_dir_path)
+                x = run_fn(file_path, document, metadata_dir_path)
             return json.dumps(x)
 
         def unload(self):

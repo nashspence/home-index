@@ -491,17 +491,30 @@ def determine_hash(path, metadata_docs_by_hash, metadata_hashes_by_relpath):
     return path, hash, stat, mime_type
 
 
-def get_next_module(doc):
-    relpath = file_relpath_from_meili_doc(doc)
+def set_next_modules(files_docs_by_hash):
+    needs_update = {
+        id: doc
+        for id, doc in files_docs_by_hash.items()
+        if is_modules_changed or not "next" in doc
+    }
     for module in module_values:
-        metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], doc)
-        if retry_until_ready(
-            lambda: module["proxy"].check(
-                str(relpath), json.dumps(doc), str(metadata_dir_relpath)
-            ),
-            f"failed to contact {module["host"]} during sync",
-        ):
-            return module["name"]
+        claimed = set(
+            json.loads(
+                retry_until_ready(
+                    lambda: module["proxy"].check(
+                        json.dumps(list(needs_update.values()))
+                    ),
+                    f"failed to contact {module["host"]} during sync",
+                )
+            )
+        )
+        for id in claimed:
+            doc = needs_update.pop(id)
+            doc["next"] = module["name"]
+        if not needs_update:
+            break
+    for id, doc in needs_update:
+        doc["next"] = ""
 
 
 def index_metadata():
@@ -623,10 +636,6 @@ def index_files(
         files_docs_by_hash[hash] = doc
         files_hashes_by_relpath[relpath] = hash
 
-    def set_next_module(doc):
-        if is_modules_changed or not "next" in doc:
-            doc["next"] = get_next_module(doc)
-
     if file_paths:
         files_logger.info(f" * check {len(file_paths)} file hashes")
         if MAX_HASH_WORKERS < 2:
@@ -651,18 +660,7 @@ def index_files(
 
     if files_docs_by_hash:
         files_logger.info(f" * set next modules")
-        if MAX_FILE_WORKERS < 2:
-            for doc in files_docs_by_hash.values():
-                set_next_module(doc)
-        else:
-            with ThreadPoolExecutor(
-                max_workers=MAX_FILE_WORKERS, initializer=set_global_modules
-            ) as executor:
-                for completed in as_completed(
-                    executor.submit(set_next_module, doc)
-                    for doc in files_docs_by_hash.values()
-                ):
-                    completed.result()
+        set_next_modules(files_docs_by_hash)
 
     return files_docs_by_hash, files_hashes_by_relpath
 
@@ -814,7 +812,6 @@ def metadata_dir_relpath_from_doc(name, document):
 
 
 async def update_doc_from_module(document):
-    file_relpath = file_relpath_from_meili_doc(document)
     next_module_name = ""
     found_previous_next = False
     for module in module_values:
@@ -822,13 +819,17 @@ async def update_doc_from_module(document):
             if module["name"] == document["next"]:
                 found_previous_next = True
             continue
-        metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], document)
-        if retry_until_ready(
-            lambda: module["proxy"].check(
-                str(file_relpath), json.dumps(document), str(metadata_dir_relpath)
-            ),
-            f"failed to contact {module["host"]} after module run",
-        ):
+
+        claimed = set(
+            json.loads(
+                retry_until_ready(
+                    lambda: module["proxy"].check(json.dumps([document])),
+                    f"failed to contact {module["host"]} after module run",
+                )
+            )
+        )
+
+        if document["id"] in claimed:
             next_module_name = module["name"]
             break
     document["next"] = next_module_name
@@ -858,13 +859,7 @@ async def run_module(name, proxy):
                             modules_logger.info(f"   * time up")
                             modules_logger.info(f"   * post-poned {count}")
                             return True
-                        document = json.loads(
-                            proxy.run(
-                                str(file_relpath_from_meili_doc(document)),
-                                json.dumps(document),
-                                str(metadata_dir_relpath_from_doc(name, document)),
-                            )
-                        )
+                        document = json.loads(proxy.run(json.dumps(document)))
                         await update_doc_from_module(document)
                     except:
                         modules_logger.exception(f'   x failed at "{relpath}"')
