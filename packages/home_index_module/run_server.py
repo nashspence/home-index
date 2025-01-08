@@ -25,7 +25,9 @@ def file_path_from_meili_doc(document):
 
 
 def metadata_dir_path_from_doc(name, document):
-    return Path(BY_ID_DIRECTORY / document["id"] / name)
+    dir = Path(BY_ID_DIRECTORY / document["id"] / name)
+    dir.mkdir(parents=True, exist_ok=True)
+    return dir
 
 
 @contextmanager
