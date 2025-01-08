@@ -64,10 +64,13 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             response = set()
             for document in json.loads(docs):
                 file_path = file_path_from_meili_doc(document)
-                metadata_dir_path = metadata_dir_path_from_doc(name, document)
-                with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                    if check_fn(file_path, document, metadata_dir_path):
-                        response.add(document["id"])
+                try:
+                    metadata_dir_path = metadata_dir_path_from_doc(name, document)
+                    with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
+                        if check_fn(file_path, document, metadata_dir_path):
+                            response.add(document["id"])
+                except Exception as e:
+                    logging.exception(f'failed to check "{file_path}"')
             return json.dumps(list(response))
 
         def load(self):
