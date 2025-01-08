@@ -511,10 +511,15 @@ def index_metadata():
     file_paths = [dir / "document.json" for dir in (BY_ID_DIRECTORY).iterdir()]
 
     def read_doc_json(doc_json_path):
+        if not doc_json_path.exists():
+            shutil.rmtree(doc_json_path.parent)
+            return None
         with doc_json_path.open("r") as file:
             return json.load(file)
 
     def handle_doc(doc):
+        if not doc:
+            return
         hash = doc["id"]
         if hash in metadata_docs_by_hash:
             return
