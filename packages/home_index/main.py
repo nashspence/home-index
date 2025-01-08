@@ -129,37 +129,54 @@ RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 MODULES = os.environ.get("MODULES", "")
 
 
+def retry_until_ready(fn, msg):
+    for attempt in range(60):
+        try:
+            return fn()
+        except Exception as e:
+            if attempt < 59:
+                time.sleep(1)
+            else:
+                raise RuntimeError(msg) from e
+
+
 def setup_modules():
     hellos = []
     module_values = []
     modules = {}
     hello_versions = []
+
     if MODULES:
         for module_host in MODULES.split(","):
-            try:
-                proxy = ServerProxy(module_host.strip())
-                hello = json.loads(proxy.hello())
-            except ValueError:
-                raise ValueError(
-                    "MODULES format should be 'http://domain:port,http://domain:port,...'"
-                )
+            module_host = module_host.strip()
+            proxy = ServerProxy(module_host)
+
+            hello = retry_until_ready(
+                lambda: json.loads(proxy.hello()),
+                f"Failed to get 'hello' from {module_host} many retries",
+            )
+
             try:
                 name = hello["name"]
-            except:
+            except KeyError:
                 raise ValueError(f'{module_host} did not return "name" on hello')
+
             if name in modules:
                 raise ValueError(
                     f"multiple modules found with name {name}, this must be unique"
                 )
+
             try:
                 version = hello["version"]
-            except:
+            except KeyError:
                 raise ValueError(f'{module_host} did not return "version" on hello')
+
             hellos.append(hello)
             hello_versions.append([name, version])
 
-            modules[name] = {"name": name, "proxy": proxy, "host": module_host.strip()}
+            modules[name] = {"name": name, "proxy": proxy, "host": module_host}
             module_values.append(modules[name])
+
     return modules, module_values, hellos, hello_versions
 
 
