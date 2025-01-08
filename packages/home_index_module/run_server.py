@@ -49,14 +49,14 @@ def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
     class Handler:
         def hello(self):
             logging.info("hello")
-            return json.dump(hello_fn())
+            return json.dumps(hello_fn())
 
         def check(self, file_relpath, document_json, metadata_dir_relpath):
             file_path = FILES_DIRECTORY / file_relpath
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
                 x = check_fn(file_path, json.loads(document_json), metadata_dir_path)
-            return json.dump(x)
+            return json.dumps(x)
 
         def load(self):
             logging.info("load")
@@ -68,7 +68,7 @@ def run_server(hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             metadata_dir_path = METADATA_DIRECTORY / metadata_dir_relpath
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
                 x = run_fn(file_path, json.loads(document_json), metadata_dir_path)
-            return json.dump(x)
+            return json.dumps(x)
 
         def unload(self):
             logging.info("unload")

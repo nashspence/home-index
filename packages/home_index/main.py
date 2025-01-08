@@ -137,7 +137,7 @@ if MODULES:
     for module_host in MODULES.split(","):
         try:
             proxy = ServerProxy(module_host.strip())
-            hello = json.load(proxy.hello())
+            hello = json.loads(proxy.hello())
         except ValueError:
             raise ValueError(
                 "MODULES format should be 'http://domain:port,http://domain:port,...'"
@@ -453,7 +453,7 @@ def get_next_module(doc):
     for module in module_values:
         metadata_dir_relpath = metadata_dir_relpath_from_doc(module["name"], doc)
         if module["proxy"].check(
-            str(relpath), json.dump(doc), str(metadata_dir_relpath)
+            str(relpath), json.dumps(doc), str(metadata_dir_relpath)
         ):
             return module["name"]
 
@@ -771,7 +771,7 @@ async def update_doc_from_module(document):
             continue
         if module["proxy"].check(
             str(file_relpath),
-            json.dump(document),
+            json.dumps(document),
             str(metadata_dir_relpath_from_doc(module["name"], document)),
         ):
             next_module_name = module["name"]
@@ -802,10 +802,10 @@ async def run_module(name, proxy):
                         if elapsed_time > MODULES_MAX_SECONDS:
                             modules_logger.info(f"   * post-poned {count}")
                             return True
-                        document = json.load(
+                        document = json.loads(
                             proxy.run(
                                 str(file_relpath_from_meili_doc(document)),
-                                json.dump(document),
+                                json.dumps(document),
                                 str(metadata_dir_relpath_from_doc(name, document)),
                             )
                         )
