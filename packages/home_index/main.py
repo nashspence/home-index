@@ -513,7 +513,7 @@ def set_next_modules(files_docs_by_hash):
             doc["next"] = module["name"]
         if not needs_update:
             break
-    for id, doc in needs_update:
+    for id, doc in needs_update.items():
         doc["next"] = ""
 
 
