@@ -71,6 +71,7 @@ from itertools import chain
 from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from multiprocessing import Manager
 
 
 # endregion
@@ -646,13 +647,17 @@ def index_files(
                     )
                 )
         else:
+            manager = Manager()
+            shared_metadata_docs_by_hash = manager.dict(metadata_docs_by_hash)
+            shared_metadata_hashes_by_relpath = manager.dict(metadata_hashes_by_relpath)
+
             with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
                 for completed in as_completed(
                     executor.submit(
                         determine_hash,
                         fp,
-                        metadata_docs_by_hash,
-                        metadata_hashes_by_relpath,
+                        shared_metadata_docs_by_hash,
+                        shared_metadata_hashes_by_relpath,
                     )
                     for fp in file_paths
                 ):
