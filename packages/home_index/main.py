@@ -872,6 +872,8 @@ async def run_module(name, proxy):
             finally:
                 modules_logger.info(f" * call unload")
                 proxy.unload()
+                modules_logger.info(f" * wait for meilisearch")
+                await wait_for_meili_idle()
                 modules_logger.info(f" * done")
     except:
         modules_logger.exception(f" * failed")
