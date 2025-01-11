@@ -100,8 +100,9 @@ MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
 
-MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", 1))
-MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", 1))
+CPU_COUNT = os.cpu_count()
+MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT / 2))
+MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT / 2))
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
 INDEX_DIRECTORY.mkdir(parents=True, exist_ok=True)
