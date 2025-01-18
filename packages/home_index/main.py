@@ -696,10 +696,11 @@ def update_metadata(
         by_path_path = BY_PATH_DIRECTORY / relpath
         if not metadata_doc["id"] in files_docs_by_hash and by_id_path.exists():
             shutil.rmtree(by_id_path)
-        by_path_path.unlink()
+        if by_path_path.is_symlink():
+            by_path_path.unlink()
         if by_path_path.parent != BY_PATH_DIRECTORY:
             total_count = len(list(by_path_path.parent.iterdir()))
-            if total_count == 0:
+            if total_count == 0 and by_path_path.parent.exists():
                 shutil.rmtree(by_path_path.parent)
 
     def handle_upserted_doc(doc):
@@ -743,6 +744,7 @@ def update_metadata(
 
 
 async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
+    files_logger.info(f" * get all meilisearch documents")
     all_meili_docs = await get_all_documents()
     meili_hashes = {doc["id"] for doc in all_meili_docs}
 
