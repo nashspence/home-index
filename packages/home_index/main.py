@@ -698,9 +698,13 @@ def update_metadata(
             shutil.rmtree(by_id_path)
         if by_path_path.is_symlink():
             by_path_path.unlink()
-        if by_path_path.parent and by_path_path.parent != BY_PATH_DIRECTORY:
+        if (
+            by_path_path.parent
+            and by_path_path.parent != BY_PATH_DIRECTORY
+            and by_path_path.parent.exists()
+        ):
             total_count = len(list(by_path_path.parent.iterdir()))
-            if total_count == 0 and by_path_path.parent.exists():
+            if total_count == 0:
                 shutil.rmtree(by_path_path.parent)
 
     def handle_upserted_doc(doc):
