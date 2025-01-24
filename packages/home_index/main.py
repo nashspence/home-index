@@ -476,7 +476,7 @@ def get_mime_type(file_path):
     if mime_type == "application/octet-stream":
         if is_apple_double(file_path):
             return "multipart/appledouble"
-        mime_type, _ = mimetypes.guess_type(file_path)
+        mime_type, _ = mimetypes.guess_type(file_path, strict=False)
         if mime_type is None:
             mime_type = "application/octet-stream"
     return mime_type
