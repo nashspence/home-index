@@ -462,11 +462,19 @@ def truncate_mtime(st_mtime):
     return math.floor(st_mtime * 10000) / 10000
 
 
+def is_apple_double(file_path):
+    try:
+        with Path(file_path).open("rb") as file:
+            return file.read(4) == b"\x00\x05\x16\x07"
+    except:
+        return False
+
+
 def get_mime_type(file_path):
     mime = magic.Magic(mime=True)
     mime_type = mime.from_file(file_path)
     if mime_type == "application/octet-stream":
-        if Path(file_path).name.startswith("._"):
+        if is_apple_double(file_path):
             return "multipart/appledouble"
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type is None:
@@ -635,7 +643,7 @@ def index_files(
         doc["type"] = mime_type
         doc["paths"][relpath] = truncate_mtime(stat.st_mtime)
         doc["copies"] = len(doc["paths"])
-        doc["mtime"] = max(doc["paths"].values()) 
+        doc["mtime"] = max(doc["paths"].values())
 
         files_docs_by_hash[hash] = doc
         files_hashes_by_relpath[relpath] = hash
