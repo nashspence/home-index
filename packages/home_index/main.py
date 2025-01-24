@@ -62,7 +62,7 @@ import mimetypes
 import xxhash
 import copy
 import math
-from xmlrpc.client import ServerProxy
+from xmlrpc.client import ServerProxy, Fault
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -874,13 +874,15 @@ async def run_module(name, proxy):
                             return True
                         document = json.loads(proxy.run(json.dumps(document)))
                         await update_doc_from_module(document)
-                    except:
-                        modules_logger.exception(f'   x failed at "{relpath}"')
+                    except Fault as e:
+                        modules_logger.warning(f'   x "{relpath}": {str(e)}')
+                    except Exception as e:
+                        raise e
                     count = count - 1
                 modules_logger.info(f"   * done")
                 return False
-            except:
-                modules_logger.exception(f" x failed")
+            except Exception as e:
+                modules_logger.warning(f" x failed: {str(e)}")
                 return True
             finally:
                 modules_logger.info(f" * call unload")
@@ -888,8 +890,8 @@ async def run_module(name, proxy):
                 modules_logger.info(f" * wait for meilisearch")
                 await wait_for_meili_idle()
                 modules_logger.info(f" * done")
-    except:
-        modules_logger.exception(f" * failed")
+    except Exception as e:
+        modules_logger.warning(f" * failed: {str(e)}")
         return True
 
 
