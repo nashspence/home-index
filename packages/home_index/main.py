@@ -893,7 +893,7 @@ async def run_module(name, proxy):
                 await wait_for_meili_idle()
                 modules_logger.info(f" * done")
     except Exception as e:
-        modules_logger.warning(f" * failed: {str(e)}")
+        modules_logger.warning(f"failed: {str(e)}")
         return True
 
 
