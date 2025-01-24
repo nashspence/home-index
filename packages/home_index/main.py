@@ -466,6 +466,8 @@ def get_mime_type(file_path):
     mime = magic.Magic(mime=True)
     mime_type = mime.from_file(file_path)
     if mime_type == "application/octet-stream":
+        if Path(file_path).name.startswith("._"):
+            return "multipart/appledouble"
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type is None:
             mime_type = "application/octet-stream"
