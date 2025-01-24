@@ -869,14 +869,16 @@ async def run_module(name, proxy):
                     try:
                         elapsed_time = time.monotonic() - start_time
                         if elapsed_time > MODULES_MAX_SECONDS:
-                            modules_logger.info(f"   * time up")
-                            modules_logger.info(f"   * post-poned {count}")
+                            modules_logger.info(
+                                f"   * time up after {len(documents) - count} ({count} remain)"
+                            )
                             return True
                         document = json.loads(proxy.run(json.dumps(document)))
                         await update_doc_from_module(document)
                     except Fault as e:
                         modules_logger.warning(f'   x "{relpath}": {str(e)}')
                     except Exception as e:
+                        modules_logger.warning(f'   x "{relpath}"')
                         raise e
                     count = count - 1
                 modules_logger.info(f"   * done")
