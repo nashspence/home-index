@@ -632,9 +632,10 @@ def index_files(
                 "type": mime_type,
             }
 
+        doc["type"] = mime_type
         doc["paths"][relpath] = truncate_mtime(stat.st_mtime)
         doc["copies"] = len(doc["paths"])
-        doc["mtime"] = max(doc["paths"].values())
+        doc["mtime"] = max(doc["paths"].values()) 
 
         files_docs_by_hash[hash] = doc
         files_hashes_by_relpath[relpath] = hash
