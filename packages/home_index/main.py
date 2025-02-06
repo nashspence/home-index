@@ -503,11 +503,7 @@ def determine_hash(path, metadata_docs_by_hash, metadata_hashes_by_relpath):
 
 
 def set_next_modules(files_docs_by_hash):
-    needs_update = {
-        id: doc
-        for id, doc in files_docs_by_hash.items()
-        if is_modules_changed or not "next" in doc
-    }
+    needs_update = {id: doc for id, doc in files_docs_by_hash.items()}
     for module in module_values:
         claimed = set(
             json.loads(
@@ -691,9 +687,12 @@ def update_metadata(
     upserted_docs_by_hash = {
         hash: files_doc
         for hash, files_doc in files_docs_by_hash.items()
-        if is_modules_changed
-        or (not hash in metadata_docs_by_hash)
+        if (not hash in metadata_docs_by_hash)
         or (metadata_docs_by_hash[hash]["paths"] != files_docs_by_hash[hash]["paths"])
+        or (
+            metadata_docs_by_hash[hash].get("next")
+            != files_docs_by_hash[hash].get("next")
+        )
     }
 
     files_logger.info(f" * check for deleted file path")
