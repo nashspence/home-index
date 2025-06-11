@@ -4,7 +4,9 @@
 import os
 import debugpy
 
-debugpy.listen(("0.0.0.0", 5678))
+DEBUGPY_HOST = os.environ.get("DEBUGPY_HOST", "0.0.0.0")
+DEBUGPY_PORT = int(os.environ.get("DEBUGPY_PORT", 5678))
+debugpy.listen((DEBUGPY_HOST, DEBUGPY_PORT))
 
 if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
     print("Waiting for debugger to attach...")
