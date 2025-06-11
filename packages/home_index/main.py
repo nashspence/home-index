@@ -6,7 +6,9 @@ import os
 if str(os.environ.get("DEBUG", "False")) == "True":
     import debugpy
 
-    debugpy.listen(("0.0.0.0", 5678))
+    DEBUGPY_HOST = os.environ.get("DEBUGPY_HOST", "0.0.0.0")
+    DEBUGPY_PORT = int(os.environ.get("DEBUGPY_PORT", 5678))
+    debugpy.listen((DEBUGPY_HOST, DEBUGPY_PORT))
 
     if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
         print("Waiting for debugger to attach...")
@@ -29,20 +31,24 @@ logging.basicConfig(
     level=logging.CRITICAL, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
+LOGGING_DIRECTORY = os.environ.get("LOGGING_DIRECTORY", "/home-index")
+
 modules_logger = logging.getLogger("home-index-modules")
 modules_logger.setLevel(LOGGING_LEVEL)
 file_handler = logging.handlers.RotatingFileHandler(
-    "/home-index/modules.log",
+    os.path.join(LOGGING_DIRECTORY, "modules.log"),
     maxBytes=LOGGING_MAX_BYTES,
     backupCount=LOGGING_BACKUP_COUNT,
 )
-file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+)
 modules_logger.addHandler(file_handler)
 
 files_logger = logging.getLogger("home-index-files")
 files_logger.setLevel(LOGGING_LEVEL)
 file_handler = logging.handlers.RotatingFileHandler(
-    "/home-index/files.log",
+    os.path.join(LOGGING_DIRECTORY, "files.log"),
     maxBytes=LOGGING_MAX_BYTES,
     backupCount=LOGGING_BACKUP_COUNT,
 )
@@ -216,7 +222,9 @@ set_global_modules()
 
 
 hello_versions_changed = False
-hello_versions_file_path = Path("/home-index/hello_versions.json")
+hello_versions_file_path = Path(
+    os.environ.get("HELLO_VERSIONS_FILE_PATH", "/home-index/hello_versions.json")
+)
 
 hello_versions_json = {}
 if hello_versions_file_path.exists():
