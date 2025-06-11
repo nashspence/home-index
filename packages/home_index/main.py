@@ -129,13 +129,28 @@ RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
 MODULES = os.environ.get("MODULES", "")
 
+# Default number of seconds to retry operations before failing.
+# Can be overridden via the RETRY_UNTIL_READY_SECONDS environment variable.
+RETRY_UNTIL_READY_SECONDS = int(os.environ.get("RETRY_UNTIL_READY_SECONDS", "60"))
 
-def retry_until_ready(fn, msg, seconds=60):
+# Configure specific retry timeouts for the various retry_until_ready usages.
+HELLO_RETRY_SECONDS = int(
+    os.environ.get("MODULES_HELLO_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
+)
+CHECK_RETRY_SECONDS = int(
+    os.environ.get("MODULES_CHECK_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
+)
+POST_RUN_RETRY_SECONDS = int(
+    os.environ.get("MODULES_POST_RUN_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
+)
+
+
+def retry_until_ready(fn, msg, seconds=RETRY_UNTIL_READY_SECONDS):
     for attempt in range(seconds):
         try:
             return fn()
         except Exception as e:
-            if attempt < 59:
+            if attempt < seconds - 1:
                 time.sleep(1)
             else:
                 raise RuntimeError(msg) from e
@@ -155,6 +170,7 @@ def setup_modules():
             hello = retry_until_ready(
                 lambda: json.loads(proxy.hello()),
                 f"Failed to get 'hello' from {module_host} many retries",
+                seconds=HELLO_RETRY_SECONDS,
             )
 
             try:
@@ -511,7 +527,8 @@ def set_next_modules(files_docs_by_hash):
                     lambda: module["proxy"].check(
                         json.dumps(list(needs_update.values()))
                     ),
-                    f"failed to contact {module["host"]} during sync",
+                    f"failed to contact {module['host']} during sync",
+                    seconds=CHECK_RETRY_SECONDS,
                 )
             )
         )
@@ -847,7 +864,8 @@ async def update_doc_from_module(document):
             json.loads(
                 retry_until_ready(
                     lambda: module["proxy"].check(json.dumps([document])),
-                    f"failed to contact {module["host"]} after module run",
+                    f"failed to contact {module['host']} after module run",
+                    seconds=POST_RUN_RETRY_SECONDS,
                 )
             )
         )
@@ -911,7 +929,7 @@ async def run_modules():
     modules_logger.info(f"")
     modules_logger.info(f"start modules processing")
     for index, module in enumerate(module_values):
-        modules_logger.info(f" {index + 1}. {module["name"]}")
+        modules_logger.info(f" {index + 1}. {module['name']}")
 
     while True:
         run_again = False
