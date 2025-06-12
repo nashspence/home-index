@@ -143,9 +143,7 @@ Each module must implement `hello`, `check`, `run`, and optionally
 `load`/`unload`. `hello` returns metadata (name, version, filterable and sortable
 attributes). `check` receives candidate documents and returns which ones to
 process. `run` performs the work and may store data in the provided metadata
-folder. The value returned from `run` may be a single document or a list of
-documents. File metadata documents carry `doc_type="file"` while documents
-created by modules default to `doc_type="content"`.
+folder.
 
 ## Development
 
