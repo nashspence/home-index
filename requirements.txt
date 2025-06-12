@@ -3,4 +3,3 @@ debugpy
 meilisearch-python-sdk
 python-magic
 xxhash
-requests
