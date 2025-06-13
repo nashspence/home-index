@@ -60,4 +60,4 @@ Home Index makes directories of files searchable with minimal configuration. It 
 
 ## License
 
-No explicit license file is provided. Review the repository history for details.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
