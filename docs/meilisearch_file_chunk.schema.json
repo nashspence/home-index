@@ -12,15 +12,24 @@
       "type": "string",
       "description": "ID of the parent file document"
     },
+    "name": {
+      "type": "string",
+      "description": "Chunk name used for the 'passage:' prefix"
+    },
     "text": {
       "type": "string",
-      "description": "Chunk text content"
+      "description": "Chunk text content prefixed with 'passage: <name>'"
     },
     "metadata": {
       "type": "object",
       "description": "Additional metadata provided by modules"
+    },
+    "_vector": {
+      "type": "array",
+      "items": {"type": "number"},
+      "description": "Sentence embedding vector for semantic search"
     }
   },
-  "required": ["id", "file_id", "text"],
+  "required": ["id", "file_id", "name", "text"],
   "additionalProperties": true
 }
