@@ -14,11 +14,16 @@
     },
     "text": {
       "type": "string",
-      "description": "Chunk text content"
+      "description": "Chunk text content prefixed with 'passage: <dir ... filename>'"
     },
     "metadata": {
       "type": "object",
       "description": "Additional metadata provided by modules"
+    },
+    "_vector": {
+      "type": "array",
+      "items": {"type": "number"},
+      "description": "Sentence embedding vector for semantic search"
     }
   },
   "required": ["id", "file_id", "text"],

@@ -78,6 +78,7 @@ from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
+from sentence_transformers import SentenceTransformer
 
 
 # endregion
@@ -114,6 +115,16 @@ MEILISEARCH_CHUNK_INDEX_NAME = os.environ.get(
 CPU_COUNT = os.cpu_count()
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT / 2))
 MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT / 2))
+
+# embedding configuration
+EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL_NAME", "intfloat/e5-small-v2")
+try:
+    import torch
+    default_device = "cuda" if torch.cuda.is_available() else "cpu"
+except Exception:
+    default_device = "cpu"
+EMBED_DEVICE = os.environ.get("EMBED_DEVICE", default_device)
+EMBED_DIM = int(os.environ.get("EMBED_DIM", "384"))
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
 INDEX_DIRECTORY.mkdir(parents=True, exist_ok=True)
@@ -153,6 +164,24 @@ CHECK_RETRY_SECONDS = int(
 POST_RUN_RETRY_SECONDS = int(
     os.environ.get("MODULES_POST_RUN_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
 )
+
+
+# embedding model setup
+embedding_model = None
+
+
+def init_embedder():
+    global embedding_model
+    if embedding_model is None:
+        embedding_model = SentenceTransformer(EMBED_MODEL_NAME, device=EMBED_DEVICE)
+
+
+def embed_texts(texts):
+    """Return embeddings for a list of texts."""
+    if embedding_model is None:
+        init_embedder()
+    vectors = embedding_model.encode(texts, convert_to_numpy=True)
+    return [vec.tolist() for vec in vectors]
 
 
 def retry_until_ready(fn, msg, seconds=RETRY_UNTIL_READY_SECONDS):
@@ -326,6 +355,14 @@ async def init_meili():
         else:
             logging.exception(f"meili chunk init failed")
             raise
+
+    try:
+        await chunk_index.update_settings({
+            "vectorStore": {"vectorField": "_vector", "dimension": EMBED_DIM}
+        })
+        await chunk_index.update_filterable_attributes(["file_id"])
+    except Exception:
+        logging.exception("meili update chunk vector settings failed")
 
     filterable_attributes = [
         "mtime",
@@ -996,6 +1033,19 @@ async def run_module(name, proxy):
                             delete_chunk_ids = []
 
                         if chunk_docs:
+                            def prefix_from_relpath(path: str) -> str:
+                                parts = Path(path).with_suffix("").parts
+                                return " ".join(parts)
+
+                            prefix = prefix_from_relpath(relpath)
+                            texts = []
+                            for chunk in chunk_docs:
+                                if "text" in chunk:
+                                    chunk["text"] = f"passage: {prefix}\n" + chunk["text"]
+                                    texts.append(chunk["text"])
+                            vectors = embed_texts(texts)
+                            for chunk, vec in zip(chunk_docs, vectors):
+                                chunk["_vector"] = vec
                             await add_or_update_chunk_documents(chunk_docs)
                         if delete_chunk_ids:
                             await delete_chunk_docs_by_id(delete_chunk_ids)
