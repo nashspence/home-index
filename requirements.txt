@@ -2,4 +2,5 @@ apscheduler
 debugpy
 meilisearch-python-sdk
 python-magic
+jsonschema
 xxhash

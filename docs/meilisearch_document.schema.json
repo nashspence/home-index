@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Home Index File Document",
+  "description": "Schema describing documents stored in the Meilisearch \"files\" index.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "xxh64 hexadecimal digest uniquely identifying the file contents"
+    },
+    "type": {
+      "type": "string",
+      "description": "MIME type of the file"
+    },
+    "size": {
+      "type": "integer",
+      "description": "File size in bytes"
+    },
+    "paths": {
+      "type": "object",
+      "description": "Mapping of relative file paths to their modification times (seconds since Unix epoch, truncated to 4 decimal places)",
+      "additionalProperties": {
+        "type": "number",
+        "description": "Modification time in epoch seconds"
+      }
+    },
+    "copies": {
+      "type": "integer",
+      "description": "Number of entries in the \"paths\" map"
+    },
+    "mtime": {
+      "type": "number",
+      "description": "Most recent modification time across all copies (epoch seconds truncated to 4 decimals)"
+    },
+    "next": {
+      "type": "string",
+      "description": "Name of the next module to process this document or empty string when none",
+      "default": ""
+    }
+  },
+  "required": ["id", "type", "size", "paths", "copies", "mtime"],
+  "additionalProperties": true
+}
