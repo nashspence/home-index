@@ -58,7 +58,13 @@ def dummy_module_server(port):
 
     def run(document_json):
         doc = json.loads(document_json)
-        chunk = {"id": "chunk1", "file_id": doc["id"], "text": "hello", "metadata": {}}
+        chunk = {
+            "id": "chunk1",
+            "file_id": doc["id"],
+            "name": "MyChunk",
+            "text": "hello",
+            "metadata": {},
+        }
         return json.dumps({"document": doc, "chunk_docs": [chunk]})
 
     def unload():
@@ -155,7 +161,7 @@ def test_run_module_adds_and_deletes_chunks(tmp_path):
 
             chunk = await hi.chunk_index.get_document("chunk1")
             assert chunk["file_id"] == "file1"
-            assert chunk["text"].startswith("passage: foo a\n")
+            assert chunk["text"].startswith("passage: MyChunk\n")
             assert len(chunk["_vector"]) == hi.EMBED_DIM
 
             await hi.delete_docs_by_id(["file1"])

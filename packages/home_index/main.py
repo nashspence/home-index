@@ -1033,14 +1033,10 @@ async def run_module(name, proxy):
                             delete_chunk_ids = []
 
                         if chunk_docs:
-                            def prefix_from_relpath(path: str) -> str:
-                                parts = Path(path).with_suffix("").parts
-                                return " ".join(parts)
-
-                            prefix = prefix_from_relpath(relpath)
                             texts = []
                             for chunk in chunk_docs:
                                 if "text" in chunk:
+                                    prefix = chunk["name"]
                                     chunk["text"] = f"passage: {prefix}\n" + chunk["text"]
                                     texts.append(chunk["text"])
                             vectors = embed_texts(texts)
