@@ -106,6 +106,10 @@ MODULES_SLEEP_SECONDS = int(
 MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
+MEILISEARCH_CHUNK_INDEX_NAME = os.environ.get(
+    "MEILISEARCH_CHUNK_INDEX_NAME",
+    "file_chunks",
+)
 
 CPU_COUNT = os.cpu_count()
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT / 2))
@@ -277,10 +281,11 @@ def parse_cron_env(env_var="CRON_EXPRESSION", default="0 3 * * *"):
 
 client = None
 index = None
+chunk_index = None
 
 
 async def init_meili():
-    global client, index
+    global client, index, chunk_index
     logging.debug(f"meili init")
     client = AsyncClient(MEILISEARCH_HOST)
 
@@ -300,6 +305,26 @@ async def init_meili():
                 raise
         else:
             logging.exception(f"meili init failed")
+            raise
+
+    try:
+        chunk_index = await client.get_index(MEILISEARCH_CHUNK_INDEX_NAME)
+    except Exception as e:
+        if getattr(e, "code", None) == "index_not_found":
+            try:
+                logging.info(
+                    f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"'
+                )
+                chunk_index = await client.create_index(
+                    MEILISEARCH_CHUNK_INDEX_NAME, primary_key="id"
+                )
+            except Exception:
+                logging.exception(
+                    f'meili create index failed "{MEILISEARCH_CHUNK_INDEX_NAME}"'
+                )
+                raise
+        else:
+            logging.exception(f"meili chunk init failed")
             raise
 
     filterable_attributes = [
@@ -370,6 +395,20 @@ async def add_or_update_documents(docs):
             raise
 
 
+async def add_or_update_chunk_documents(docs):
+    if not chunk_index:
+        raise Exception("meili chunk index did not init")
+
+    if docs:
+        try:
+            for i in range(0, len(docs), MEILISEARCH_BATCH_SIZE):
+                batch = docs[i : i + MEILISEARCH_BATCH_SIZE]
+                await chunk_index.update_documents(batch)
+        except Exception:
+            logging.exception("meili update chunk documents failed")
+            raise
+
+
 async def delete_docs_by_id(ids):
     if not index:
         raise Exception("meili index did not init")
@@ -381,6 +420,42 @@ async def delete_docs_by_id(ids):
                 await index.delete_documents(ids=batch)
     except Exception:
         logging.exception(f"meili delete documents failed")
+        raise
+
+
+async def delete_chunk_docs_by_id(ids):
+    if not chunk_index:
+        raise Exception("meili chunk index did not init")
+
+    try:
+        if ids:
+            for i in range(0, len(ids), MEILISEARCH_BATCH_SIZE):
+                batch = ids[i : i + MEILISEARCH_BATCH_SIZE]
+                await chunk_index.delete_documents(ids=batch)
+    except Exception:
+        logging.exception("meili delete chunk documents failed")
+        raise
+
+
+async def delete_chunk_docs_by_file_ids(file_ids):
+    if not chunk_index:
+        raise Exception("meili chunk index did not init")
+
+    try:
+        docs = []
+        offset = 0
+        limit = MEILISEARCH_BATCH_SIZE
+        while True:
+            result = await chunk_index.get_documents(offset=offset, limit=limit)
+            docs.extend(result.results)
+            if len(result.results) < limit:
+                break
+            offset += limit
+
+        ids_to_delete = [d["id"] for d in docs if d.get("file_id") in file_ids]
+        await delete_chunk_docs_by_id(ids_to_delete)
+    except Exception:
+        logging.exception("meili delete chunk documents by file id failed")
         raise
 
 
@@ -799,6 +874,7 @@ async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
     if deleted_hashes:
         files_logger.info(f" * delete {len(deleted_hashes)} meilisearch documents")
         await delete_docs_by_id(list(deleted_hashes))
+        await delete_chunk_docs_by_file_ids(list(deleted_hashes))
         await wait_for_meili_idle()
     if upserted_docs_by_hash:
         files_logger.info(
@@ -909,7 +985,21 @@ async def run_module(name, proxy):
                                 f"   * time up after {len(documents) - count} ({count} remain)"
                             )
                             return True
-                        document = json.loads(proxy.run(json.dumps(document)))
+                        result = json.loads(proxy.run(json.dumps(document)))
+                        if isinstance(result, dict) and "document" in result:
+                            chunk_docs = result.get("chunk_docs", [])
+                            delete_chunk_ids = result.get("delete_chunk_ids", [])
+                            document = result["document"]
+                        else:
+                            document = result
+                            chunk_docs = []
+                            delete_chunk_ids = []
+
+                        if chunk_docs:
+                            await add_or_update_chunk_documents(chunk_docs)
+                        if delete_chunk_ids:
+                            await delete_chunk_docs_by_id(delete_chunk_ids)
+
                         await update_doc_from_module(document)
                     except Fault as e:
                         modules_logger.warning(f'   x "{relpath}": {str(e)}')
