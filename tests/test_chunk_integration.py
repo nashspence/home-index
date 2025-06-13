@@ -58,7 +58,13 @@ def dummy_module_server(port):
 
     def run(document_json):
         doc = json.loads(document_json)
-        chunk = {"id": "chunk1", "file_id": doc["id"], "text": "hello", "metadata": {}}
+        chunk = {
+            "id": "chunk1",
+            "file_id": doc["id"],
+            "name": "MyChunk",
+            "text": "hello",
+            "metadata": {},
+        }
         return json.dumps({"document": doc, "chunk_docs": [chunk]})
 
     def unload():
@@ -134,11 +140,13 @@ def test_run_module_adds_and_deletes_chunks(tmp_path):
             importlib.reload(hi)
             await hi.init_meili()
 
+            hi.embed_texts = lambda texts: [[0.0] * hi.EMBED_DIM for _ in texts]
+
             doc = {
                 "id": "file1",
                 "type": "text/plain",
                 "size": 1,
-                "paths": {"a.txt": 1.0},
+                "paths": {"foo/a.txt": 1.0},
                 "copies": 1,
                 "mtime": 1.0,
                 "next": "dummy",
@@ -153,6 +161,8 @@ def test_run_module_adds_and_deletes_chunks(tmp_path):
 
             chunk = await hi.chunk_index.get_document("chunk1")
             assert chunk["file_id"] == "file1"
+            assert chunk["text"].startswith("passage: MyChunk\n")
+            assert len(chunk["_vector"]) == hi.EMBED_DIM
 
             await hi.delete_docs_by_id(["file1"])
             await hi.delete_chunk_docs_by_file_ids(["file1"])
