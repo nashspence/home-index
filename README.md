@@ -44,13 +44,15 @@ Modules extend Home Index by providing extra metadata. A module is an XML‑RPC 
 - **run** – perform work on a document and optionally return chunk documents
 - **load** / **unload** *(optional)* – setup or teardown logic
 
-Use `home_index_module.run_server` to expose these functions. See `test/test_module_1` for a minimal example. Once your module is running, add its endpoint to the `MODULES` environment variable, e.g.:
+Use `home_index_module.run_server` to expose these functions. See `examples/module_template` for a minimal starting point and `docs/rpc_module_spec.md` for the full RPC specification. Once your module is running, add its endpoint to the `MODULES` environment variable, e.g.:
 
 ```bash
 MODULES=http://my-module:9000
 ```
 
 Home Index will automatically call your module to enrich documents.
+
+Modules are called sequentially in the order specified by `MODULES`. Each module is given a limited time slice configured via `MODULES_MAX_SECONDS`. Processing of an individual file is never interrupted once it begins.
 
 ## Purpose
 

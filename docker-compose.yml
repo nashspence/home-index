@@ -6,15 +6,12 @@ services:
     container_name: home-index
     depends_on:
       - meilisearch
-      - home-index-test-module-1
+      - home-index-example-module
     environment:
       - DEBUG=True
       - MEILISEARCH_HOST=http://meilisearch:7700
-      - MODULES=http://home-index-test-module-1:9000
+      - MODULES=http://home-index-example-module:9000
       - TZ=America/Los_Angeles
-      - WAIT_FOR_DEBUGPY_CLIENT=True
-    ports:
-      - '5678:5678' # debugpy
     restart: unless-stopped
     volumes:
       - ./bind-mounts/home-index:/home-index
@@ -28,15 +25,13 @@ services:
     restart: unless-stopped
     volumes:
       - ./bind-mounts/meilisearch:/meili_data
-  home-index-test-module-1:
+  home-index-example-module:
     build:
-      context: ./test/test_module_1/
+      context: ./examples/module_template/
       dockerfile: Dockerfile
-    container_name: home-index-test-module-1
+    container_name: home-index-example-module
     environment:
       - TZ=America/Los_Angeles
-    ports:
-      - '5679:5678' # debugpy
     restart: unless-stopped
     volumes:
       - ./bind-mounts/files:/files
