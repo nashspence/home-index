@@ -4,3 +4,4 @@ meilisearch-python-sdk
 python-magic
 jsonschema
 xxhash
+sentence-transformers
