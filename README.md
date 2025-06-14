@@ -30,10 +30,20 @@ Key environment variables (defaults in brackets):
 - `MEILISEARCH_HOST` – address of Meilisearch [`http://localhost:7700`]
 - `INDEX_DIRECTORY` – directory containing files to index [`/files`]
 - `METADATA_DIRECTORY` – where module output is stored [`/files/metadata`]
+- `ARCHIVE_DIRECTORY` – special folder for archived files [`<INDEX_DIRECTORY>/archive`]
 - `MODULES` – comma-separated list of module XML‑RPC endpoints
 - `CRON_EXPRESSION` – cron expression controlling how often the index is refreshed [`0 3 * * *`]
 
 Additional options can be found in `packages/home_index/main.py`.
+
+## Archive directory
+
+Files placed in the archive directory can be stored on removable media without
+being removed from the index. When crawling the index directory Home Index keeps
+metadata for any document whose paths are inside `ARCHIVE_DIRECTORY` even if the
+physical files are missing. Once the archive media is mounted again the files
+are processed like normal, allowing long term storage while preserving search
+results.
 
 ## Modules
 
