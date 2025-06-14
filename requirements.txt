@@ -5,3 +5,4 @@ python-magic
 jsonschema
 xxhash
 sentence-transformers
+httpx
