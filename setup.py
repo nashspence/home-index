@@ -9,4 +9,5 @@ setup(
     url="https://github.com/nashspence/home-index",
     packages=find_packages(where="packages"),
     package_dir={"": "packages"},
+    python_requires=">=3.8",
 )
