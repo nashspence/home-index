@@ -66,6 +66,9 @@ import time
 import magic
 import mimetypes
 import xxhash
+
+# Initialize a single magic.Magic instance for MIME type detection
+magic_mime = magic.Magic(mime=True)
 import copy
 import math
 from xmlrpc.client import ServerProxy, Fault
@@ -610,8 +613,8 @@ def is_apple_double(file_path):
 
 
 def get_mime_type(file_path):
-    mime = magic.Magic(mime=True)
-    mime_type = mime.from_file(file_path)
+    """Return the MIME type for a file path."""
+    mime_type = magic_mime.from_file(file_path)
     if mime_type == "application/octet-stream":
         if is_apple_double(file_path):
             return "multipart/appledouble"
