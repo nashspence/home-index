@@ -745,7 +745,7 @@ def index_files(
     file_paths = []
     for root, _, files in os.walk(INDEX_DIRECTORY):
         root_path = Path(root)
-        if any(dir in root_path.parents for dir in RESERVED_FILES_DIRS):
+        if any(root_path == dir or dir in root_path.parents for dir in RESERVED_FILES_DIRS):
             continue
         for f in files:
             file_paths.append(root_path / f)
