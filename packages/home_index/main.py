@@ -740,11 +740,12 @@ def index_files(
 
     files_logger.info(f" * recursively walk files")
     file_paths = []
-    for root, _, files in INDEX_DIRECTORY.walk():
-        if any(dir in root.parents for dir in RESERVED_FILES_DIRS):
+    for root, _, files in os.walk(INDEX_DIRECTORY):
+        root_path = Path(root)
+        if any(dir in root_path.parents for dir in RESERVED_FILES_DIRS):
             continue
         for f in files:
-            file_paths.append(root / f)
+            file_paths.append(root_path / f)
 
     def handle_hash_at_path(args):
         path, hash, stat, mime_type = args
