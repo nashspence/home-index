@@ -76,6 +76,13 @@ A few maintained modules provide common functionality out of the box:
 - [home-index-transcribe](https://github.com/nashspence/home-index-transcribe) – create transcripts from media with WhisperX.
 - [home-index-thumbnail](https://github.com/nashspence/home-index-thumbnail) – produce WebP thumbnails and previews.
 
+## Front-end interfaces
+
+An optional user interface for interacting with your indexed content is
+[home-index-rag-query](https://github.com/nashspence/home-index-rag-query). It
+offers a Streamlit-driven RAG experience, letting you ask questions against
+your files using a locally run language model backed by Meilisearch.
+
 ## Purpose
 
 Home Index makes directories of files searchable with minimal configuration. It stores file metadata in Meilisearch and lets modules contribute information such as extracted text or image thumbnails. This combination enables rich search and retrieval over personal data.
