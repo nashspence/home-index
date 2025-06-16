@@ -121,7 +121,7 @@ def test_sync_and_run_many_files(tmp_path):
         os.environ["ARCHIVE_DIRECTORY"] = str(archive)
         os.environ["LOGGING_DIRECTORY"] = str(log_dir)
         meili_port = 7720
-        host = f"http://127.0.0.1:{meili_port}"
+        host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{meili_port}")
         with meilisearch_server(tmp_path / "meili", meili_port):
             os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_many"

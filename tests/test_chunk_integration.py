@@ -140,14 +140,25 @@ def dummy_module_server_plain(port):
 def test_run_module_adds_and_deletes_chunks(tmp_path):
     async def run():
         meili_port = 7710
-        host = f"http://127.0.0.1:{meili_port}"
+        host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{meili_port}")
         with meilisearch_server(tmp_path / "meili", meili_port):
             os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_test"
             os.environ["MEILISEARCH_CHUNK_INDEX_NAME"] = "chunks_test"
             os.environ["MODULES"] = ""
+            index_dir = tmp_path / "index"
+            meta_dir = tmp_path / "metadata"
+            by_id = meta_dir / "by-id"
+            by_path = meta_dir / "by-path"
+            archive = tmp_path / "archive"
             log_dir = tmp_path / "logs"
-            log_dir.mkdir(parents=True, exist_ok=True)
+            for d in [index_dir, meta_dir, by_id, by_path, archive, log_dir]:
+                d.mkdir(parents=True, exist_ok=True)
+            os.environ["INDEX_DIRECTORY"] = str(index_dir)
+            os.environ["METADATA_DIRECTORY"] = str(meta_dir)
+            os.environ["BY_ID_DIRECTORY"] = str(by_id)
+            os.environ["BY_PATH_DIRECTORY"] = str(by_path)
+            os.environ["ARCHIVE_DIRECTORY"] = str(archive)
             os.environ["LOGGING_DIRECTORY"] = str(log_dir)
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
             import home_index.main as hi
@@ -192,14 +203,25 @@ def test_run_module_adds_and_deletes_chunks(tmp_path):
 def test_run_module_handles_document_return(tmp_path):
     async def run():
         meili_port = 7711
-        host = f"http://127.0.0.1:{meili_port}"
+        host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{meili_port}")
         with meilisearch_server(tmp_path / "meili", meili_port):
             os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_test2"
             os.environ["MEILISEARCH_CHUNK_INDEX_NAME"] = "chunks_test2"
             os.environ["MODULES"] = ""
+            index_dir = tmp_path / "index"
+            meta_dir = tmp_path / "metadata"
+            by_id = meta_dir / "by-id"
+            by_path = meta_dir / "by-path"
+            archive = tmp_path / "archive"
             log_dir = tmp_path / "logs2"
-            log_dir.mkdir(parents=True, exist_ok=True)
+            for d in [index_dir, meta_dir, by_id, by_path, archive, log_dir]:
+                d.mkdir(parents=True, exist_ok=True)
+            os.environ["INDEX_DIRECTORY"] = str(index_dir)
+            os.environ["METADATA_DIRECTORY"] = str(meta_dir)
+            os.environ["BY_ID_DIRECTORY"] = str(by_id)
+            os.environ["BY_PATH_DIRECTORY"] = str(by_path)
+            os.environ["ARCHIVE_DIRECTORY"] = str(archive)
             os.environ["LOGGING_DIRECTORY"] = str(log_dir)
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
             import home_index.main as hi
