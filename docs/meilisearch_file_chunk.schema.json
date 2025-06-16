@@ -12,17 +12,21 @@
       "type": "string",
       "description": "ID of the parent file document"
     },
-    "name": {
-      "type": "string",
-      "description": "Chunk name used for the 'passage:' prefix"
-    },
     "text": {
       "type": "string",
-      "description": "Chunk text content prefixed with 'passage: <name>'"
+      "description": "Chunk text content"
     },
-    "metadata": {
-      "type": "object",
-      "description": "Additional metadata provided by modules"
+    "module": {
+      "type": "string",
+      "description": "Name of the module that produced the chunk"
+    },
+    "start": {
+      "type": "integer",
+      "description": "Optional start offset of the chunk in the source"
+    },
+    "end": {
+      "type": "integer",
+      "description": "Optional end offset of the chunk in the source"
     },
     "_vector": {
       "type": "array",
@@ -30,6 +34,6 @@
       "description": "Sentence embedding vector for semantic search"
     }
   },
-  "required": ["id", "file_id", "name", "text"],
+  "required": ["id", "file_id", "module", "text"],
   "additionalProperties": true
 }
