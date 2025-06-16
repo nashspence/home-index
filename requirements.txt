@@ -6,3 +6,7 @@ jsonschema
 xxhash
 sentence-transformers
 httpx
+
+langchain-core
+langchain-text-splitters
+transformers
