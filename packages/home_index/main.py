@@ -1043,9 +1043,8 @@ async def run_module(name, proxy):
                             texts = []
                             for chunk in chunk_docs:
                                 if "text" in chunk:
-                                    prefix = chunk["name"]
-                                    chunk["text"] = f"passage: {prefix}\n" + chunk["text"]
                                     texts.append(chunk["text"])
+                                chunk.setdefault("module", name)
                             vectors = embed_texts(texts)
                             for chunk, vec in zip(chunk_docs, vectors):
                                 chunk["_vector"] = vec
