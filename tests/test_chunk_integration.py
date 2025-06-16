@@ -16,6 +16,20 @@ import pytest
 
 @contextmanager
 def meilisearch_server(tmp_path, port):
+    if os.environ.get("EXTERNAL_MEILISEARCH"):
+        # Wait for the external service to be ready
+        host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{port}")
+        for _ in range(30):
+            try:
+                if httpx.get(f"{host}/health").status_code == 200:
+                    break
+            except Exception:
+                time.sleep(0.5)
+        else:
+            raise RuntimeError("Meilisearch failed to start")
+        yield
+        return
+
     proc = subprocess.Popen(
         ["meilisearch", "--db-path", str(tmp_path), "--http-addr", f"127.0.0.1:{port}"],
         stdout=subprocess.DEVNULL,
@@ -126,8 +140,9 @@ def dummy_module_server_plain(port):
 def test_run_module_adds_and_deletes_chunks(tmp_path):
     async def run():
         meili_port = 7710
+        host = f"http://127.0.0.1:{meili_port}"
         with meilisearch_server(tmp_path / "meili", meili_port):
-            os.environ["MEILISEARCH_HOST"] = f"http://127.0.0.1:{meili_port}"
+            os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_test"
             os.environ["MEILISEARCH_CHUNK_INDEX_NAME"] = "chunks_test"
             os.environ["MODULES"] = ""
@@ -177,8 +192,9 @@ def test_run_module_adds_and_deletes_chunks(tmp_path):
 def test_run_module_handles_document_return(tmp_path):
     async def run():
         meili_port = 7711
+        host = f"http://127.0.0.1:{meili_port}"
         with meilisearch_server(tmp_path / "meili", meili_port):
-            os.environ["MEILISEARCH_HOST"] = f"http://127.0.0.1:{meili_port}"
+            os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_test2"
             os.environ["MEILISEARCH_CHUNK_INDEX_NAME"] = "chunks_test2"
             os.environ["MODULES"] = ""

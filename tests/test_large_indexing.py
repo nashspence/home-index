@@ -17,6 +17,19 @@ import xxhash
 
 @contextmanager
 def meilisearch_server(tmp_path, port):
+    if os.environ.get("EXTERNAL_MEILISEARCH"):
+        host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{port}")
+        for _ in range(30):
+            try:
+                if httpx.get(f"{host}/health").status_code == 200:
+                    break
+            except Exception:
+                time.sleep(0.5)
+        else:
+            raise RuntimeError("Meilisearch failed to start")
+        yield
+        return
+
     proc = subprocess.Popen(
         ["meilisearch", "--db-path", str(tmp_path), "--http-addr", f"127.0.0.1:{port}"],
         stdout=subprocess.DEVNULL,
@@ -108,8 +121,9 @@ def test_sync_and_run_many_files(tmp_path):
         os.environ["ARCHIVE_DIRECTORY"] = str(archive)
         os.environ["LOGGING_DIRECTORY"] = str(log_dir)
         meili_port = 7720
+        host = f"http://127.0.0.1:{meili_port}"
         with meilisearch_server(tmp_path / "meili", meili_port):
-            os.environ["MEILISEARCH_HOST"] = f"http://127.0.0.1:{meili_port}"
+            os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_many"
             os.environ["MEILISEARCH_CHUNK_INDEX_NAME"] = "chunks_many"
             with dummy_module_server("mod1", 9020, add_chunk=True) as p1, dummy_module_server("mod2", 9021) as p2:
