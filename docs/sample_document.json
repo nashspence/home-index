@@ -1,0 +1,9 @@
+{
+  "id": "example-file",
+  "type": "text/plain",
+  "size": 5,
+  "paths": {"file.txt": 1700000000},
+  "copies": 1,
+  "mtime": 1700000000,
+  "next": ""
+}
