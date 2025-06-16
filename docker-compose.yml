@@ -1,3 +1,4 @@
+version: '3.9'
 services:
   home-index:
     build:
@@ -23,6 +24,8 @@ services:
       - TZ=America/Los_Angeles
     image: getmeili/meilisearch:latest
     restart: unless-stopped
+    ports:
+      - "7700:7700"
     volumes:
       - ./bind-mounts/meilisearch:/meili_data
   home-index-example-module:
