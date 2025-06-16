@@ -63,9 +63,8 @@ def dummy_module_server(name, port, add_chunk=False):
             chunk = {
                 "id": f"{doc['id']}_chunk",
                 "file_id": doc["id"],
-                "name": f"{name}Chunk",
+                "module": name,
                 "text": "hello",
-                "metadata": {},
             }
             return json.dumps({"document": doc, "chunk_docs": [chunk]})
         return json.dumps(doc)
