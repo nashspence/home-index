@@ -5,18 +5,32 @@ from xmlrpc.server import SimpleXMLRPCServer
 from contextlib import contextmanager
 from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+from langchain_core.documents import Document
+from langchain_text_splitters import TokenTextSplitter
+
+
+def setup_debugger():
+    """Enable debugpy debugging when DEBUG environment variable is true."""
+    if str(os.environ.get("DEBUG", "False")) == "True":
+        import debugpy
+        debugpy.listen(("0.0.0.0", 5678))
+        if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
+            print("Waiting for debugger to attach...")
+            debugpy.wait_for_client()
+            print("Debugger attached.")
+            debugpy.breakpoint()
+
+
+setup_debugger()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
-BY_ID_DIRECTORY = Path(
-    os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
-)
+BY_ID_DIRECTORY = Path(os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id")))
 
 
 def file_path_from_meili_doc(document):
@@ -25,9 +39,151 @@ def file_path_from_meili_doc(document):
 
 
 def metadata_dir_path_from_doc(name, document):
-    dir = Path(BY_ID_DIRECTORY / document["id"] / name)
-    dir.mkdir(parents=True, exist_ok=True)
-    return dir
+    dir_path = Path(BY_ID_DIRECTORY / document["id"] / name)
+    dir_path.mkdir(parents=True, exist_ok=True)
+    return dir_path
+
+
+def read_json(path):
+    path = Path(path)
+    with open(path, "r") as file:
+        return json.load(file)
+
+
+def write_json(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as file:
+        json.dump(data, file, indent=4)
+
+
+def load_version(metadata_dir_path):
+    version_path = Path(metadata_dir_path) / "version.json"
+    if version_path.exists():
+        return read_json(version_path)
+    return None
+
+
+def save_version(metadata_dir_path, data):
+    write_json(Path(metadata_dir_path) / "version.json", data)
+
+
+def save_version_with_exceptions(metadata_dir_path, version, **exceptions):
+    """Save ``version`` metadata alongside any exception details."""
+    data = {"version": version}
+    for key, exc in exceptions.items():
+        if exc is not None:
+            data[key] = str(exc)
+            # also store generic 'exception' if not already present
+            if "exception" not in data:
+                data["exception"] = str(exc)
+    save_version(metadata_dir_path, data)
+
+
+def apply_migrations(from_version, migrations, *args, target_version):
+    """Run one migration step from ``from_version`` toward ``target_version``."""
+    if from_version >= target_version:
+        return None, [], from_version
+
+    if from_version >= len(migrations) or migrations[from_version] is None:
+        return None, [], from_version
+
+    migration = migrations[from_version]
+    segments, docs = migration(*args)
+    chunk_docs = docs if docs else []
+    return segments, chunk_docs, from_version + 1
+
+
+def apply_migrations_if_needed(metadata_dir_path, migrations, *args, target_version):
+    """Load version info and apply pending migrations until up to date."""
+    version_info = load_version(metadata_dir_path) or {}
+    current = version_info.get("version", 0)
+    all_chunk_docs = []
+    segments = None
+    while current < target_version:
+        segs, docs, new_ver = apply_migrations(
+            current, migrations, *args, target_version=target_version
+        )
+        if new_ver == current:
+            break
+        current = new_ver
+        if segs is not None:
+            segments = segs
+        all_chunk_docs.extend(docs)
+    if current != version_info.get("version"):
+        save_version(metadata_dir_path, {"version": current})
+    return segments, all_chunk_docs, current
+
+
+def segments_to_chunk_docs(
+    segments,
+    file_id,
+    module_name="chunk",
+):
+    """Convert raw segments to chunk documents with consistent IDs."""
+
+    docs = []
+
+    for idx, segment in enumerate(segments):
+        seg_doc = segment.get("doc", {})
+        text = seg_doc.get("text")
+        if not text:
+            continue
+
+        header = segment.get("header") or {}
+        header_parts = [f"{k}: {v}" for k, v in header.items()]
+        if header_parts:
+            text = "[" + "|".join(header_parts) + "]\n" + text
+
+        doc = seg_doc.copy()
+        doc.setdefault("id", f"{module_name}_{file_id}_{idx}")
+        doc.setdefault("file_id", file_id)
+        doc["text"] = text
+
+        docs.append(doc)
+
+    return docs
+
+
+def split_chunk_docs(
+    chunk_docs,
+    model="intfloat/e5-small-v2",
+    tokens_per_chunk=450,
+    chunk_overlap=50,
+):
+    """Return ``chunk_docs`` split by tokens using ``langchain`` utilities."""
+
+    from transformers import AutoTokenizer
+
+    docs = []
+    for d in chunk_docs:
+        d = d.copy()
+        text = d.pop("text")
+        docs.append(Document(page_content=text, metadata=d))
+
+    hf_tok = AutoTokenizer.from_pretrained(model)
+    splitter = TokenTextSplitter.from_huggingface_tokenizer(
+        hf_tok,
+        chunk_size=tokens_per_chunk,
+        chunk_overlap=chunk_overlap,
+    )
+
+    split_docs = splitter.split_documents(docs)
+
+    counts = {}
+    result = []
+    for doc in split_docs:
+        base_id = doc.metadata.get("id")
+        n = counts.get(base_id, 0)
+        counts[base_id] = n + 1
+
+        meta = doc.metadata.copy()
+        meta["id"] = f"{base_id}_{n}" if n else base_id
+        meta["text"] = doc.page_content
+
+        result.append(meta)
+
+    return result
 
 
 @contextmanager
@@ -55,6 +211,8 @@ def log_to_file_and_stdout(file_path):
 
 
 def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
+    """Run an XML-RPC server exposing common module hooks."""
+
     class Handler:
         def hello(self):
             logging.info("hello")
@@ -69,7 +227,7 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
                     with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
                         if check_fn(file_path, document, metadata_dir_path):
                             response.add(document["id"])
-                except Exception as e:
+                except Exception:
                     logging.exception(f'failed to check "{file_path}"')
             return json.dumps(list(response))
 
@@ -83,8 +241,8 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
             file_path = file_path_from_meili_doc(document)
             metadata_dir_path = metadata_dir_path_from_doc(name, document)
             with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                x = run_fn(file_path, document, metadata_dir_path)
-            return json.dumps(x)
+                result = run_fn(file_path, document, metadata_dir_path)
+            return json.dumps(result)
 
         def unload(self):
             logging.info("unload")
