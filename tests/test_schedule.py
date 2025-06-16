@@ -9,6 +9,7 @@ def test_parse_cron_env_parses_expression(monkeypatch, tmp_path):
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
+    monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
     import home_index.main as hi
     import importlib
@@ -27,6 +28,7 @@ def test_parse_cron_env_invalid(monkeypatch, tmp_path):
     log_dir = tmp_path / "logs2"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
+    monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
     import home_index.main as hi
     import importlib

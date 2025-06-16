@@ -4,13 +4,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
 
 
+import numpy as np
+
+
 class DummyModel:
     def __init__(self, name, device):
         self.name = name
         self.device = device
 
     def encode(self, texts, convert_to_numpy=True):
-        return [[float(len(t))] * 384 for t in texts]
+        data = np.array([[float(len(t))] * 384 for t in texts], dtype=float)
+        return data if convert_to_numpy else data.tolist()
 
 
 def test_embed_texts_produces_vectors(monkeypatch, tmp_path):

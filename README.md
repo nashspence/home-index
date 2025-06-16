@@ -28,6 +28,7 @@ to its verifying test case.
 - `test_retry_until_ready_failure` – retry helper fails after repeated errors – [tests/test_retry.py](tests/test_retry.py)
 - `test_sync_and_run_many_files` – indexing runs across many files and modules – [tests/test_large_indexing.py](tests/test_large_indexing.py)
 - `test_parse_cron_env_parses_expression` – cron schedules are parsed from the environment – [tests/test_schedule.py](tests/test_schedule.py)
+- `test_parse_cron_env_invalid` – malformed cron expressions raise `ValueError` – [tests/test_schedule.py](tests/test_schedule.py)
 - `test_embed_texts_produces_vectors` – text embeddings use SentenceTransformer models – [tests/test_embeddings.py](tests/test_embeddings.py)
 - `test_archive_sync_retains_unmounted_docs` – metadata for offline archive files is retained – [tests/test_archive_support.py](tests/test_archive_support.py)
 - `test_apply_migrations_if_needed` – module migrations persist version upgrades – [tests/test_module_migrations.py](tests/test_module_migrations.py)
@@ -36,6 +37,8 @@ Untested features:
 
 - Cron-based indexing run via APScheduler
 - Archive directory cleanup when files are permanently removed
+- Splitting chunk documents with TokenTextSplitter
+- Converting segmentation results into Meilisearch chunks
 
 ## Running manually
 
