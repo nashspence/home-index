@@ -21,12 +21,12 @@
       "description": "Name of the module that produced the chunk"
     },
     "start": {
-      "type": "integer",
-      "description": "Optional start offset of the chunk in the source"
+      "type": "number",
+      "description": "Optional start offset of the chunk in the source (float)"
     },
     "end": {
-      "type": "integer",
-      "description": "Optional end offset of the chunk in the source"
+      "type": "number",
+      "description": "Optional end offset of the chunk in the source (float)"
     },
     "_vector": {
       "type": "array",
