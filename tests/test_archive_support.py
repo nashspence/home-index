@@ -5,10 +5,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
-import home_index.main as hi
 
 
 def test_archive_sync_retains_unmounted_docs(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     index_dir = tmp_path / "index"
     archive_dir = index_dir / "archive"
     meta_dir = tmp_path / "metadata"
@@ -36,6 +38,7 @@ def test_archive_sync_retains_unmounted_docs(tmp_path, monkeypatch):
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
+    import home_index.main as hi
     importlib.reload(hi)
 
     md, mhr, ua_docs, ua_hashes = hi.index_metadata()
@@ -43,3 +46,4 @@ def test_archive_sync_retains_unmounted_docs(tmp_path, monkeypatch):
 
     files_docs, hashes = hi.index_files(md, mhr, ua_docs, ua_hashes)
     assert doc["id"] in files_docs
+
