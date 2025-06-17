@@ -3,6 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
 
+# Uses a dummy embedding model to avoid pulling real models from the network.
+
 
 import numpy as np
 
@@ -19,6 +21,7 @@ class DummyModel:
 
 def test_text_embeddings_use_sentence_transformer_models(monkeypatch, tmp_path):
     import sentence_transformers
+
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
@@ -26,6 +29,7 @@ def test_text_embeddings_use_sentence_transformer_models(monkeypatch, tmp_path):
 
     import home_index.main as hi
     import importlib
+
     importlib.reload(hi)
 
     hi.embedding_model = None

@@ -3,6 +3,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
 
+# These tests rely on stubs instead of the real langchain and transformers
+# integration to avoid large model downloads during CI.
+
 
 def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source_file():
     from home_index_module.run_server import segments_to_chunk_docs
@@ -22,6 +25,7 @@ def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source
 
 def test_tokentextsplitter_divides_chunk_text_into_smaller_documents(monkeypatch):
     import importlib
+
     rs = importlib.import_module("home_index_module.run_server")
 
     class DummyDocument:
@@ -40,7 +44,7 @@ def test_tokentextsplitter_divides_chunk_text_into_smaller_documents(monkeypatch
                 for i in range(0, len(words), 2):
                     meta = doc.metadata.copy()
                     meta["id"] = f"{meta['id']}_{i//2}" if i else meta["id"]
-                    result.append(DummyDocument(" ".join(words[i:i+2]), meta))
+                    result.append(DummyDocument(" ".join(words[i : i + 2]), meta))
             return result
 
     class DummyTokenizer:
@@ -49,12 +53,23 @@ def test_tokentextsplitter_divides_chunk_text_into_smaller_documents(monkeypatch
             return cls()
 
     import types
-    monkeypatch.setitem(sys.modules, "transformers", types.SimpleNamespace(AutoTokenizer=DummyTokenizer))
-    monkeypatch.setitem(sys.modules, "langchain_core.documents", types.SimpleNamespace(Document=DummyDocument))
+
+    monkeypatch.setitem(
+        sys.modules, "transformers", types.SimpleNamespace(AutoTokenizer=DummyTokenizer)
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "langchain_core.documents",
+        types.SimpleNamespace(Document=DummyDocument),
+    )
     monkeypatch.setitem(
         sys.modules,
         "langchain_text_splitters",
-        types.SimpleNamespace(TokenTextSplitter=type("T", (), {"from_huggingface_tokenizer": lambda *a, **k: DummySplitter()}))
+        types.SimpleNamespace(
+            TokenTextSplitter=type(
+                "T", (), {"from_huggingface_tokenizer": lambda *a, **k: DummySplitter()}
+            )
+        ),
     )
 
     chunks = [{"id": "c1", "file_id": "f", "module": "m", "text": "a b c d"}]

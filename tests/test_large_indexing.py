@@ -15,6 +15,7 @@ import importlib
 import pytest
 import xxhash
 
+
 @contextmanager
 def meilisearch_server(tmp_path, port):
     if os.environ.get("EXTERNAL_MEILISEARCH"):
@@ -51,17 +52,20 @@ def meilisearch_server(tmp_path, port):
         proc.terminate()
         proc.wait()
 
+
 @contextmanager
 def dummy_module_server(name, port, add_chunk=False):
     server = SimpleXMLRPCServer(("127.0.0.1", port), allow_none=True, logRequests=False)
 
     def hello():
-        return json.dumps({
-            "name": name,
-            "version": 1,
-            "filterable_attributes": [],
-            "sortable_attributes": [],
-        })
+        return json.dumps(
+            {
+                "name": name,
+                "version": 1,
+                "filterable_attributes": [],
+                "sortable_attributes": [],
+            }
+        )
 
     def check(docs):
         docs = json.loads(docs)
@@ -126,10 +130,15 @@ def test_indexing_runs_across_many_files_and_modules(tmp_path):
             os.environ["MEILISEARCH_HOST"] = host
             os.environ["MEILISEARCH_INDEX_NAME"] = "files_many"
             os.environ["MEILISEARCH_CHUNK_INDEX_NAME"] = "chunks_many"
-            with dummy_module_server("mod1", 9020, add_chunk=True) as p1, dummy_module_server("mod2", 9021) as p2:
+            with dummy_module_server(
+                "mod1", 9020, add_chunk=True
+            ) as p1, dummy_module_server("mod2", 9021) as p2:
                 os.environ["MODULES"] = "http://127.0.0.1:9020,http://127.0.0.1:9021"
-                sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
+                sys.path.insert(
+                    0, str(Path(__file__).resolve().parents[1] / "packages")
+                )
                 import home_index.main as hi
+
                 importlib.reload(hi)
                 await hi.init_meili()
                 hi.embed_texts = lambda texts: [[0.0] * hi.EMBED_DIM for _ in texts]
@@ -165,4 +174,5 @@ def test_indexing_runs_across_many_files_and_modules(tmp_path):
                 assert total == file_count
                 chunks = await hi.chunk_index.get_documents(limit=file_count)
                 assert len(chunks.results) == file_count
+
     asyncio.run(run())

@@ -14,6 +14,7 @@ import httpx
 import importlib
 import pytest
 
+
 @contextmanager
 def meilisearch_server(tmp_path, port):
     if os.environ.get("EXTERNAL_MEILISEARCH"):
@@ -51,17 +52,20 @@ def meilisearch_server(tmp_path, port):
         proc.terminate()
         proc.wait()
 
+
 @contextmanager
 def dummy_module_server(port):
     server = SimpleXMLRPCServer(("127.0.0.1", port), allow_none=True, logRequests=False)
 
     def hello():
-        return json.dumps({
-            "name": "dummy",
-            "version": 1,
-            "filterable_attributes": [],
-            "sortable_attributes": [],
-        })
+        return json.dumps(
+            {
+                "name": "dummy",
+                "version": 1,
+                "filterable_attributes": [],
+                "sortable_attributes": [],
+            }
+        )
 
     def check(docs):
         docs = json.loads(docs)
@@ -96,17 +100,21 @@ def dummy_module_server(port):
     finally:
         server.shutdown()
         thread.join()
+
+
 @contextmanager
 def dummy_module_server_plain(port):
     server = SimpleXMLRPCServer(("127.0.0.1", port), allow_none=True, logRequests=False)
 
     def hello():
-        return json.dumps({
-            "name": "dummy",
-            "version": 1,
-            "filterable_attributes": [],
-            "sortable_attributes": [],
-        })
+        return json.dumps(
+            {
+                "name": "dummy",
+                "version": 1,
+                "filterable_attributes": [],
+                "sortable_attributes": [],
+            }
+        )
 
     def check(docs):
         docs = json.loads(docs)
@@ -162,6 +170,7 @@ def test_modules_can_add_and_remove_chunk_data(tmp_path):
             os.environ["LOGGING_DIRECTORY"] = str(log_dir)
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
             import home_index.main as hi
+
             importlib.reload(hi)
             await hi.init_meili()
 
@@ -225,6 +234,7 @@ def test_modules_may_return_only_updated_documents(tmp_path):
             os.environ["LOGGING_DIRECTORY"] = str(log_dir)
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
             import home_index.main as hi
+
             importlib.reload(hi)
             await hi.init_meili()
 

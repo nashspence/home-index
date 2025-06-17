@@ -4,6 +4,10 @@ Home Index is a file indexing service built around [Meilisearch](https://www.mei
 
 This project requires **Python 3.8 or higher** when running outside the provided Docker environment.
 
+## Who
+
+Home Index suits data hoarders and personal archivists wanting a fast search layer for personal files.
+
 ## Quick start
 
 The repository includes a `docker-compose.yml` that starts Home Index, Meilisearch and a sample module. After installing Docker, run:
@@ -108,6 +112,10 @@ your files using a locally run language model backed by Meilisearch.
 ## Purpose
 
 Home Index makes directories of files searchable with minimal configuration. It stores file metadata in Meilisearch and lets modules contribute information such as extracted text or image thumbnails. This combination enables rich search and retrieval over personal data.
+
+## Contributions
+
+Pull requests are welcome. Use the dev container (`.devcontainer/`) via VS Code Remote – Containers to mirror CI. GitHub Actions run integration tests on every push.
 
 ## License
 

@@ -41,9 +41,7 @@ file_handler = logging.handlers.RotatingFileHandler(
     maxBytes=LOGGING_MAX_BYTES,
     backupCount=LOGGING_BACKUP_COUNT,
 )
-file_handler.setFormatter(
-    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-)
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 modules_logger.addHandler(file_handler)
 
 files_logger = logging.getLogger("home-index-files")
@@ -123,6 +121,7 @@ MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT / 2))
 EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL_NAME", "intfloat/e5-small-v2")
 try:
     import torch
+
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
 except Exception:
     default_device = "cpu"
@@ -178,6 +177,7 @@ def init_embedder():
     global embedding_model
     if embedding_model is None:
         from sentence_transformers import SentenceTransformer
+
         embedding_model = SentenceTransformer(EMBED_MODEL_NAME, device=EMBED_DEVICE)
 
 
@@ -346,9 +346,7 @@ async def init_meili():
     except Exception as e:
         if getattr(e, "code", None) == "index_not_found":
             try:
-                logging.info(
-                    f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"'
-                )
+                logging.info(f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"')
                 chunk_index = await client.create_index(
                     MEILISEARCH_CHUNK_INDEX_NAME, primary_key="id"
                 )
@@ -746,7 +744,9 @@ def index_files(
     file_paths = []
     for root, _, files in os.walk(INDEX_DIRECTORY):
         root_path = Path(root)
-        if any(root_path == dir or dir in root_path.parents for dir in RESERVED_FILES_DIRS):
+        if any(
+            root_path == dir or dir in root_path.parents for dir in RESERVED_FILES_DIRS
+        ):
             continue
         for f in files:
             file_paths.append(root_path / f)

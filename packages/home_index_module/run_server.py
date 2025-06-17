@@ -6,11 +6,11 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-
 def setup_debugger():
     """Enable debugpy debugging when DEBUG environment variable is true."""
     if str(os.environ.get("DEBUG", "False")) == "True":
         import debugpy
+
         debugpy.listen(("0.0.0.0", 5678))
         if str(os.environ.get("WAIT_FOR_DEBUGPY_CLIENT", "False")) == "True":
             print("Waiting for debugger to attach...")
@@ -21,14 +21,18 @@ def setup_debugger():
 
 setup_debugger()
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
-BY_ID_DIRECTORY = Path(os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id")))
+BY_ID_DIRECTORY = Path(
+    os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
+)
 
 
 def file_path_from_meili_doc(document):

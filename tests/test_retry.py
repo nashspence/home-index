@@ -5,6 +5,9 @@ import os
 import time
 import pytest
 
+# Importing only the retry helper via AST avoids executing side effects in the
+# main module during testing.
+
 # Extract retry_until_ready function without importing entire module
 SRC = pathlib.Path("packages/home_index/main.py").read_text()
 module = ast.parse(SRC)
@@ -26,25 +29,31 @@ ns = {"time": time, "os": os}
 exec(code, ns)
 retry_until_ready = ns["retry_until_ready"]
 
+
 def test_retry_helper_stops_when_a_call_succeeds(monkeypatch):
     sleeps = []
-    monkeypatch.setattr(time, 'sleep', lambda s: sleeps.append(s))
-    attempts = {'c':0}
+    monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
+    attempts = {"c": 0}
+
     def fn():
-        attempts['c'] += 1
-        if attempts['c'] < 3:
-            raise ValueError('no')
-        return 'ok'
-    result = retry_until_ready(fn, 'fail', seconds=3)
-    assert result == 'ok'
-    assert attempts['c'] == 3
-    assert sleeps == [1,1]
+        attempts["c"] += 1
+        if attempts["c"] < 3:
+            raise ValueError("no")
+        return "ok"
+
+    result = retry_until_ready(fn, "fail", seconds=3)
+    assert result == "ok"
+    assert attempts["c"] == 3
+    assert sleeps == [1, 1]
+
 
 def test_retry_helper_fails_after_repeated_errors(monkeypatch):
     sleeps = []
-    monkeypatch.setattr(time, 'sleep', lambda s: sleeps.append(s))
+    monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
+
     def fn():
-        raise ValueError('no')
+        raise ValueError("no")
+
     with pytest.raises(RuntimeError):
-        retry_until_ready(fn, 'fail', seconds=2)
+        retry_until_ready(fn, "fail", seconds=2)
     assert sleeps == [1]
