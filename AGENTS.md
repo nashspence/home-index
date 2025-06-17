@@ -3,13 +3,14 @@
 1. **Code Style**
 
    * Use language’s **strict** formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier).
-   * `check.sh` runs linters/formatters **and** dependency‐pin checks. **Run `./check.sh` and fix before every push.**
+   * Humans use `check.sh` to run linters/formatters. Help maintain this file, but **do not run it**.
+   * Agents use `agents-check.sh` to run linters/formatters. This version should also install all necessary dependencies for `agents-check.sh` to work. **Run `agents-check.sh` before every push and fix any problems**
 
 2. **Dependency Management**
 
-   * **Pin** every dependency to an **exact** version in your manifest, using the **current latest** release.
+   * **Pin** every dependency to an **exact** version, using the **current latest** release.
    * **Manually verify** all version numbers are pinned and up‑to‑date before pushing.
-
+  
 ---
 
 ## II. Dev Environment
@@ -20,14 +21,15 @@
    * Structure under `.devcontainer/`:
 
      * `Dockerfile.devcontainer` (`FROM cruizba/ubuntu-dind`)
-     * `devcontainer.json` → vscode specific metadata
+     * `devcontainer.json` → vscode specific metadata, help maintain it correctly
      * `docker-compose.yml` defines dev services & workspace mount
      * `postStart.sh` installs deps & builds helpers - always run on container first launch
 
 2. **Usage**
 
-   * Launch via VS Code Remote – Containers (“clone + open”).
-   * **All** builds, tests, and Docker commands run *inside* this container—no host side‑effects.
+   * Humans launch via VS Code Remote – Containers (“clone + open”).
+   * Humans run **All** builds, tests, and Docker commands *inside* this container.
+   * Agents do not run the container, builds, tests, etc. They push and await for a human to relay feedback from the CI.
 
 ---
 
@@ -54,7 +56,7 @@
 
 ## IV. Testing & CI
 
-1. **CI Pipeline**
+1. **Github Actions (CI Pipeline)**
 
    * **Trigger**: on **push** to any branch.
    * **Steps**:
@@ -85,7 +87,7 @@
 
 2. **Failure Reporting**
 
-   * On any build or test failure, CI logs should strive to print a final summary in this form:
+   * On any build or test failure, CI logs should strive to print a final summary in this form. Human will relay this back exactly on failure:
 
      ```text
      ci failed, see below:
@@ -104,9 +106,10 @@
 
 1. **README.md** contains:
 
-   * **Who & Why**: target users and benefits.
+   * **Who & Why**: target users and benefits, be extremely logical rather than rhetorical.
    * **Features**: list with links to their tests.
    * **Contributing**: clone → dev‑container → build → test → open PR.
+   * anything else that the agent deems relevant
 
 ---
 
@@ -118,7 +121,7 @@
   * Build & push Docker images (`secrets.DOCKER_{USERNAME,PASSWORD}`).
   * Tag per org convention (e.g. `ghcr.io/org/repo:semver`).
   * Update release notes with full image references.
-  * Include example `docker-compose.yml` for deployment.
+  * Include example `docker-compose.yml` for deployment. Help maintain this along with Dockerfile as we go.
 
 ---
 
@@ -127,4 +130,4 @@
 * Additionally, try to stay on top of these:
   * **Refactor** non‑atomic code into feature folders.
   * **Migrate** mock‑heavy tests to integration tests—or document why mocks remain.
-  * Keep both `Dockerfile` (runtime) and `Dockerfile.devcontainer` (dev) updated with all latest dependencies.
+  * Keep both `Dockerfile` (release runtime) and `Dockerfile.devcontainer` (dev/test runtime) updated with all latest dependencies.
