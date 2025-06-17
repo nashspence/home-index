@@ -10,9 +10,6 @@
   4. Be atomic—deliver one standalone piece of functionality.  
   5. `<FeatureName>` will be in title case and intuitive
 
-- **macOS-only features**:  
-  Use a dedicated GitHub Action with `runs-on: macos-latest` (not Docker).
-
 ## 3. Documentation
 In `README.md` → **Features**:
 ```md
@@ -50,10 +47,6 @@ tests failed, see below:
 
       * Build & push to registry following org naming/tag conventions.
       * In the release notes, include the full image reference (e.g. `ghcr.io/org/repo:tag`).
-    * **macOS-only artifacts**:
-
-      * Build on `runs-on: macos-latest`.
-      * Package & attach as a release artifact (e.g. `.tar.gz` or `.zip`), using standard naming.
 
 ## 6. Development Container
 
