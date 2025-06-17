@@ -16,29 +16,25 @@ Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust 
 
 ## Features
 
-The list below highlights key functionality. Each tested feature links directly
-to its verifying test case.
+The list below highlights key functionality. Each tested feature links directly to its verifying test case.
 
-- `test_schema_is_valid` – file documents match the expected schema – [tests/test_meilisearch_schema.py](tests/test_meilisearch_schema.py)
-- `test_chunk_schema_is_valid` – chunk documents follow the chunk schema – [tests/test_meilisearch_file_chunk_schema.py](tests/test_meilisearch_file_chunk_schema.py)
-- `test_run_server_basic` – modules communicate via XML‑RPC – [tests/test_run_server_module.py](tests/test_run_server_module.py)
-- `test_run_module_adds_and_deletes_chunks` – modules can add and remove chunk data – [tests/test_chunk_integration.py](tests/test_chunk_integration.py)
-- `test_run_module_handles_document_return` – modules may return only updated documents – [tests/test_chunk_integration.py](tests/test_chunk_integration.py)
-- `test_retry_until_ready_success` – retry helper stops when a call succeeds – [tests/test_retry.py](tests/test_retry.py)
-- `test_retry_until_ready_failure` – retry helper fails after repeated errors – [tests/test_retry.py](tests/test_retry.py)
-- `test_sync_and_run_many_files` – indexing runs across many files and modules – [tests/test_large_indexing.py](tests/test_large_indexing.py)
-- `test_parse_cron_env_parses_expression` – cron schedules are parsed from the environment – [tests/test_schedule.py](tests/test_schedule.py)
-- `test_parse_cron_env_invalid` – malformed cron expressions raise `ValueError` – [tests/test_schedule.py](tests/test_schedule.py)
-- `test_embed_texts_produces_vectors` – text embeddings use SentenceTransformer models – [tests/test_embeddings.py](tests/test_embeddings.py)
-- `test_archive_sync_retains_unmounted_docs` – metadata for offline archive files is retained – [tests/test_archive_support.py](tests/test_archive_support.py)
-- `test_apply_migrations_if_needed` – module migrations persist version upgrades – [tests/test_module_migrations.py](tests/test_module_migrations.py)
-
-Untested features:
-
-- Cron-based indexing run via APScheduler
-- Archive directory cleanup when files are permanently removed
-- Splitting chunk documents with TokenTextSplitter
-- Converting segmentation results into Meilisearch chunks
+- [file documents match the expected schema](tests/test_meilisearch_schema.py#L9-L12)
+- [chunk documents follow the chunk schema](tests/test_meilisearch_file_chunk_schema.py#L7-L9)
+- [modules communicate via XML-RPC](tests/test_run_server_module.py#L31-L66)
+- [modules can add and remove chunk data](tests/test_chunk_integration.py#L140-L200)
+- [modules may return only updated documents](tests/test_chunk_integration.py#L203-L251)
+- [retry helper stops when a call succeeds](tests/test_retry.py#L29-L41)
+- [retry helper fails after repeated errors](tests/test_retry.py#L43-L50)
+- [indexing runs across many files and modules](tests/test_large_indexing.py#L103-L168)
+- [cron schedules are parsed from the environment](tests/test_schedule.py#L8-L24)
+- [malformed cron expressions raise ValueError](tests/test_schedule.py#L27-L37)
+- [text embeddings use SentenceTransformer models](tests/test_embeddings.py#L20-L35)
+- [metadata persists if the archive directory is temporarily missing](tests/test_archive_support.py#L10-L48)
+- [module migrations persist version upgrades](tests/test_module_migrations.py#L7-L28)
+- [scheduler attaches a CronTrigger job for periodic indexing](tests/test_schedule.py#L40-L84)
+- [metadata and symlinks are purged after an archive file is removed](tests/test_archive_support.py#L51-L91)
+- [TokenTextSplitter divides chunk text into smaller documents](tests/test_chunk_utils.py#L23-L64)
+- [segments with headers convert to chunk documents referencing the source file](tests/test_chunk_utils.py#L7-L20)
 
 ## Running manually
 

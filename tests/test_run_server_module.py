@@ -28,7 +28,7 @@ def wait_for_server(port, timeout=20):
     raise RuntimeError("server did not start")
 
 
-def test_run_server_basic(tmp_path):
+def test_modules_communicate_via_xml_rpc(tmp_path):
     port = 9050
     files_dir = tmp_path / "files"
     meta_dir = tmp_path / "meta"
