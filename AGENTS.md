@@ -41,7 +41,7 @@ tests failed, see below:
 
   * **`.github/workflows/test.yml`**
 
-    * Trigger on **push** (any branch) and **pull\_request**.
+    * Trigger on **push** any branch.
     * One step per feature test; each step named `<FeatureName>`.
   * **`.github/workflows/release.yml`**
 
