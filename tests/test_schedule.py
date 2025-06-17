@@ -43,6 +43,7 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(monkeypatch,
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "5 4 * * *")
+    monkeypatch.setenv("HELLO_VERSIONS_FILE_PATH", str(tmp_path / "hello_versions.json"))
     monkeypatch.delenv("DEBUG", raising=False)
     added = {}
 
