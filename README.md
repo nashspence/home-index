@@ -23,8 +23,8 @@ The list below highlights key functionality. Each tested feature links directly 
 - [**Modules Communicate Via XML-RPC**](tests/test_run_server_module.py#L31-L66) — modules communicate via XML-RPC
 - [**Modules Can Add And Remove Chunk Data**](tests/test_chunk_integration.py#L140-L200) — modules can add and remove chunk data
 - [**Modules May Return Only Updated Documents**](tests/test_chunk_integration.py#L203-L251) — modules may return only updated documents
-- [**Retry Helper Stops When A Call Succeeds**](tests/test_retry.py#L10-L28) — retry helper stops when a call succeeds
-- [**Retry Helper Fails After Repeated Errors**](tests/test_retry.py#L31-L44) — retry helper fails after repeated errors
+- [**Retry Helper Stops When A Call Succeeds**](tests/test_retry.py#L10-L33) — retry helper stops when a call succeeds
+- [**Retry Helper Fails After Repeated Errors**](tests/test_retry.py#L36-L54) — retry helper fails after repeated errors
 - [**Indexing Runs Across Many Files And Modules**](tests/test_large_indexing.py#L103-L168) — indexing runs across many files and modules
 - [**Cron Schedules Are Parsed From The Environment**](tests/test_schedule.py#L8-L24) — cron schedules are parsed from the environment
 - [**Malformed Cron Expressions Raise ValueError**](tests/test_schedule.py#L27-L37) — malformed cron expressions raise ValueError
