@@ -4,21 +4,20 @@
 
 ## 2. Feature Requirements
 **Each feature must**:
-  1. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.
-  2. Use the same `Dockerfile` + `docker-compose` setup for both testing and release.   
-  3. Be atomic—deliver one standalone piece of functionality.  
-  4. `<FeatureName>` will be in title case and intuitive
-  5. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
+  1. `<FeatureName>` will be in title case and intuitive
+  2. Be atomic—deliver one standalone piece of functionality.
+  3. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
+  4. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.  
 
 ## 3. Documentation
 In `README.md`: 
 
-1. Section: **Who**: A minimalist keyphrase-heavy description of who would benefit from using this and why.
+1. Section: **Who**: An expansive deeply logical keyphrase-heavy description of who would benefit from using this and why.
 2. Section: **Features**:
   ```md
   [**<FeatureName>**](<path/to/testfile>#Lstart-Lend) — <short description of how the person described in **Purpose** >
   ````
-  * `<FeatureName>` should feel like an search engine keyphrase
+  * `<FeatureName>` should feel like an search engine keyphrase, what a person would search for
   * **Test name must match the `<FeatureName>` as closely as possible.**
   * Link points directly to the test file and line range.
 3. Section: **Contributions**:
@@ -40,6 +39,7 @@ tests failed, see below:
 ## 5. Maintenance & CI Config
 
 * **Clean up**: Always migrate non-integrated tests (ones with lots of stubs, dummies, mocks, etc) into integration tests where possible. Make special note in code comments if and why not possible in some case. Do not migrate code with such a comment.
+* **Environment**: Use the same `Dockerfile` + `docker-compose` setup for both testing and release. 
 * **Workflows**:
 
   * **`.github/workflows/test.yml`**
