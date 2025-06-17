@@ -1,142 +1,130 @@
-## I. Conventions & Style Guidelines
+## I. Formatting & Dependencies
 
-1. **Language-specific formatting**
+1. **Code Style**
 
-   * Adopt the community’s “strict” conventions (e.g. PEP 8 for Python, gofmt for Go, rustfmt for Rust, ESLint + Prettier for JS/TS).
-   * Provide a top-level `check.sh` that runs linters/formatters with default settings—contributors **must** run this before pushing.
+   * Use language’s **strict** formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier).
+   * `check.sh` runs linters/formatters **and** dependency‐pin checks. **Run `./check.sh` and fix before every push.**
 
-2. **Repository Layout**
+2. **Dependency Management**
 
-   * One `features/` directory (see Feature Development below).
-   * Shared libs in `lib/` or `shared/`.
-   * CI configs under `.github/`.
-   * Dev-container config under `.devcontainer/`.
+   * **Pin** every dependency to an **exact** version in your manifest, using the **current latest** release.
+   * **Manually verify** all version numbers are pinned and up‑to‑date before pushing.
 
 ---
 
-## II. Development Environment Setup
+## II. Dev Environment
 
 1. **Dev Container**
 
-   * **Base image**: `cruizba/ubuntu-dind:latest`.
-   * In `.devcontainer/`:
+   * **Base**: `cruizba/ubuntu-dind`.
+   * Structure under `.devcontainer/`:
 
-     * `Dockerfile.devcontainer` (`FROM cruizba/ubuntu-dind:latest`)
-     * `devcontainer.json` (points at `docker-compose.yml` + `postStart.sh`)
-     * `docker-compose.yml` (v3 syntax; defines any additional dev services)
-     * `postStart.sh` (initialization—e.g. install dependencies, build helpers)
-   * Launch via **VS Code Remote – Containers** for a one-command “clone + open” experience.
+     * `Dockerfile.devcontainer` (`FROM cruizba/ubuntu-dind`)
+     * `devcontainer.json` → vscode specific metadata
+     * `docker-compose.yml` defines dev services & workspace mount
+     * `postStart.sh` installs deps & builds helpers - always run on container first launch
 
-2. **Local Docker-in-Docker**
+2. **Usage**
 
-   * Everything—including tests and builds—runs inside the dev container.
-   * No local side-effects: you’re always running in the same Dockerized environment.
+   * Launch via VS Code Remote – Containers (“clone + open”).
+   * **All** builds, tests, and Docker commands run *inside* this container—no host side‑effects.
 
 ---
 
-## III. Feature Development Workflow
+## III. Features & Structure
 
 1. **Atomic Features**
 
-   * **Name**: Title Case, search-engine-friendly key phrase (e.g. `Generate Invoice PDF`).
-   * **Scope**: One self-contained piece of functionality (per Atomic Design principles).
-2. **Directory Structure**
+   * Folder under `features/` per feature in Title Case (e.g. `Generate Invoice PDF`).
+   * Each feature contains:
 
-   ```
-   features/
-     Generate Invoice PDF/
-       src/…
-       tests/…
-   shared/…
-   ```
-3. **Integration-First Testing**
+     ```text
+     features/
+       <Feature Name>/
+         src/
+         tests/
+         docker-compose.yml
+     ```
 
-   * Every feature **must** include at least one *integration test* (no unit-only coverage).
-   * Avoid mocks/stubs except when absolutely necessary—if used, annotate with a “why” comment.
+2. **Shared Code**
+
+   * Common code in `shared/`. Tested through the features that use it.
 
 ---
 
-## IV. Testing Strategy
+## IV. Testing & CI
 
-1. **GitHub Actions (CI only)**
+1. **CI Pipeline**
 
-   * Trigger: **push** to any branch.
-   * Workflow: `.github/workflows/test.yml`
-     * Use a `docker-compose.ci.yml` to spin up the same environment.
-     * **One job per feature**, named `Test: <Feature Name>`.
-     * Build and run the Dockerfile.devcontainer at the end to as well to detect any issues with the development environment 
+   * **Trigger**: on **push** to any branch.
+   * **Steps**:
+
+     1. **Build & start the dev-container** using the `.devcontainer` compose file:
+
+        ```bash
+        docker-compose -f .devcontainer/docker-compose.yml up --build -d
+        ```
+     2. **Run and Wait** for `postStart.sh` to finish inside the container.
+     3. **Inside** the running dev-container (via `docker exec` or Actions container steps):
+
+        * **Build runtime image**:
+
+          ```bash
+          docker build -f Dockerfile -t repo-runtime:latest .
+          ```
+        * **Run per-feature tests**: one job per feature named `Test: <Feature Name>`:
+
+          ```bash
+          docker-compose -f features/<Feature Name>/docker-compose.yml up --abort-on-container-exit
+          ```
+
+          * Each feature’s compose file:
+
+            * Starts/stops only its required services.
+            * Defines its own bind mounts, environment variables, etc to provide controlled input/output scenario for testing
+
 2. **Failure Reporting**
 
-   * On any failure, CI must print:
+   * On any build or test failure, CI logs should strive to print a final summary in this form:
 
-     ```
-     tests failed, see below:
+     ```text
+     ci failed, see below:
      <relevant log snippet>
      ```
-
-     (include full context to diagnose without rerunning).
-3. **No Local Runs**
-
-   * **Do not** run tests locally—always rely on CI’s container.
-   * If you need to see failures, open a PR and I’ll relay the output.
 
 ---
 
 ## V. Logging & Observability
 
-* Use **semantic/structured logging** (JSON, key/value).
-* Follow the OpenTelemetry Logs Spec for field naming and levels.
-* Logs should enable “logs-only” debugging (no stepping through code).
+* Logs alone must suffice to debug—no code stepping. Log everything you would need to handle test and build failures in the CI.
 
 ---
 
-## VI. Documentation Requirements
+## VI. Documentation
 
-1. **`README.md`**
+1. **README.md** contains:
 
-   1. **Who**
-
-      * Who benefits and why (rich, keyword-heavy).
-   2. **Features**
-
-      ```markdown
-      [**Generate Invoice PDF**](features/Generate Invoice PDF/tests/test_invoice_pdf.py#L1-L20) — 
-      Automatically generates a printable PDF invoice for finance managers.
-      ```
-
-      * Name tests after the feature (as close as possible).
-      * Links jump to test code.
-      * Description describes how it would help the person described in the **Who** section.
-   3. **Contributions**
-
-      * How to launch the dev container, run CI, open PRs, etc.
-      * Reference VS Code Dev Containers docs for details.
+   * **Who & Why**: target users and benefits.
+   * **Features**: list with links to their tests.
+   * **Contributing**: clone → dev‑container → build → test → open PR.
 
 ---
 
-## VII. CI/CD & Release Workflows
+## VII. Releases
 
-1. **`.github/workflows/release.yml`**
+* `.github/workflows/release.yml`:
 
-   * Trigger: on push where tags match vX.Y.Z (e.g. v1.2.3)
-   * Build + push Docker images (using `secrets.DOCKER_{USERNAME,PASSWORD}`).
-   * Tag & name per org conventions (e.g. `ghcr.io/org/repo:semver`).
-   * Include full image reference in release notes.
-   * Provide example `docker-compose.yml` for deployment.
+  * **Trigger**: on tag `vX.Y.Z`.
+  * Build & push Docker images (`secrets.DOCKER_{USERNAME,PASSWORD}`).
+  * Tag per org convention (e.g. `ghcr.io/org/repo:semver`).
+  * Update release notes with full image references.
+  * Include example `docker-compose.yml` for deployment.
 
 ---
 
-## VIII. Maintenance & Continuous Improvement
+## VIII. Maintenance
 
-1. **Feature Refactoring**
-   
-   * If you can locate atomic features that are not clearly individuated, tested or documented appropriately in README.md refactor them to match the expectations set out in this document.
-1. **Test Refactoring**
-
-   * Whenever possible, migrate any mock-heavy tests into real integration tests.
-   * If a test can’t be migrated, leave a clear comment explaining *why* (and what would need to change).
-2. **Environment Upkeep**
-
-   * `Dockerfile` is the **single source of truth** for runtime and test.
-   * `Dockerfile.devcontainer` is the **single source of truth** for developement.
-   * Meticulously maintain both. Update them to install **any and all** dependencies—even large ones—to ensure easy interaction with the repo code and to minimize missing dependency issues.
+* Additionally, try to stay on top of these:
+  * **Refactor** non‑atomic code into feature folders.
+  * **Migrate** mock‑heavy tests to integration tests—or document why mocks remain.
+  * Keep both `Dockerfile` (runtime) and `Dockerfile.devcontainer` (dev) updated with all latest dependencies.
