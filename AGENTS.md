@@ -2,7 +2,7 @@
 **Each feature must**:
   1. `<Feature Name>` will be in title case and intuitive.
   2. Be atomic—deliver one standalone piece of functionality.
-  3. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
+  3. Separate feature specific code into directories named `<Feature Name>`. Keep shared code out of these directories.
   4. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.
 
 ## 2. Testing
@@ -15,7 +15,7 @@ In `README.md`:
 1. Section: **Who**: An expansive deeply logical keyphrase-heavy description of who would benefit from using this and why.
 2. Section: **Features**:
   ```md
-  [**<FeatureName>**](<path/to/testfile>#Lstart-Lend) — <short description of how the person described in **Purpose** >
+  [**<Feature Name>**](<path/to/testfile>#Lstart-Lend) — <short description of how this would be useful for the archetypal person described in **Purpose**>
   ````
   * `<Feature Name>` should feel like an search engine keyphrase, what a person would search for
   * **Test name must match the `<Feature Name>` as closely as possible.**
