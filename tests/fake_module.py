@@ -37,7 +37,8 @@ def unload():
 
 def start(port):
     import os
-    os.environ["PORT"] = str(port)
     import importlib
-    rs = importlib.import_module('home_index_module.run_server')
+    os.environ["PORT"] = str(port)
+    rs = importlib.import_module("home_index_module.run_server")
+    rs = importlib.reload(rs)
     rs.run_server(NAME, hello, check, run, load_fn=load, unload_fn=unload)

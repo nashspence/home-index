@@ -32,6 +32,7 @@ logging.basicConfig(
 )
 
 LOGGING_DIRECTORY = os.environ.get("LOGGING_DIRECTORY", "/home-index")
+os.makedirs(LOGGING_DIRECTORY, exist_ok=True)
 
 modules_logger = logging.getLogger("home-index-modules")
 modules_logger.setLevel(LOGGING_LEVEL)

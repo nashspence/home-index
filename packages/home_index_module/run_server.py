@@ -5,8 +5,6 @@ from xmlrpc.server import SimpleXMLRPCServer
 from contextlib import contextmanager
 from pathlib import Path
 
-from langchain_core.documents import Document
-from langchain_text_splitters import TokenTextSplitter
 
 
 def setup_debugger():
@@ -152,8 +150,12 @@ def split_chunk_docs(
     chunk_overlap=50,
 ):
     """Return ``chunk_docs`` split by tokens using ``langchain`` utilities."""
-
-    from transformers import AutoTokenizer
+    try:
+        from transformers import AutoTokenizer
+        from langchain_core.documents import Document
+        from langchain_text_splitters import TokenTextSplitter
+    except Exception as exc:  # pragma: no cover - optional dependency
+        raise RuntimeError("langchain is required for split_chunk_docs") from exc
 
     docs = []
     for d in chunk_docs:

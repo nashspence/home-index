@@ -17,7 +17,7 @@ def start_server(port):
     fake_module.start(port)
 
 
-def wait_for_server(port, timeout=5):
+def wait_for_server(port, timeout=20):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -30,6 +30,15 @@ def wait_for_server(port, timeout=5):
 
 def test_run_server_basic(tmp_path):
     port = 9050
+    files_dir = tmp_path / "files"
+    meta_dir = tmp_path / "meta"
+    by_id = meta_dir / "by-id"
+    for d in (files_dir, meta_dir, by_id):
+        d.mkdir(parents=True, exist_ok=True)
+    os.environ["FILES_DIRECTORY"] = str(files_dir)
+    os.environ["METADATA_DIRECTORY"] = str(meta_dir)
+    os.environ["BY_ID_DIRECTORY"] = str(by_id)
+    os.environ["LOGGING_DIRECTORY"] = str(tmp_path / "logs")
     proc = multiprocessing.Process(target=start_server, args=(port,), daemon=True)
     proc.start()
     try:

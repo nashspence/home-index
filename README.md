@@ -14,6 +14,32 @@ docker compose up
 
 Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust any paths or environment variables.
 
+## Features
+
+The list below highlights key functionality. Each tested feature links directly
+to its verifying test case.
+
+- `test_schema_is_valid` – file documents match the expected schema – [tests/test_meilisearch_schema.py](tests/test_meilisearch_schema.py)
+- `test_chunk_schema_is_valid` – chunk documents follow the chunk schema – [tests/test_meilisearch_file_chunk_schema.py](tests/test_meilisearch_file_chunk_schema.py)
+- `test_run_server_basic` – modules communicate via XML‑RPC – [tests/test_run_server_module.py](tests/test_run_server_module.py)
+- `test_run_module_adds_and_deletes_chunks` – modules can add and remove chunk data – [tests/test_chunk_integration.py](tests/test_chunk_integration.py)
+- `test_run_module_handles_document_return` – modules may return only updated documents – [tests/test_chunk_integration.py](tests/test_chunk_integration.py)
+- `test_retry_until_ready_success` – retry helper stops when a call succeeds – [tests/test_retry.py](tests/test_retry.py)
+- `test_retry_until_ready_failure` – retry helper fails after repeated errors – [tests/test_retry.py](tests/test_retry.py)
+- `test_sync_and_run_many_files` – indexing runs across many files and modules – [tests/test_large_indexing.py](tests/test_large_indexing.py)
+- `test_parse_cron_env_parses_expression` – cron schedules are parsed from the environment – [tests/test_schedule.py](tests/test_schedule.py)
+- `test_parse_cron_env_invalid` – malformed cron expressions raise `ValueError` – [tests/test_schedule.py](tests/test_schedule.py)
+- `test_embed_texts_produces_vectors` – text embeddings use SentenceTransformer models – [tests/test_embeddings.py](tests/test_embeddings.py)
+- `test_archive_sync_retains_unmounted_docs` – metadata for offline archive files is retained – [tests/test_archive_support.py](tests/test_archive_support.py)
+- `test_apply_migrations_if_needed` – module migrations persist version upgrades – [tests/test_module_migrations.py](tests/test_module_migrations.py)
+
+Untested features:
+
+- Cron-based indexing run via APScheduler
+- Archive directory cleanup when files are permanently removed
+- Splitting chunk documents with TokenTextSplitter
+- Converting segmentation results into Meilisearch chunks
+
 ## Running manually
 
 You can also run the service directly with Python:
