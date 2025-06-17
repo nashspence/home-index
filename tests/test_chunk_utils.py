@@ -21,10 +21,10 @@ def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source
 
 
 def test_tokentextsplitter_divides_chunk_text_into_smaller_documents():
-    from home_index_module import run_server as rs
+    from home_index_module.run_server import split_chunk_docs
 
     chunks = [{"id": "c1", "file_id": "f", "module": "m", "text": "a b c d"}]
-    result = rs.split_chunk_docs(chunks, tokens_per_chunk=2, chunk_overlap=0)
+    result = split_chunk_docs(chunks, tokens_per_chunk=2, chunk_overlap=0)
 
     assert [d["id"] for d in result] == ["c1", "c1_1"]
     assert [d["text"] for d in result] == ["a b", "c d"]
