@@ -11,13 +11,19 @@
   5. `<FeatureName>` will be in title case and intuitive
 
 ## 3. Documentation
-In `README.md` → **Features**:
-```md
-[**<FeatureName>**](<path/to/testfile>#Lstart-Lend) — <short description>
-````
+In `README.md`: 
 
-* **Test name must match the `<FeatureName>` as closely as possible.**
-* Link points directly to the test file and line range.
+- Section: **Who**: A minimalist keyphrase-heavy description of who would benefit from using this and why.
+- Section: **Features**:
+  ```md
+  [**<FeatureName>**](<path/to/testfile>#Lstart-Lend) — <short description of how the person described in **Purpose** >
+  ````
+  * `<FeatureName>` should feel like an search engine keyphrase
+  * **Test name must match the `<FeatureName>` as closely as possible.**
+  * Link points directly to the test file and line range.
+- Section: **Contributions**:
+  Indicates that PRs are welcome and describes how to use the dev container, CI, etc. Similar to AGENTS.md but for actual people.
+
 
 ## 4. CI Failure Reporting
 
@@ -59,5 +65,9 @@ tests failed, see below:
   * `postStart.sh` (initialization script)
 * Launch via VS Code Remote – Containers; all services run inside DinD, mirroring CI/release setup.
 * Document any VS Code settings or extensions in `devcontainer.json`.
+
+## 7. Convention
+
+Aside from above, search for and strive to follow modern strict conventions for the langauge and environment wherever possible. Run common linters and formatters with default settings before each push - fix any issues they output BEFORE you push.
 
 ```
