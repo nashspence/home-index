@@ -1,73 +1,72 @@
 ## 1. Feature Requirements
+
 **Each feature must**:
-  1. `<Feature Name>` will be in title case and intuitive.
-  2. Be atomic—deliver one standalone piece of functionality.
-  3. Separate feature specific code into directories named `<Feature Name>`. Keep shared code out of these directories.
-  4. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.
+
+1. **`<Feature Name>`** will be in title case and intuitive.
+2. Be **atomic**—deliver one standalone piece of functionality (see [Atomic Design concept](https://bradfrost.com/blog/post/atomic-web-design/)).
+3. Separate feature-specific code into directories named `<Feature Name>`. Keep shared code out of these directories.
+4. Have an **integration test** (no unit-only tests). Avoid [mocks, stubs, dummies, etc.](https://martinfowler.com/articles/mocksArentStubs.html) unless absolutely necessary, and add a code-comment explaining why if you must.
 
 ## 2. Testing
-- **CI only**: All tests run in GitHub Actions on every push to any branch.  
-- **No local test runs**, at all. Don't do it! They will nearly always fail unless you can run them in the appropriate environment (the container specified in the Dockerfile). If you want to see test results, ask me to create a PR of the current code, CI will run, and I will relate any failures back to you and you will fix them.
+
+* **CI only**: All tests run in [GitHub Actions](https://docs.github.com/en/actions) on every push to any branch.
+* **No local test runs**, at all. Don’t do it! They will nearly always fail unless you can run them in the appropriate environment (the container specified in the [Dockerfile](https://docs.docker.com/engine/reference/builder/)). If you want to see test results, ask me to create a PR of the current code, CI will run, and I will relay any failures for you to fix.
 
 ## 3. Documentation
-In `README.md`: 
 
-1. Section: **Who**: An expansive deeply logical keyphrase-heavy description of who would benefit from using this and why.
-2. Section: **Features**:
-  ```md
-  [**<Feature Name>**](<path/to/testfile>#Lstart-Lend) — <short description of how this would be useful for the archetypal person described in **Purpose**>
-  ````
-  * `<Feature Name>` should feel like an search engine keyphrase, what a person would search for
-  * **Test name must match the `<Feature Name>` as closely as possible.**
-  * Link points directly to the test file and line range.
-3. Section: **Contributions**:
-  Indicates that PRs are welcome and describes how to use the dev container, CI, etc. Similar to AGENTS.md but for actual people.
+In **`README.md`**:
 
-## 3. Logging
-Use extensive semantic logging in application code and tests designed specifically for *logs-only* debugging. 
+1. **Who** – An expansive, deeply logical, key-phrase-heavy description of who would benefit from using this and why.
+2. **Features**:
 
-## 4. Maintenance & CI Config
+   ```md
+   [**<Feature Name>**](<path/to/testfile>#Lstart-Lend) — <short description of how this helps the archetypal person described in **Who**>
+   ```
 
-* **Clean up**: Always migrate non-integrated tests (ones with lots of stubs, dummies, mocks, etc) into integration tests where possible. Make special note in code comments if and why not possible in some case. Do not migrate code with such a comment.
-* **Environment**: The runtime environment should always be defined by a Dockerfile. Do not shy away from downloading and installing **anything** necessary to run or test as part of the Dockerfile - not matter how big or complex. It should be a complete *real* runtime environment.
+   * `<Feature Name>` should feel like a search-engine key phrase—exactly what someone would type.
+   * **The test name must match `<Feature Name>` as closely as possible.**
+   * The link must jump directly to the relevant test lines.
+3. **Contributions** – PRs are welcome. Explain how to use the dev-container, CI, etc., similar to **AGENTS.md** but written for humans. For Dev Containers reference see the [VS Code Dev Containers docs](https://code.visualstudio.com/docs/devcontainers/containers).
+
+## 4. Logging
+
+Use extensive **semantic/structured logging** in application code and tests, designed specifically for *logs-only* debugging. See the vendor-neutral [OpenTelemetry Logs spec](https://opentelemetry.io/docs/specs/otel/logs/) for guidance.
+
+## 5. Maintenance & CI Config
+
+* **Clean up** – Always migrate non-integrated tests (those heavy with stubs/mocks) into integration tests where possible. If migration is impossible, leave a clear code comment explaining why.
+* **Environment** – The runtime environment is fully defined by a **Dockerfile**. Don’t hesitate to install **anything** necessary, no matter how large. It should be a complete, real runtime environment (learn more in the [Docker Best Practices guide](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)).
 * **Workflows**:
 
-  * **`.github/workflows/test.yml`**
+  * **`.github/workflows/test.yml`** – Trigger on **push** to any branch. Build & launch the environment Dockerfile via a custom `docker-compose.ci.yml`. One step per feature test, each step named `Test: <Feature Name>`. On any test failure, output exactly:
 
-    * Trigger on **push** any branch.
-    * Build & launch the environment Dockerfile with a custom docker-compose.ci.yml.
-    * One step per feature test; each step named `Test: <Feature Name>`.
-    * On any test failure, output exactly:
+    ```
+    tests failed, see below:
+    <relevant log snippet>
+    ```
 
-      ```
-      tests failed, see below:
-      <relevant log snippet>
-      ```
+    `<relevant log snippet>` must include all context needed to diagnose and fix the failure.
 
-      * `<relevant log snippet>` must include all context needed to diagnose and fix the test failure.
-      * Agents will be asked to resolve issues using only that snippet.
+  * **`.github/workflows/release.yml`** – Trigger on [release events](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#release-event). Include an example `docker-compose.yml`.
 
-  * **`.github/workflows/release.yml`**
-
-    * Trigger on **GitHub release** events (tag or release).
-    * Include an example docker-compose.yml.
     * **Docker images**:
-      * username = secrets.DOCKER_USERNAME
-      * password = secrets.DOCKER_PASSWORD
-      * Build & push to registry following org naming/tag conventions.
-      * In the release notes, include the full image reference (e.g. `ghcr.io/nashspence/repo:tag`).
 
-## 5. Development Container
+      * `username = secrets.DOCKER_USERNAME`
+      * `password = secrets.DOCKER_PASSWORD`
+      * Build & push to registry per org naming/tag conventions—see [ghcr authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry) for details.
+      * Release notes must include the full image reference (e.g., `ghcr.io/nashspence/repo:tag`).
 
-* **Base image**: `cruizba/ubuntu-dind:latest` (Docker-in-Docker).
+## 6. Development Container
+
+* **Base image** – [`cruizba/ubuntu-dind:latest`](https://hub.docker.com/r/cruizba/ubuntu-dind) (Docker-in-Docker). For the DinD concept itself, see [Docker-in-Docker docs](https://docs.docker.com/build/ci/docker-in-docker/).
 * **`.devcontainer/`** must contain:
-  * `Dockerfile.devcontainer` (FROM `cruizba/ubuntu-dind:latest` or similar)
-  * `devcontainer.json` (references `docker-compose.yml` & `postStart.sh`)
-  * `docker-compose.yml` (defines dev services)
-  * `postStart.sh` (initialization script)
-* Launch via `VS Code Remote – Containers`; **all** services can run inside DinD for a perfect, easy to setup, dev & test environment.
-* Document any VS Code settings or extensions in `devcontainer.json`.
 
-## 6. Convention
+  * `Dockerfile.devcontainer` (`FROM cruizba/ubuntu-dind:latest` or similar)
+  * `devcontainer.json` (references `docker-compose.yml` & `postStart.sh`) – spec details in [devcontainer.json reference](https://containers.dev/implementors/json_reference).
+  * `docker-compose.yml` (defines dev services) – syntax: [Compose file v3 reference](https://docs.docker.com/compose/compose-file/compose-versioning/#version-3).
+  * `postStart.sh` (initialisation script)
+* Launch via **VS Code Remote – Containers**; all dependencies should be pre-installed & services runnable inside DinD for a flawless, one-command dev & test experience.
 
-Aside from above, search for and strive to follow modern strict conventions for the langauge and environment wherever possible. Maintain a `check.sh` script that runs known common linters and a popular formatter with default settings - run before each push fix any issues they output BEFORE you push.
+## 7. Convention
+
+Alongside everything above, search for and adopt **modern strict conventions** for the language and environment wherever possible (e.g., PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.). Maintain a `check.sh` script that runs well-known linters and a popular formatter using default settings—*run it before each push* and fix issues **before** you push.
