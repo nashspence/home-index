@@ -4,7 +4,7 @@
 
 ## 2. Feature Requirements
 **Each feature must**:
-  1. `<FeatureName>` will be in title case and intuitive
+  1. `<FeatureName>` will be in title case and intuitive.
   2. Be atomic—deliver one standalone piece of functionality.
   3. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
   4. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.  
