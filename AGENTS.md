@@ -4,12 +4,11 @@
 
 ## 2. Feature Requirements
 **Each feature must**:
-  1. Have an integration test (no unit-only tests).  
-  2. Use the same `Dockerfile` + `docker-compose` setup for both testing and release.  
-  3. Avoid mocks/stubs unless absolutely necessary.  
-  4. Be atomic—deliver one standalone piece of functionality.  
-  5. `<FeatureName>` will be in title case and intuitive
-  6. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
+  1. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.
+  2. Use the same `Dockerfile` + `docker-compose` setup for both testing and release.   
+  3. Be atomic—deliver one standalone piece of functionality.  
+  4. `<FeatureName>` will be in title case and intuitive
+  5. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
 
 ## 3. Documentation
 In `README.md`: 
