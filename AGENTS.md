@@ -1,7 +1,3 @@
-Here’s a proposed, chronologically ordered outline that walks a new contributor (or team) step-by-step from “how do I get set up?” through “how do I write, test, document, ship, and maintain code?” At the end I’ve flagged a few spots where I’d love your input to fill in any remaining gaps.
-
----
-
 ## I. Conventions & Style Guidelines
 
 1. **Language-specific formatting**
