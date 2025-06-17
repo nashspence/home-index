@@ -137,7 +137,7 @@ def dummy_module_server_plain(port):
         thread.join()
 
 
-def test_run_module_adds_and_deletes_chunks(tmp_path):
+def test_modules_can_add_and_remove_chunk_data(tmp_path):
     async def run():
         meili_port = 7710
         host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{meili_port}")
@@ -200,7 +200,7 @@ def test_run_module_adds_and_deletes_chunks(tmp_path):
     asyncio.run(run())
 
 
-def test_run_module_handles_document_return(tmp_path):
+def test_modules_may_return_only_updated_documents(tmp_path):
     async def run():
         meili_port = 7711
         host = os.environ.get("MEILISEARCH_HOST", f"http://127.0.0.1:{meili_port}")

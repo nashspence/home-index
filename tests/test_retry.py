@@ -26,7 +26,7 @@ ns = {"time": time, "os": os}
 exec(code, ns)
 retry_until_ready = ns["retry_until_ready"]
 
-def test_retry_until_ready_success(monkeypatch):
+def test_retry_helper_stops_when_a_call_succeeds(monkeypatch):
     sleeps = []
     monkeypatch.setattr(time, 'sleep', lambda s: sleeps.append(s))
     attempts = {'c':0}
@@ -40,7 +40,7 @@ def test_retry_until_ready_success(monkeypatch):
     assert attempts['c'] == 3
     assert sleeps == [1,1]
 
-def test_retry_until_ready_failure(monkeypatch):
+def test_retry_helper_fails_after_repeated_errors(monkeypatch):
     sleeps = []
     monkeypatch.setattr(time, 'sleep', lambda s: sleeps.append(s))
     def fn():

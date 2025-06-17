@@ -100,7 +100,7 @@ def dummy_module_server(name, port, add_chunk=False):
         thread.join()
 
 
-def test_sync_and_run_many_files(tmp_path):
+def test_indexing_runs_across_many_files_and_modules(tmp_path):
     async def run():
         files_dir = tmp_path / "files"
         files_dir.mkdir()

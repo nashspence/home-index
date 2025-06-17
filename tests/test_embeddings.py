@@ -17,7 +17,7 @@ class DummyModel:
         return data if convert_to_numpy else data.tolist()
 
 
-def test_embed_texts_produces_vectors(monkeypatch, tmp_path):
+def test_text_embeddings_use_sentence_transformer_models(monkeypatch, tmp_path):
     import sentence_transformers
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
