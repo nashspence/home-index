@@ -61,11 +61,11 @@ Use extensive semantic logging in application code and tests designed specifical
 
 * **Base image**: `cruizba/ubuntu-dind:latest` (Docker-in-Docker).
 * **`.devcontainer/`** must contain:
-  * `Dockerfile.devcontainer` (FROM `cruizba/ubuntu-dind:latest`)
+  * `Dockerfile.devcontainer` (FROM `cruizba/ubuntu-dind:latest` or similar)
   * `devcontainer.json` (references `docker-compose.yml` & `postStart.sh`)
   * `docker-compose.yml` (defines dev services)
   * `postStart.sh` (initialization script)
-* Launch via VS Code Remote – Containers; all services run inside DinD, mirroring CI/release setup.
+* Launch via `VS Code Remote – Containers`; **all** services can run inside DinD for a perfect, easy to setup, dev & test environment.
 * Document any VS Code settings or extensions in `devcontainer.json`.
 
 ## 6. Convention
