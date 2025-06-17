@@ -62,9 +62,9 @@
 
    * Trigger: **push** to any branch.
    * Workflow: `.github/workflows/test.yml`
-
      * Use a `docker-compose.ci.yml` to spin up the same environment.
      * **One job per feature**, named `Test: <Feature Name>`.
+     * Build and run the Dockerfile.devcontainer at the end to as well to detect any issues with the development environment 
 2. **Failure Reporting**
 
    * On any failure, CI must print:
@@ -128,11 +128,15 @@
 
 ## VIII. Maintenance & Continuous Improvement
 
+1. **Feature Refactoring**
+   
+   * If you can locate atomic features that are not clearly individuated, tested or documented appropriately in README.md refactor them to match the expectations set out in this document.
 1. **Test Refactoring**
 
    * Whenever possible, migrate any mock-heavy tests into real integration tests.
    * If a test can’t be migrated, leave a clear comment explaining *why* (and what would need to change).
 2. **Environment Upkeep**
 
-   * The Dockerfile is the *single source of truth* for runtime.
-   * Feel free to install any dependencies—even large ones—to ensure parity with prod.
+   * `Dockerfile` is the **single source of truth** for runtime and test.
+   * `Dockerfile.devcontainer` is the **single source of truth** for developement.
+   * Meticulously maintain both. Update them to install **any and all** dependencies—even large ones—to ensure easy interaction with the repo code and to minimize missing dependency issues.
