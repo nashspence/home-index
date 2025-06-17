@@ -9,6 +9,7 @@
   3. Avoid mocks/stubs unless absolutely necessary.  
   4. Be atomic—deliver one standalone piece of functionality.  
   5. `<FeatureName>` will be in title case and intuitive
+  6. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
 
 ## 3. Documentation
 In `README.md`: 
