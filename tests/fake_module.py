@@ -39,6 +39,6 @@ def start(port):
     import os
     import importlib
     os.environ["PORT"] = str(port)
-    import home_index_module.run_server as rs
+    rs = importlib.import_module("home_index_module.run_server")
     rs = importlib.reload(rs)
     rs.run_server(NAME, hello, check, run, load_fn=load, unload_fn=unload)
