@@ -1,5 +1,5 @@
 ## 1. Testing
-- **CI only**: All tests run in GitHub Actions on every PR or push.  
+- **CI only**: All tests run in GitHub Actions on every push to any branch.  
 - **No local test runs**, at all. Don't do it! They will nearly always fail because you cannot run them in the correct environment. If you want to see test results, ask me to create a PR of the current code, CI will run, and I will relate any failures back to you.
 
 ## 2. Feature Requirements
