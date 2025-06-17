@@ -130,23 +130,33 @@ EMBED_DEVICE = os.environ.get("EMBED_DEVICE", default_device)
 EMBED_DIM = int(os.environ.get("EMBED_DIM", "384"))
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
-INDEX_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
+
+def _safe_mkdir(path: Path) -> None:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        # May run in read-only environments during imports
+        pass
+
+
+_safe_mkdir(INDEX_DIRECTORY)
 
 METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
-METADATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(METADATA_DIRECTORY)
 BY_ID_DIRECTORY = Path(
     os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
 )
-BY_ID_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(BY_ID_DIRECTORY)
 BY_PATH_DIRECTORY = Path(
     os.environ.get("BY_PATH_DIRECTORY", str(METADATA_DIRECTORY / "by-path"))
 )
-BY_PATH_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(BY_PATH_DIRECTORY)
 
 ARCHIVE_DIRECTORY = Path(
     os.environ.get("ARCHIVE_DIRECTORY", (INDEX_DIRECTORY / "archive").as_posix())
 )
-ARCHIVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(ARCHIVE_DIRECTORY)
 
 RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
