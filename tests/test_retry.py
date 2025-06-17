@@ -1,6 +1,5 @@
 import ast
 import pathlib
-import types
 import os
 import time
 import pytest

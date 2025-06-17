@@ -4,7 +4,6 @@ import time
 import multiprocessing
 from xmlrpc.client import ServerProxy
 
-import pytest
 
 import sys
 from pathlib import Path

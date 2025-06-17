@@ -12,7 +12,6 @@ from xmlrpc.client import ServerProxy
 
 import httpx
 import importlib
-import pytest
 import xxhash
 
 

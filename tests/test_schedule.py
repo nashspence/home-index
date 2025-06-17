@@ -10,6 +10,9 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    monkeypatch.setenv("INDEX_DIRECTORY", str(index_dir))
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
     import home_index.main as hi
     import importlib
