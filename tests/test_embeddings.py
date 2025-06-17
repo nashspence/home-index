@@ -3,29 +3,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
 
-# Uses a dummy embedding model to avoid pulling real models from the network.
 
-
-import numpy as np
-
-
-class DummyModel:
-    def __init__(self, name, device):
-        self.name = name
-        self.device = device
-
-    def encode(self, texts, convert_to_numpy=True):
-        data = np.array([[float(len(t))] * 384 for t in texts], dtype=float)
-        return data if convert_to_numpy else data.tolist()
-
-
-def test_text_embeddings_use_sentence_transformer_models(monkeypatch, tmp_path):
-    import sentence_transformers
-
+def test_text_embeddings_use_sentence_transformer_models(tmp_path, monkeypatch):
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
-    monkeypatch.setattr(sentence_transformers, "SentenceTransformer", DummyModel)
 
     import home_index.main as hi
     import importlib
@@ -36,4 +18,3 @@ def test_text_embeddings_use_sentence_transformer_models(monkeypatch, tmp_path):
     result = hi.embed_texts(["a", "bb"])
     assert len(result) == 2
     assert all(len(vec) == hi.EMBED_DIM for vec in result)
-    assert result[1][0] == 2.0

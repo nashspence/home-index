@@ -32,12 +32,12 @@ The list below highlights key functionality. Each tested feature links directly 
 - [indexing runs across many files and modules](tests/test_large_indexing.py#L103-L168)
 - [cron schedules are parsed from the environment](tests/test_schedule.py#L8-L24)
 - [malformed cron expressions raise ValueError](tests/test_schedule.py#L27-L37)
-- [text embeddings use SentenceTransformer models](tests/test_embeddings.py#L20-L35)
+- [text embeddings use SentenceTransformer models](tests/test_embeddings.py#L7-L20)
 - [metadata persists if the archive directory is temporarily missing](tests/test_archive_support.py#L10-L48)
 - [module migrations persist version upgrades](tests/test_module_migrations.py#L7-L28)
 - [scheduler attaches a CronTrigger job for periodic indexing](tests/test_schedule.py#L40-L85)
 - [metadata and symlinks are purged after an archive file is removed](tests/test_archive_support.py#L51-L91)
-- [TokenTextSplitter divides chunk text into smaller documents](tests/test_chunk_utils.py#L23-L64)
+- [TokenTextSplitter divides chunk text into smaller documents](tests/test_chunk_utils.py#L23-L30)
 - [segments with headers convert to chunk documents referencing the source file](tests/test_chunk_utils.py#L7-L20)
 
 ## Running manually

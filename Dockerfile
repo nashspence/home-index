@@ -15,6 +15,12 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
+RUN python - <<'EOF'
+from transformers import AutoTokenizer
+from sentence_transformers import SentenceTransformer
+AutoTokenizer.from_pretrained("intfloat/e5-small-v2")
+SentenceTransformer("intfloat/e5-small-v2")
+EOF
 
 COPY packages/home_index .
 ENTRYPOINT ["python3", "/app/main.py"]
