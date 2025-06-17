@@ -2,10 +2,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
-from home_index_module.run_server import apply_migrations_if_needed, load_version
 
 
 def test_apply_migrations_if_needed(tmp_path):
+    from home_index_module.run_server import apply_migrations_if_needed, load_version
     meta_dir = tmp_path / "meta"
 
     calls = []
