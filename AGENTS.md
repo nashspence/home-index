@@ -39,7 +39,7 @@ tests failed, see below:
 ## 5. Maintenance & CI Config
 
 * **Clean up**: Always migrate non-integrated tests (ones with lots of stubs, dummies, mocks, etc) into integration tests where possible. Make special note in code comments if and why not possible in some case. Do not migrate code with such a comment.
-* **Environment**: Use the same `Dockerfile` + `docker-compose` setup for both testing and release. 
+* **Environment**: Use the same `Dockerfile` + `docker-compose` setup for both testing and release as much as possible. Do not shy away from downloading and installing **anything** necessary to run or test as part of the Dockerfile - not matter how big or complex. It should be a complete *real* environment.
 * **Workflows**:
 
   * **`.github/workflows/test.yml`**
