@@ -20,7 +20,8 @@ In `README.md` → **Features**:
 [**<FeatureName>**](<path/to/testfile>#Lstart-Lend) — <short description>
 ```
 
-* Test name must exactly match `<FeatureName>`.
+* `<FeatureName>` will be title case and intuitive.
+* Test name must match `<FeatureName>` as much as possible.
 * The link must point to the test file and lines where the feature is exercised.
 
 ## 4. CI Failure Reporting
@@ -43,7 +44,7 @@ tests failed, see below:
   * **`.github/workflows/test.yml`**
 
     * Trigger on **push** (any branch) and **pull\_request**.
-    * One step per test, named after its feature.
+    * One step per test, named exactly `<FeatureName>`.
   * **`.github/workflows/release.yml`**
 
     * Trigger on **GitHub release** events (tag or release).
@@ -51,7 +52,7 @@ tests failed, see below:
 
       * Build and push to Docker registry following your org’s naming/tag conventions.
       * In the GitHub release notes, include the fully-qualified image reference (e.g. `ghcr.io/org/repo:tag`).
-    * **macOS-only artifacts**:
+    * **macOS-only artifacts (include only if needed)**:
 
       * Build (if needed) on `runs-on: macos-latest`.
       * Package and attach as a release artifact (e.g. `.tar.gz` or `.zip`), following standard GitHub naming conventions.
