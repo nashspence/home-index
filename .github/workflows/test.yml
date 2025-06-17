@@ -7,6 +7,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      EXTERNAL_MEILISEARCH: '1'
+      MEILISEARCH_HOST: 'http://localhost:7700'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
