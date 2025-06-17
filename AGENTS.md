@@ -57,4 +57,15 @@ tests failed, see below:
       * Build (if needed) on `runs-on: macos-latest`.
       * Package and attach as a release artifact (e.g. `.tar.gz` or `.zip`), following standard GitHub naming conventions.
 
+## 6. Development Container
+
+* **`.devcontainer/`** must include:
+
+  * `Dockerfile.devcontainer`
+  * `devcontainer.json`
+  * `docker-compose.yml` (for services used in development)
+  * `postStart.sh` (setup scripts: install CLI tools, seed data, etc.)
+* The devcontainer setup should mirror the CI/release Docker configuration where possible, ensuring a consistent local environment.
+* Document any additional VS Code settings or extensions in `devcontainer.json`.
+
 ```
