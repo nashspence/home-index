@@ -10,6 +10,11 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
+    monkeypatch.setenv("INDEX_DIRECTORY", str(tmp_path / "index"))
+    monkeypatch.setenv("METADATA_DIRECTORY", str(tmp_path / "meta"))
+    monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta" / "by-id"))
+    monkeypatch.setenv("BY_PATH_DIRECTORY", str(tmp_path / "meta" / "by-path"))
+    monkeypatch.setenv("ARCHIVE_DIRECTORY", str(tmp_path / "index" / "archive"))
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
     import home_index.main as hi
     import importlib
@@ -29,6 +34,11 @@ def test_malformed_cron_expressions_raise_valueerror(monkeypatch, tmp_path):
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
+    monkeypatch.setenv("INDEX_DIRECTORY", str(tmp_path / "index"))
+    monkeypatch.setenv("METADATA_DIRECTORY", str(tmp_path / "meta"))
+    monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta" / "by-id"))
+    monkeypatch.setenv("BY_PATH_DIRECTORY", str(tmp_path / "meta" / "by-path"))
+    monkeypatch.setenv("ARCHIVE_DIRECTORY", str(tmp_path / "index" / "archive"))
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
     import home_index.main as hi
     import importlib
@@ -42,6 +52,11 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(monkeypatch,
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
+    monkeypatch.setenv("INDEX_DIRECTORY", str(tmp_path / "index"))
+    monkeypatch.setenv("METADATA_DIRECTORY", str(tmp_path / "meta"))
+    monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta" / "by-id"))
+    monkeypatch.setenv("BY_PATH_DIRECTORY", str(tmp_path / "meta" / "by-path"))
+    monkeypatch.setenv("ARCHIVE_DIRECTORY", str(tmp_path / "index" / "archive"))
     monkeypatch.setenv("CRON_EXPRESSION", "5 4 * * *")
     monkeypatch.setenv("HELLO_VERSIONS_FILE_PATH", str(tmp_path / "hello_versions.json"))
     monkeypatch.delenv("DEBUG", raising=False)

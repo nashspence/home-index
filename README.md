@@ -26,12 +26,12 @@ The list below highlights key functionality. Each tested feature links directly 
 - [**Retry Helper Stops When A Call Succeeds**](tests/test_retry.py#L10-L33) — retry helper stops when a call succeeds
 - [**Retry Helper Fails After Repeated Errors**](tests/test_retry.py#L36-L54) — retry helper fails after repeated errors
 - [**Indexing Runs Across Many Files And Modules**](tests/test_large_indexing.py#L103-L168) — indexing runs across many files and modules
-- [**Cron Schedules Are Parsed From The Environment**](tests/test_schedule.py#L8-L24) — cron schedules are parsed from the environment
-- [**Malformed Cron Expressions Raise ValueError**](tests/test_schedule.py#L27-L37) — malformed cron expressions raise ValueError
+- [**Cron Schedules Are Parsed From The Environment**](tests/test_schedule.py#L8-L29) — cron schedules are parsed from the environment
+- [**Malformed Cron Expressions Raise ValueError**](tests/test_schedule.py#L32-L47) — malformed cron expressions raise ValueError
 - [**Text Embeddings Use SentenceTransformer Models**](tests/test_embeddings.py#L19-L34) — text embeddings use SentenceTransformer models
 - [**Metadata Persists If The Archive Directory Is Temporarily Missing**](tests/test_archive_support.py#L10-L48) — metadata persists if the archive directory is temporarily missing
 - [**Module Migrations Persist Version Upgrades**](tests/test_module_migrations.py#L7-L28) — module migrations persist version upgrades
-- [**Scheduler Attaches A CronTrigger Job For Periodic Indexing**](tests/test_schedule.py#L40-L85) — scheduler attaches a CronTrigger job for periodic indexing
+- [**Scheduler Attaches A CronTrigger Job For Periodic Indexing**](tests/test_schedule.py#L50-L100) — scheduler attaches a CronTrigger job for periodic indexing
 - [**Metadata And Symlinks Are Purged After An Archive File Is Removed**](tests/test_archive_support.py#L51-L91) — metadata and symlinks are purged after an archive file is removed
 - [**TokenTextSplitter Divides Chunk Text Into Smaller Documents**](tests/test_chunk_utils.py#L23-L64) — token text splitter divides chunk text into smaller documents
 - [**Segments With Headers Convert To Chunk Documents Referencing The Source File**](tests/test_chunk_utils.py#L7-L20) — segments with headers convert to chunk documents referencing the source file
@@ -111,8 +111,9 @@ Home Index favors pragmatic integration tests over unit tests. Every feature is
 tested end-to-end using the same Docker configuration that powers development
 and release builds. Local test runs are optional for debugging—CI is the source
 of truth. New functionality should be delivered in small, atomic PRs with clear
-integration tests and minimal mocking. macOS-only features use a dedicated
-`runs-on: macos-latest` workflow.
+integration tests and minimal mocking. Feature entries in this README link
+directly to the verifying tests. macOS-only features are handled in a separate
+workflow that runs on `macos-latest`.
 
 ## Purpose
 
