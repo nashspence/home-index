@@ -1,6 +1,6 @@
 ## 1. Feature Requirements
 **Each feature must**:
-  1. `<FeatureName>` will be in title case and intuitive.
+  1. `<Feature Name>` will be in title case and intuitive.
   2. Be atomic—deliver one standalone piece of functionality.
   3. Separate feature specific code into directories named `<FeatureName>`. Keep shared code out of these directories.
   4. Have an integration test (no unit-only tests). Avoid mocks, stubs, dummies, etc. unless absolutely necessary, and special note in code comments if and why not possible in some case.
@@ -17,8 +17,8 @@ In `README.md`:
   ```md
   [**<FeatureName>**](<path/to/testfile>#Lstart-Lend) — <short description of how the person described in **Purpose** >
   ````
-  * `<FeatureName>` should feel like an search engine keyphrase, what a person would search for
-  * **Test name must match the `<FeatureName>` as closely as possible.**
+  * `<Feature Name>` should feel like an search engine keyphrase, what a person would search for
+  * **Test name must match the `<Feature Name>` as closely as possible.**
   * Link points directly to the test file and line range.
 3. Section: **Contributions**:
   Indicates that PRs are welcome and describes how to use the dev container, CI, etc. Similar to AGENTS.md but for actual people.
@@ -29,13 +29,14 @@ Use extensive semantic logging in application code and tests designed specifical
 ## 4. Maintenance & CI Config
 
 * **Clean up**: Always migrate non-integrated tests (ones with lots of stubs, dummies, mocks, etc) into integration tests where possible. Make special note in code comments if and why not possible in some case. Do not migrate code with such a comment.
-* **Environment**: Use the same `Dockerfile` + `docker-compose` setup for both testing and release as much as possible. Do not shy away from downloading and installing **anything** necessary to run or test as part of the Dockerfile - not matter how big or complex. It should be a complete *real* environment.
+* **Environment**: The runtime environment should always be defined by a Dockerfile. Do not shy away from downloading and installing **anything** necessary to run or test as part of the Dockerfile - not matter how big or complex. It should be a complete *real* runtime environment.
 * **Workflows**:
 
   * **`.github/workflows/test.yml`**
 
     * Trigger on **push** any branch.
-    * One step per feature test; each step named `<FeatureName>`.
+    * Build & launch the environment Dockerfile with a custom docker-compose.ci.yml.
+    * One step per feature test; each step named `Test: <Feature Name>`.
     * On any test failure, output exactly:
 
       ```
@@ -49,16 +50,17 @@ Use extensive semantic logging in application code and tests designed specifical
   * **`.github/workflows/release.yml`**
 
     * Trigger on **GitHub release** events (tag or release).
+    * Include an example docker-compose.yml.
     * **Docker images**:
-
+      * username = secrets.DOCKER_USERNAME
+      * password = secrets.DOCKER_PASSWORD
       * Build & push to registry following org naming/tag conventions.
-      * In the release notes, include the full image reference (e.g. `ghcr.io/org/repo:tag`).
+      * In the release notes, include the full image reference (e.g. `ghcr.io/nashspence/repo:tag`).
 
 ## 5. Development Container
 
 * **Base image**: `cruizba/ubuntu-dind:latest` (Docker-in-Docker).
 * **`.devcontainer/`** must contain:
-
   * `Dockerfile.devcontainer` (FROM `cruizba/ubuntu-dind:latest`)
   * `devcontainer.json` (references `docker-compose.yml` & `postStart.sh`)
   * `docker-compose.yml` (defines dev services)
