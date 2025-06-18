@@ -10,3 +10,4 @@ httpx
 langchain-core
 langchain-text-splitters
 transformers
+tiktoken
