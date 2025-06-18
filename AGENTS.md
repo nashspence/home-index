@@ -94,7 +94,7 @@
           ```bash
           docker build -f Dockerfile -t repo-runtime:latest .
           ```
-        * **Run per-feature tests**: one job per feature named `Test: <Feature Name>`:
+        * **Run per-feature tests**: use a strategy across a matrix of features `Test: <Feature Name>`:
 
           ```bash
           docker-compose -f features/<Feature Name>/docker-compose.yml up --abort-on-container-exit
