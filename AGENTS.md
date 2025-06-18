@@ -15,7 +15,7 @@
 5. Replace the stub description in `README.md` with full docs.
 6. Update all dependencies versions to latest, fix any issues.
 7. Run `agents-check.sh`, fix any issues.
-8. Push. Await potential failure output from the CI relayed by user. Fix and Push. Repeat... until PR accepted.
+8. Push. **Await potential failure output from the CI relayed by user. Fix and Push. Repeat...** until PR accepted.
 
 ## Acceptance Tests
 
@@ -58,7 +58,7 @@ Pin every dependency to an exact version (latest release).
 
 ### Usage
 
-AGENTS DO NOT USE THIS, ONLY HELP MAINTAIN IT. AGENTS RELY SOLELY ON FEEDBACK FROM THE CI RELAYED BACK AFTER PUSH. MAINTAIN THE CI AND ITS LOGGING METICULOUSLY FOR THIS PURPOSE.
+AGENTS DO NOT USE THIS, ONLY HELP MAINTAIN IT. **AGENTS RELY SOLELY ON FEEDBACK FROM THE CI RELAYED BACK AFTER PUSH. MAINTAIN THE CI AND ITS LOGGING METICULOUSLY FOR THIS PURPOSE.**
 
 ## Release Environment
 
@@ -101,10 +101,11 @@ ci failed on <step name>, see below:
 
 ## Logging & Observability
 
-Emit logs sufficient to debug without stepping through code.
+Emit **logs sufficient to debug from CI output alone** without stepping through code.
 
 ## Maintenance
 
+* Remove clutter (useless files, etc) from the repo. Maintain the .gitignore to help with this.
 * Reorganize code: feature-specific under `features/`; shared code under `shared/src/`.
 * Convert mocks/stubs into integrated acceptance tests when possible.
 * Keep all Dockerfiles and dependencies lean and up to date.
