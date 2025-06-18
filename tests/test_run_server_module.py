@@ -4,7 +4,6 @@ import time
 import multiprocessing
 from xmlrpc.client import ServerProxy
 
-import pytest
 
 import sys
 from pathlib import Path
@@ -51,11 +50,11 @@ def test_modules_communicate_via_xml_rpc(tmp_path):
         assert hello["name"] == fake_module.NAME
         assert hello["version"] == fake_module.VERSION
 
-        docs = json.dumps([json.loads(open('docs/sample_document.json').read())])
+        docs = json.dumps([json.loads(open("docs/sample_document.json").read())])
         checked = json.loads(proxy.check(docs))
         assert checked == ["example-file"]
 
-        doc = json.loads(open('docs/sample_document.json').read())
+        doc = json.loads(open("docs/sample_document.json").read())
         result = json.loads(proxy.run(json.dumps(doc)))
         assert result["document"]["id"] == doc["id"]
         assert result["chunk_docs"][0]["module"] == fake_module.NAME

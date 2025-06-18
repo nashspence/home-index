@@ -4,6 +4,10 @@ Home Index is a file indexing service built around [Meilisearch](https://www.mei
 
 This project requires **Python 3.8 or higher** when running outside the provided Docker environment.
 
+## Who
+
+Home Index suits data hoarders and personal archivists wanting a fast search layer for personal files.
+
 ## Quick start
 
 The repository includes a `docker-compose.yml` that starts Home Index, Meilisearch and a sample module. After installing Docker, run:
@@ -19,21 +23,21 @@ Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust 
 The list below highlights key functionality. Each tested feature links directly to its verifying test case.
 
 - [file documents match the expected schema](tests/test_meilisearch_schema.py#L9-L12)
-- [chunk documents follow the chunk schema](tests/test_meilisearch_file_chunk_schema.py#L7-L9)
-- [modules communicate via XML-RPC](tests/test_run_server_module.py#L31-L66)
-- [modules can add and remove chunk data](tests/test_chunk_integration.py#L140-L200)
-- [modules may return only updated documents](tests/test_chunk_integration.py#L203-L251)
-- [retry helper stops when a call succeeds](tests/test_retry.py#L29-L41)
-- [retry helper fails after repeated errors](tests/test_retry.py#L43-L50)
-- [indexing runs across many files and modules](tests/test_large_indexing.py#L103-L168)
-- [cron schedules are parsed from the environment](tests/test_schedule.py#L8-L24)
-- [malformed cron expressions raise ValueError](tests/test_schedule.py#L27-L37)
-- [text embeddings use SentenceTransformer models](tests/test_embeddings.py#L20-L35)
-- [metadata persists if the archive directory is temporarily missing](tests/test_archive_support.py#L10-L48)
-- [module migrations persist version upgrades](tests/test_module_migrations.py#L7-L28)
-- [scheduler attaches a CronTrigger job for periodic indexing](tests/test_schedule.py#L40-L85)
-- [metadata and symlinks are purged after an archive file is removed](tests/test_archive_support.py#L51-L91)
-- [TokenTextSplitter divides chunk text into smaller documents](tests/test_chunk_utils.py#L23-L64)
+- [chunk documents follow the chunk schema](tests/test_meilisearch_file_chunk_schema.py#L8-L10)
+- [modules communicate via XML-RPC](tests/test_run_server_module.py#L30-L65)
+- [modules can add and remove chunk data](tests/test_chunk_integration.py#L147-L209)
+- [modules may return only updated documents](tests/test_chunk_integration.py#L211-L260)
+- [retry helper stops when a call succeeds](tests/test_retry.py#L32-L46)
+- [retry helper fails after repeated errors](tests/test_retry.py#L49-L58)
+- [indexing runs across many files and modules](tests/test_large_indexing.py#L106-L178)
+- [cron schedules are parsed from the environment](tests/test_schedule.py#L8-L28)
+- [malformed cron expressions raise ValueError](tests/test_schedule.py#L31-L42)
+- [text embeddings use SentenceTransformer models](tests/test_embeddings.py#L7-L20)
+- [metadata persists if the archive directory is temporarily missing](tests/test_archive_support.py#L9-L51)
+- [module migrations persist version upgrades](tests/test_module_migrations.py#L7-L31)
+- [scheduler attaches a CronTrigger job for periodic indexing](tests/test_schedule.py#L45-L94)
+- [metadata and symlinks are purged after an archive file is removed](tests/test_archive_support.py#L53-L95)
+- [TokenTextSplitter divides chunk text into smaller documents](tests/test_chunk_utils.py#L23-L30)
 - [segments with headers convert to chunk documents referencing the source file](tests/test_chunk_utils.py#L7-L20)
 
 ## Running manually
@@ -108,6 +112,10 @@ your files using a locally run language model backed by Meilisearch.
 ## Purpose
 
 Home Index makes directories of files searchable with minimal configuration. It stores file metadata in Meilisearch and lets modules contribute information such as extracted text or image thumbnails. This combination enables rich search and retrieval over personal data.
+
+## Contributions
+
+Pull requests are welcome. Use the dev container (`.devcontainer/`) via VS Code Remote – Containers to mirror CI. GitHub Actions run integration tests on every push.
 
 ## License
 

@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 # region "debugpy"
 
 
@@ -41,9 +42,7 @@ file_handler = logging.handlers.RotatingFileHandler(
     maxBytes=LOGGING_MAX_BYTES,
     backupCount=LOGGING_BACKUP_COUNT,
 )
-file_handler.setFormatter(
-    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-)
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 modules_logger.addHandler(file_handler)
 
 files_logger = logging.getLogger("home-index-files")
@@ -123,6 +122,7 @@ MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT / 2))
 EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL_NAME", "intfloat/e5-small-v2")
 try:
     import torch
+
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
 except Exception:
     default_device = "cpu"
@@ -130,23 +130,33 @@ EMBED_DEVICE = os.environ.get("EMBED_DEVICE", default_device)
 EMBED_DIM = int(os.environ.get("EMBED_DIM", "384"))
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
-INDEX_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
+
+def _safe_mkdir(path: Path) -> None:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        # May run in read-only environments during imports
+        pass
+
+
+_safe_mkdir(INDEX_DIRECTORY)
 
 METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
-METADATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(METADATA_DIRECTORY)
 BY_ID_DIRECTORY = Path(
     os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
 )
-BY_ID_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(BY_ID_DIRECTORY)
 BY_PATH_DIRECTORY = Path(
     os.environ.get("BY_PATH_DIRECTORY", str(METADATA_DIRECTORY / "by-path"))
 )
-BY_PATH_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(BY_PATH_DIRECTORY)
 
 ARCHIVE_DIRECTORY = Path(
     os.environ.get("ARCHIVE_DIRECTORY", (INDEX_DIRECTORY / "archive").as_posix())
 )
-ARCHIVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
+_safe_mkdir(ARCHIVE_DIRECTORY)
 
 RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
@@ -178,6 +188,7 @@ def init_embedder():
     global embedding_model
     if embedding_model is None:
         from sentence_transformers import SentenceTransformer
+
         embedding_model = SentenceTransformer(EMBED_MODEL_NAME, device=EMBED_DEVICE)
 
 
@@ -320,7 +331,7 @@ chunk_index = None
 
 async def init_meili():
     global client, index, chunk_index
-    logging.debug(f"meili init")
+    logging.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
 
     try:
@@ -338,7 +349,7 @@ async def init_meili():
                 )
                 raise
         else:
-            logging.exception(f"meili init failed")
+            logging.exception("meili init failed")
             raise
 
     try:
@@ -346,9 +357,7 @@ async def init_meili():
     except Exception as e:
         if getattr(e, "code", None) == "index_not_found":
             try:
-                logging.info(
-                    f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"'
-                )
+                logging.info(f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"')
                 chunk_index = await client.create_index(
                     MEILISEARCH_CHUNK_INDEX_NAME, primary_key="id"
                 )
@@ -358,7 +367,7 @@ async def init_meili():
                 )
                 raise
         else:
-            logging.exception(f"meili chunk init failed")
+            logging.exception("meili chunk init failed")
             raise
 
     try:
@@ -380,7 +389,7 @@ async def init_meili():
     ] + list(chain(*[hello["filterable_attributes"] for hello in hellos]))
 
     try:
-        logging.debug(f"meili update index attrs")
+        logging.debug("meili update index attrs")
         await index.update_filterable_attributes(filterable_attributes)
         await index.update_sortable_attributes(
             [
@@ -393,7 +402,7 @@ async def init_meili():
             + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
         )
     except Exception:
-        logging.exception(f"meili update index attrs failed")
+        logging.exception("meili update index attrs failed")
         raise
 
 
@@ -405,7 +414,7 @@ async def get_document_count():
         stats = await index.get_stats()
         return stats.number_of_documents
     except Exception:
-        logging.exception(f"meili get stats failed")
+        logging.exception("meili get stats failed")
         raise
 
 
@@ -435,7 +444,7 @@ async def add_or_update_documents(docs):
                 batch = docs[i : i + MEILISEARCH_BATCH_SIZE]
                 await index.update_documents(batch)
         except Exception:
-            logging.exception(f"meili update documents failed")
+            logging.exception("meili update documents failed")
             raise
 
 
@@ -463,7 +472,7 @@ async def delete_docs_by_id(ids):
                 batch = ids[i : i + MEILISEARCH_BATCH_SIZE]
                 await index.delete_documents(ids=batch)
     except Exception:
-        logging.exception(f"meili delete documents failed")
+        logging.exception("meili delete documents failed")
         raise
 
 
@@ -511,7 +520,7 @@ async def get_document(doc_id):
         doc = await index.get_document(doc_id)
         return doc
     except Exception:
-        logging.exception(f"meili get document failed")
+        logging.exception("meili get document failed")
         raise
 
 
@@ -531,7 +540,7 @@ async def get_all_documents():
             offset += limit
         return docs
     except Exception:
-        logging.exception(f"meili get documents failed")
+        logging.exception("meili get documents failed")
         raise
 
 
@@ -577,7 +586,7 @@ async def wait_for_meili_idle():
                 break
             await asyncio.sleep(1)
     except Exception:
-        logging.exception(f"meili wait for idle failed")
+        logging.exception("meili wait for idle failed")
         raise
 
 
@@ -609,7 +618,7 @@ def is_apple_double(file_path):
     try:
         with Path(file_path).open("rb") as file:
             return file.read(4) == b"\x00\x05\x16\x07"
-    except:
+    except Exception:
         return False
 
 
@@ -674,7 +683,7 @@ def index_metadata():
     unmounted_archive_docs_by_hash = {}
     unmounted_archive_hashes_by_relpath = {}
 
-    files_logger.info(f" * iterate metadata by-id")
+    files_logger.info(" * iterate metadata by-id")
     file_paths = [dir / "document.json" for dir in (BY_ID_DIRECTORY).iterdir()]
 
     def read_doc_json(doc_json_path):
@@ -742,11 +751,13 @@ def index_files(
     files_docs_by_hash = unmounted_archive_docs_by_hash
     files_hashes_by_relpath = unmounted_archive_hashes_by_relpath
 
-    files_logger.info(f" * recursively walk files")
+    files_logger.info(" * recursively walk files")
     file_paths = []
     for root, _, files in os.walk(INDEX_DIRECTORY):
         root_path = Path(root)
-        if any(root_path == dir or dir in root_path.parents for dir in RESERVED_FILES_DIRS):
+        if any(
+            root_path == dir or dir in root_path.parents for dir in RESERVED_FILES_DIRS
+        ):
             continue
         for f in files:
             file_paths.append(root_path / f)
@@ -816,7 +827,7 @@ def index_files(
                     handle_hash_at_path(completed.result())
 
     if files_docs_by_hash:
-        files_logger.info(f" * set next modules")
+        files_logger.info(" * set next modules")
         set_next_modules(files_docs_by_hash)
 
     return files_docs_by_hash, files_hashes_by_relpath
@@ -828,11 +839,11 @@ def update_metadata(
     files_docs_by_hash,
     files_hashes_by_relpath,
 ):
-    files_logger.info(f" * check for upserted documents")
+    files_logger.info(" * check for upserted documents")
     upserted_docs_by_hash = {
         hash: files_doc
         for hash, files_doc in files_docs_by_hash.items()
-        if (not hash in metadata_docs_by_hash)
+        if (hash not in metadata_docs_by_hash)
         or (metadata_docs_by_hash[hash]["paths"] != files_docs_by_hash[hash]["paths"])
         or (
             metadata_docs_by_hash[hash].get("next")
@@ -840,7 +851,7 @@ def update_metadata(
         )
     }
 
-    files_logger.info(f" * check for deleted file path")
+    files_logger.info(" * check for deleted file path")
     deleted_relpaths = set(metadata_hashes_by_relpath.keys()) - set(
         files_hashes_by_relpath.keys()
     )
@@ -849,7 +860,7 @@ def update_metadata(
         metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
         by_id_path = BY_ID_DIRECTORY / metadata_doc["id"]
         by_path_path = BY_PATH_DIRECTORY / relpath
-        if not metadata_doc["id"] in files_docs_by_hash and by_id_path.exists():
+        if metadata_doc["id"] not in files_docs_by_hash and by_id_path.exists():
             shutil.rmtree(by_id_path)
         if by_path_path.is_symlink():
             by_path_path.unlink()
@@ -903,14 +914,14 @@ def update_metadata(
 
 
 async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
-    files_logger.info(f" * get all meilisearch documents")
+    files_logger.info(" * get all meilisearch documents")
     all_meili_docs = await get_all_documents()
     meili_hashes = {doc["id"] for doc in all_meili_docs}
 
-    files_logger.info(f" * check for redundant meilisearch documents")
+    files_logger.info(" * check for redundant meilisearch documents")
     deleted_hashes = meili_hashes - set(files_docs_by_hash.keys())
 
-    files_logger.info(f" * check for missing meilisearch documents")
+    files_logger.info(" * check for missing meilisearch documents")
     missing_meili_hashes = set(files_docs_by_hash.keys()) - meili_hashes
     upserted_docs_by_hash.update(
         {hash: files_docs_by_hash[hash] for hash in missing_meili_hashes}
@@ -933,8 +944,8 @@ async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
 
 async def sync_documents():
     try:
-        files_logger.info(f"---------------------------------------------------")
-        files_logger.info(f"start file sync")
+        files_logger.info("---------------------------------------------------")
+        files_logger.info("start file sync")
         files_logger.info("index previously stored metadata")
         (
             metadata_docs_by_hash,
@@ -1013,10 +1024,10 @@ async def run_module(name, proxy):
         documents = await get_all_pending_jobs(name)
         documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
         if documents:
-            modules_logger.info(f"---------------------------------------------------")
+            modules_logger.info("---------------------------------------------------")
             modules_logger.info(f'start "{name}"')
             count = len(documents)
-            modules_logger.info(f" * call load")
+            modules_logger.info(" * call load")
             proxy.load()
             modules_logger.info(f" * run for {count}")
             try:
@@ -1061,25 +1072,25 @@ async def run_module(name, proxy):
                         modules_logger.warning(f'   x "{relpath}"')
                         raise e
                     count = count - 1
-                modules_logger.info(f"   * done")
+                modules_logger.info("   * done")
                 return False
             except Exception as e:
                 modules_logger.warning(f" x failed: {str(e)}")
                 return True
             finally:
-                modules_logger.info(f" * call unload")
+                modules_logger.info(" * call unload")
                 proxy.unload()
-                modules_logger.info(f" * wait for meilisearch")
+                modules_logger.info(" * wait for meilisearch")
                 await wait_for_meili_idle()
-                modules_logger.info(f" * done")
+                modules_logger.info(" * done")
     except Exception as e:
         modules_logger.warning(f"failed: {str(e)}")
         return True
 
 
 async def run_modules():
-    modules_logger.info(f"")
-    modules_logger.info(f"start modules processing")
+    modules_logger.info("")
+    modules_logger.info("start modules processing")
     for index, module in enumerate(module_values):
         modules_logger.info(f" {index + 1}. {module['name']}")
 
@@ -1123,7 +1134,7 @@ async def main():
     )
 
     if is_modules_changed:
-        modules_logger.info(f"*** perform sync on MODULES changed")
+        modules_logger.info("*** perform sync on MODULES changed")
         await init_meili_and_sync()
         save_modules_state()
 

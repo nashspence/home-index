@@ -10,9 +10,13 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    monkeypatch.setenv("INDEX_DIRECTORY", str(index_dir))
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
     import home_index.main as hi
     import importlib
+
     importlib.reload(hi)
     result = hi.parse_cron_env()
     assert result == {
@@ -32,18 +36,23 @@ def test_malformed_cron_expressions_raise_valueerror(monkeypatch, tmp_path):
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
     import home_index.main as hi
     import importlib
+
     importlib.reload(hi)
     with pytest.raises(ValueError):
         hi.parse_cron_env()
 
 
-def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(monkeypatch, tmp_path):
+def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
+    monkeypatch, tmp_path
+):
     log_dir = tmp_path / "logs3"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "5 4 * * *")
-    monkeypatch.setenv("HELLO_VERSIONS_FILE_PATH", str(tmp_path / "hello_versions.json"))
+    monkeypatch.setenv(
+        "HELLO_VERSIONS_FILE_PATH", str(tmp_path / "hello_versions.json")
+    )
     monkeypatch.delenv("DEBUG", raising=False)
     added = {}
 
@@ -57,9 +66,9 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(monkeypatch,
         def start(self):
             added["started"] = True
 
-
     import home_index.main as hi
     import importlib
+
     importlib.reload(hi)
 
     monkeypatch.setattr(hi, "BackgroundScheduler", lambda: DummyScheduler())

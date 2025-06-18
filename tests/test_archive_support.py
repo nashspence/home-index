@@ -1,4 +1,3 @@
-import os
 import json
 import importlib
 import sys
@@ -7,7 +6,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
 
 
-def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(tmp_path, monkeypatch):
+def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(
+    tmp_path, monkeypatch
+):
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
@@ -39,6 +40,7 @@ def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(tmp_p
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
     import home_index.main as hi
+
     importlib.reload(hi)
 
     md, mhr, ua_docs, ua_hashes = hi.index_metadata()
@@ -48,7 +50,9 @@ def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(tmp_p
     assert doc["id"] in files_docs
 
 
-def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(tmp_path, monkeypatch):
+def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(
+    tmp_path, monkeypatch
+):
     log_dir = tmp_path / "logs2"
     log_dir.mkdir()
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
@@ -67,9 +71,9 @@ def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(tmp_p
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
-
     import home_index.main as hi
     import importlib
+
     importlib.reload(hi)
 
     doc = {
@@ -89,4 +93,3 @@ def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(tmp_p
 
     assert not (by_id / doc["id"]).exists()
     assert not (by_path / "archive" / "foo.txt").exists()
-

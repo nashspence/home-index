@@ -3,7 +3,7 @@ import pathlib
 
 from jsonschema import Draft7Validator
 
-SCHEMA_PATH = pathlib.Path('docs/meilisearch_document.schema.json')
+SCHEMA_PATH = pathlib.Path("docs/meilisearch_document.schema.json")
 
 
 def test_file_documents_match_the_expected_schema():
