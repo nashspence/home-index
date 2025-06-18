@@ -88,7 +88,7 @@
         ```
      2. **Run and Wait** for `postStart.sh` to finish inside the container.
      3. **Inside** the running dev-container (via `docker exec` or Actions container steps):
-
+        * **Run `check.sh`
         * **Build runtime image**:
 
           ```bash
@@ -99,11 +99,6 @@
           ```bash
           docker-compose -f features/<Feature Name>/docker-compose.yml up --abort-on-container-exit
           ```
-
-          * Each feature’s compose file:
-
-            * Starts/stops only its required services.
-            * Defines its own bind mounts, environment variables, etc to provide controlled input/output scenario for testing
 
 2. **Failure Reporting**
 
