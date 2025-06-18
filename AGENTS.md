@@ -37,13 +37,13 @@
 
 1. **Atomic Features**
 
-   * Folder under `features/` per feature in Title Case (e.g. `Generate Invoice PDF`).
+   * Folder under `features/` per feature in snake case (e.g. `generate_invoice_pdf`).
 
    * Each feature contains:
 
      ```text
      features/
-       <Feature Name>/
+       <feature_name>/
          src/
            example_module.py
          test/
@@ -58,7 +58,7 @@
      * All tests should use the Docker-in-Docker (DinD) setup.
      * Tests must be **fully integrated**, meaning they:
 
-       * Run the runtime container (`Dockerfile`) with pre-defined inputs (e.g. env vars, bind-mount files) supplied from the dev/test container (`Dockerfile.devcontainer`).
+       * Run the runtime container (`Dockerfile`) with their own pre-defined inputs (e.g. env vars, bind-mount files) supplied from the dev/test container (`Dockerfile.devcontainer`).
        * Assert expected outputs.
      * If full integration is **not possible** for a feature:
 
