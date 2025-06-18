@@ -185,7 +185,7 @@ def split_chunk_docs(
 
         meta = doc.metadata.copy()
         meta["id"] = f"{base_id}_{n}" if n else base_id
-        meta["text"] = doc.page_content
+        meta["text"] = doc.page_content.lstrip()
 
         result.append(meta)
 
