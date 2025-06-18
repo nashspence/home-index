@@ -30,8 +30,8 @@ services:
       - ./bind-mounts/meilisearch:/meili_data
   home-index-example-module:
     build:
-      context: ./examples/module_template/
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: examples/module_template/Dockerfile
     container_name: home-index-example-module
     environment:
       - TZ=America/Los_Angeles
