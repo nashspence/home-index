@@ -1,65 +1,64 @@
 ## PR Workflow
 
-1. **Features Section (README.md)**
+### Features Section (README.md)
 
-   * Features are listed by *canonical* title. If they are not done yet, with a one-line stub description.
-   * Agents will map the user request to the listed feature and craft a PR to address it.
-   * If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb phrase. A feature is something that the user will perceive as an atomic action the application can do for them.
+* Features are listed by *canonical* title. If they are not done yet, with a one-line stub description.
+* Agents will map the user request to the listed feature and craft a PR to address it.
+* If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb phrase. A feature is something that the user will perceive as an atomic action the application can do for them.
 
-2. **PR Steps (per feature)**
+### PR Steps (per feature)
 
-   1. Name feature if no name exists - add to README.md.
-   2. Write or update the complete acceptance test.
-   3. Link title to exact acceptance test code lines.
-   4. Implement or fix code under `features/<feature_name>/src/`; shared code under `shared/src/`.
-   5. Replace the stub description in `README.md` with full docs.
-   6. Update all dependencies versions to latest, fix any issues.
-   7. Run `agents-check.sh`, fix any issues.
-   8. Push. Await potential failure output from the CI relayed by user. Fix and Push. Repeat... until PR accepted.
+1. Name feature if no name exists - add to README.md.
+2. Write or update the complete acceptance test.
+3. Link title to exact acceptance test code lines.
+4. Implement or fix code under `features/<feature_name>/src/`; shared code under `shared/src/`.
+5. Replace the stub description in `README.md` with full docs.
+6. Update all dependencies versions to latest, fix any issues.
+7. Run `agents-check.sh`, fix any issues.
+8. Push. Await potential failure output from the CI relayed by user. Fix and Push. Repeat... until PR accepted.
 
 ## Acceptance Tests
 
-1. **Full Integration**
+### Full Integration
 
-  * Use Docker-in-Docker via `features/<feature_name>/test/docker-compose.yml` (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
-  * Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
+* Use Docker-in-Docker via `features/<feature_name>/test/docker-compose.yml` (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
+* Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
 
-2. **Partial Integration**
+### Partial Integration
 
-  If a feature can’t be tested in the full-release image with only controlled I/O:
-  
-  1. Add a note under that feature in `README.md` explaining the limitation.
-  2. In your `docker-compose.yml`, bind-mount `features/<feature_name>/test/entrypoint.sh` into the release service.
-  3. Let that entrypoint install any test-only dependencies and invoke your acceptance tests directly—bypassing the app’s normal entrypoint.
+If a feature can’t be tested in the full-release image with only controlled I/O:
+
+1. Add a note under that feature in `README.md` explaining the limitation.
+2. In your `docker-compose.yml`, bind-mount `features/<feature_name>/test/entrypoint.sh` into the release service.
+3. Let that entrypoint install any test-only dependencies and invoke your acceptance tests directly—bypassing the app’s normal entrypoint.
 
 ## Formatting & Dependencies
 
-1. **Style & Linting**
+### Style & Linting
 
-   * Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
-   * Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
-   * Maintain `check.sh` to enforce strict formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.).
+* Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
+* Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
+* Maintain `check.sh` to enforce strict formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.).
 
-2. **Dependencies**
+### Dependencies
 
-   * Pin every dependency to an exact version (latest release).
+Pin every dependency to an exact version (latest release).
 
 ## Development Environment
 
-1. **Dev Container** (`.devcontainer/`)
+### Dev Container (`.devcontainer/`)
 
-   * Base image: [`cruizba/ubuntu-dind`](https://github.com/cruizba/ubuntu-dind).
-   * See [VS Code Dev Containers guide](https://code.visualstudio.com/docs/devcontainers/create-dev-container) and JSON spec: [Dev Container reference](https://devcontainers.github.io/implementors/json_reference/).
-   * Files:
+* Base image: [`cruizba/ubuntu-dind`](https://github.com/cruizba/ubuntu-dind).
+* See [VS Code Dev Containers guide](https://code.visualstudio.com/docs/devcontainers/create-dev-container) and JSON spec: [Dev Container reference](https://devcontainers.github.io/implementors/json_reference/).
+* Files:
+  * `Dockerfile.devcontainer`
+  * `devcontainer.json`
+  * `docker-compose.yml`
+  * `postStart.sh` (install, build, etc.).
 
-     * `Dockerfile.devcontainer`
-     * `devcontainer.json`
-     * `docker-compose.yml`
-     * `postStart.sh` (install, build, etc.).
+### Usage
 
-2. **Usage**
-
-   * AGENTS DO NOT USE THIS, INSTEAD RELY SOLELY ON FEEDBACK FROM THE CI RELAYED BACK AFTER PUSH. MAINTAIN THE CI METICULOUSLY.
+AGENTS DO NOT USE THIS, ONLY HELP MAINTAIN IT. AGENTS RELY SOLELY ON FEEDBACK FROM THE CI RELAYED BACK AFTER PUSH. MAINTAIN THE CI AND ITS LOGGING METICULOUSLY FOR THIS PURPOSE.
 
 ## Release Environment
 
@@ -68,9 +67,9 @@
 
 ## CI & Testing (GitHub Actions)
 
-1. **Trigger:** on any push.
+**Trigger** on any push.
 
-2. **Steps:**
+### Steps:
    1. Build dev container:
 
        ```bash
@@ -92,17 +91,17 @@
         docker-compose -f features/<feature_name>/docker-compose.yml up --abort-on-container-exit
         ```
 
-3. **Failure Reporting:**
-   * Output any Github Actions step failures exactly like:
+### Failure Reporting
+Output any Github Actions step failures exactly like:
 
-     ```
-     ci failed on <step name>, see below:
-     <relevant log snippet>
-     ```
+```
+ci failed on <step name>, see below:
+<relevant log snippet>
+```
 
 ## Logging & Observability
 
-* Emit logs sufficient to debug without stepping through code.
+Emit logs sufficient to debug without stepping through code.
 
 ## Maintenance
 
