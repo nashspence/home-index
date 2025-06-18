@@ -1,6 +1,6 @@
 ## Important!!!
 
-**You must NOT run the dev, release or integrated-acceptance-test containers, and DON'T `pip install -r requirements.txt` (or similar). Rely on CI feedback and install only whatever dependencies you need for your own quick experiments.**
+**You must NOT run the dev, release or integrated-acceptance-test containers. You must NOT `pip install -r requirements.txt` (or similar). You must NOT `pytest -q` (or similar). Rely on CI feedback from me AFTER YOU PUSH and install only whatever dependencies you need for your own quick experiments.**
 
 ## PR Workflow
 
