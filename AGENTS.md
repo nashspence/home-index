@@ -2,8 +2,8 @@
 
 1. **Code Style**
 
-   * Use language’s **strict** formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier).
-   * Humans use `check.sh` to run linters/formatters. Help maintain this file, but **do not run it**.
+   * Use language’s **strict** formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier).
+   * Humans use `check.sh` to run linters/formatters in the dev container. Help maintain this file, but **do not run it**.
    * Agents use `agents-check.sh` to run linters/formatters. This version should also install all necessary dependencies for `agents-check.sh` to work. **Run `agents-check.sh` before every push and fix any problems**
 
 2. **Dependency Management**
@@ -27,7 +27,7 @@
 
 2. **Usage**
 
-   * Humans launch via VS Code Remote – Containers (“clone + open”).
+   * Humans launch via VS Code Remote – Containers (“clone + open”).
    * Humans run **All** builds, tests, and Docker commands *inside* this container.
    * Agents do not run the container, builds, tests, etc. They push and await for a human to relay feedback from the CI.
 
@@ -37,16 +37,36 @@
 
 1. **Atomic Features**
 
-   * Folder under `features/` per feature in Title Case (e.g. `Generate Invoice PDF`).
+   * Folder under `features/` per feature in Title Case (e.g. `Generate Invoice PDF`).
+
    * Each feature contains:
 
      ```text
      features/
        <Feature Name>/
          src/
-         tests/
-         docker-compose.yml
+           example_module.py
+         test/
+           docker-compose.yml  # sample env vars
+           example_test.py
+           input/    # sample input files
+           output/   # expected outputs for test assertions
      ```
+
+   * **Testing Standards**:
+
+     * All tests should use the Docker-in-Docker (DinD) setup.
+     * Tests must be **fully integrated**, meaning they:
+
+       * Run the runtime container (`Dockerfile`) with pre-defined inputs (e.g. env vars, bind-mount files) supplied from the dev/test container (`Dockerfile.devcontainer`).
+       * Assert expected outputs.
+     * If full integration is **not possible** for a feature:
+
+       * A comment must explain the limitation.
+       * The test code should be bind-mounted into the runtime container and executed via a separate entrypoint that:
+
+         * Installs any test-specific dependencies.
+         * Runs the tests.
 
 2. **Shared Code**
 
@@ -55,8 +75,6 @@
 ---
 
 ## IV. Testing & CI
-
-All tests should use the docker-in-docker setup and be fully integrated if possible - that is, each test runs the runtime container (`Dockerfile`) with pre-determined inputs (env variables, bind-mount files, etc.) from the dev/test container (`Dockerfile.devcontainer`) and asserts output expectations. If fully integrated is not possible for a feature, comment should be made explaining why, and the test code should be bind-mounted into the runtime container and run using a separate entrypoint that installs any test-specific dependencies it needs and then runs the test.
 
 1. **Github Actions (CI Pipeline)**
 
