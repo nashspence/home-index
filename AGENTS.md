@@ -15,7 +15,7 @@
 1. Name feature if no name exists - add to README.md.
 2. Write or update the complete acceptance test.
 3. Link title to exact acceptance test code lines.
-4. Implement or fix code under `features/<feature_name>/src/`; shared code under `shared/src/`.
+4. Implement or fix code under `features/<feature_name>/`; shared code under `shared/`; entrypoint code - for example `main.py` - in repo root
 5. Replace the stub description in `README.md` with full docs.
 6. Update all dependencies versions to latest, fix any issues.
 7. Run `agents-check.sh`, fix any issues.
@@ -88,7 +88,7 @@ Pin every dependency to an exact version (latest release).
       * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test: <Feature Name>"`:
 
         ```bash
-        docker-compose -f features/<feature_name>/docker-compose.yml up --abort-on-container-exit
+        docker-compose -f features/<feature_name>/test/docker-compose.yml up --abort-on-container-exit
         ```
 
 ## Logging & Observability
@@ -98,8 +98,8 @@ Emit **logs sufficient to debug from CI output alone** without stepping through 
 ## Maintenance
 
 * The README.md features section is perfect.
-* Ensure the CI is setup optimally.
-* Reorganize code: feature-specific under `features/`; shared code under `shared/src/`.
+* Ensure the Github Actions .yml files are perfectly clean and setup optimally for testing.
+* Reorganize code: feature-specific under `features/`; shared code under `shared/`; entrypoint code in repo root.
 * Remove tests with mocks/stubs/dummies in favor of integrated acceptance tests unless specifically created as unit tests to complement already fully functioning, passing integrated acceptance tests described above. 
 * Remove clutter (useless files, etc) from the repo. Maintain the .gitignore to help with this.
 * Keep all Dockerfiles and dependencies lean and up to date.
