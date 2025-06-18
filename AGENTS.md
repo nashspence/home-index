@@ -91,14 +91,6 @@ AGENTS DO NOT USE THIS, ONLY HELP MAINTAIN IT. **AGENTS RELY SOLELY ON FEEDBACK 
         docker-compose -f features/<feature_name>/docker-compose.yml up --abort-on-container-exit
         ```
 
-### Failure Reporting
-Output any Github Actions step failures exactly like:
-
-```
-ci failed on <step name>, see below:
-<relevant log snippet>
-```
-
 ## Logging & Observability
 
 Emit **logs sufficient to debug from CI output alone** without stepping through code.
