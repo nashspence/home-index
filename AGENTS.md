@@ -1,6 +1,6 @@
-## Important!
+## Important!!!
 
-**YOU MUST NEVER RUN THE DEV CONTAINER, RELEASE CONTAINER, OR INTEGRATED ACCEPTANCE TESTS! YOUR ENVIRONMENT ISN'T EQUIPPED FOR IT. RELY ON MY FEEDBACK FROM THE CI.**
+**You must NOT run the dev, release or integrated-acceptance-test containers, and DON'T `pip install -r requirements.txt` (or similar). Rely on CI feedback and install only whatever dependencies you need for your own quick experiments.**
 
 ## PR Workflow
 
