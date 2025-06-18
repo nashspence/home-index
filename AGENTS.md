@@ -15,7 +15,7 @@
 5. Replace the stub description in `README.md` with full docs.
 6. Update all dependencies versions to latest, fix any issues.
 7. Run `agents-check.sh`, fix any issues.
-8. Push. **DO NOT INSTALL DEPENDENCIES. DO NOT RUN TESTS. Await potential failure output from the CI relayed by user. Fix and Push. Repeat...** until PR accepted.
+8. Push. **Await potential failure output from the CI relayed by user. Fix and Push. Repeat...** until PR accepted.
 
 ## Acceptance Tests
 
