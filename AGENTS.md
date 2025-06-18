@@ -4,7 +4,7 @@
 
    * Features are listed by *canonical* title. If they are not done yet, with a one-line stub description.
    * Agents will map the user request to the listed feature and craft a PR to address it.
-   * If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb. A feature is something that the user will perceive as an atomic action the application can do for them.
+   * If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb phrase. A feature is something that the user will perceive as an atomic action the application can do for them.
 
 2. **PR Steps (per feature)**
 
@@ -15,28 +15,30 @@
    5. Replace the stub description in `README.md` with full docs.
    6. Update all dependencies versions to latest, fix any issues.
    7. Run `agents-check.sh`, fix any issues.
-   8. Push. Await feedback from the CI.
+   8. Push. Await potential failure output from the CI relayed by user. Fix and Push. Repeat... until PR accepted.
 
 ## Acceptance Tests
 
 1. **Full Integration**
 
-   * Use Docker-in-Docker via
-     `features/<feature_name>/test/docker-compose.yml`
-     (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
-   * Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
+  * Use Docker-in-Docker via `features/<feature_name>/test/docker-compose.yml` (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
+  * Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
 
 2. **Partial Integration**
 
-   * If testing the feature on the full release with only controlled inputs and outputs is impossible, note the limitation in the README.md under that feature and bind-mount a `features/<feature_name>/test/entrypoint.sh` into the release environment using the docker-compose.yml. That entrypoint can install acceptance test specific deps and run tests bypassing the application's normal main entrypoint.
+  If a feature can’t be tested in the full-release image with only controlled I/O:
+  
+  1. Add a note under that feature in `README.md` explaining the limitation.
+  2. In your `docker-compose.yml`, bind-mount `features/<feature_name>/test/entrypoint.sh` into the release service.
+  3. Let that entrypoint install any test-only dependencies and invoke your acceptance tests directly—bypassing the app’s normal entrypoint.
 
 ## Formatting & Dependencies
 
 1. **Style & Linting**
 
-   * Humans: `check.sh` in dev container.
-   * Agents: `agents-check.sh` before every push. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
-   * Enforce strict formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.).
+   * Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
+   * Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
+   * Maintain `check.sh` to enforce strict formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.).
 
 2. **Dependencies**
 
@@ -62,24 +64,24 @@
 ## Release Environment
 
 * Root-level `Dockerfile` and `docker-compose.yml` for production (see [Dockerfile best practices](https://docs.docker.com/build/building/best-practices/)).
-* Load all settings (credentials, URLs, mounts) from a top-level `.env` file.
+* Load all settings (credentials, URLs, bind-mount paths) from a top-level `.env` file.
 
 ## CI & Testing (GitHub Actions)
 
 1. **Trigger:** on any push.
 
 2. **Steps:**
-   1\.
+   1. Build dev container:
 
-   ```bash
-   docker-compose -f .devcontainer/docker-compose.yml up --build -d
-   ```
+       ```bash
+       docker-compose -f .devcontainer/docker-compose.yml up --build -d
+       ```
 
    2. Wait for `postStart.sh`.
-   3. Inside container:
+   3. Inside dev container:
 
       * Run `check.sh`.
-      * Build runtime:
+      * Build runtime container:
 
         ```bash
         docker build -f Dockerfile -t repo-runtime:latest .
