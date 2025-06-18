@@ -97,9 +97,11 @@ Emit **logs sufficient to debug from CI output alone** without stepping through 
 
 ## Maintenance
 
-* Remove clutter (useless files, etc) from the repo. Maintain the .gitignore to help with this.
+* The README.md features section is perfect.
+* Ensure the CI is setup optimally.
 * Reorganize code: feature-specific under `features/`; shared code under `shared/src/`.
-* Convert mocks/stubs into integrated acceptance tests when possible.
+* Remove tests with mocks/stubs/dummies in favor of integrated acceptance tests unless specifically created as unit tests to complement already fully functioning, passing integrated acceptance tests described above. 
+* Remove clutter (useless files, etc) from the repo. Maintain the .gitignore to help with this.
 * Keep all Dockerfiles and dependencies lean and up to date.
 * Add missing unit test coverage for features if *and only if* everything else above is done.
 * Add complete formal static website documentation for application if *and only if* everything else above is done.
