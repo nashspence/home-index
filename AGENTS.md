@@ -1,3 +1,7 @@
+## Important!
+
+**YOU MUST NEVER RUN THE DEV CONTAINER, RELEASE CONTAINER, OR INTEGRATED ACCEPTANCE TESTS! YOUR ENVIRONMENT ISN'T EQUIPPED FOR IT. RELY ON MY FEEDBACK FROM THE CI.**
+
 ## PR Workflow
 
 ### Features Section (README.md)
@@ -15,7 +19,7 @@
 5. Replace the stub description in `README.md` with full docs.
 6. Update all dependencies versions to latest, fix any issues.
 7. Run `agents-check.sh`, fix any issues.
-8. Push. **Await potential failure output from the CI relayed by user. Fix and Push. Repeat...** until PR accepted.
+8. Push. Await potential failure output from the CI relayed by user. Fix and Push. Repeat... until PR accepted.
 
 ## Acceptance Tests
 
@@ -55,10 +59,6 @@ Pin every dependency to an exact version (latest release).
   * `devcontainer.json`
   * `docker-compose.yml`
   * `postStart.sh` (install, build, etc.).
-
-### Usage
-
-AGENTS DO NOT USE THIS, ONLY HELP MAINTAIN IT. **AGENTS RELY SOLELY ON FEEDBACK FROM THE CI RELAYED BACK AFTER PUSH. MAINTAIN THE CI AND ITS LOGGING METICULOUSLY FOR THIS PURPOSE.**
 
 ## Release Environment
 
