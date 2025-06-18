@@ -3,11 +3,10 @@ ENV PYTHONUNBUFFERED=1
 RUN apk add --no-cache \
     attr \
     file \
+    git \
     tzdata
 WORKDIR /app
-COPY examples/module_template/requirements.txt ./requirements.txt
-COPY setup.py ./setup.py
-COPY packages ./packages
-RUN pip install --no-cache-dir . -r requirements.txt
-COPY examples/module_template/main.py ./main.py
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY main.py .
 ENTRYPOINT ["python3", "/app/main.py"]
