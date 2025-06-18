@@ -56,6 +56,8 @@
 
 ## IV. Testing & CI
 
+All tests should use the docker-in-docker setup and be fully integrated if possible - that is, each test runs the runtime container (`Dockerfile`) with pre-determined inputs (env variables, bind-mount files, etc.) from the dev/test container (`Dockerfile.devcontainer`) and asserts output expectations. If fully integrated is not possible for a feature, comment should be made explaining why, and the test code should be bind-mounted into the runtime container and run using a separate entrypoint that installs any test-specific dependencies it needs and then runs the test.
+
 1. **Github Actions (CI Pipeline)**
 
    * **Trigger**: on **push** to any branch.
