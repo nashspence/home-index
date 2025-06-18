@@ -1,148 +1,111 @@
-## I. Formatting & Dependencies
+## PR Workflow
 
-1. **Code Style**
+1. **Features Section (README.md)**
 
-   * Use language’s **strict** formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier).
-   * Humans use `check.sh` to run linters/formatters in the dev container. Help maintain this file, but **do not run it**.
-   * Agents use `agents-check.sh` to run linters/formatters. This version should also install all necessary dependencies for `agents-check.sh` to work. **Run `agents-check.sh` before every push and fix any problems**
+   * Features are listed by *canonical* title. If they are not done yet, with a one-line stub description.
+   * Agents will map the user request to the listed feature and craft a PR to address it.
+   * If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb. A feature is something that the user will perceive as an atomic action the application can do for them.
 
-2. **Dependency Management**
+2. **PR Steps (per feature)**
 
-   * **Pin** every dependency to an **exact** version, using the **current latest** release.
-   * **Manually verify** all version numbers are pinned and up‑to‑date before pushing.
-  
----
+   1. Name feature if no name exists - add to README.md.
+   2. Write or update the complete acceptance test.
+   3. Link title to exact acceptance test code lines.
+   4. Implement or fix code under `features/<feature_name>/src/`; shared code under `shared/src/`.
+   5. Replace the stub description in `README.md` with full docs.
+   6. Update all dependencies versions to latest, fix any issues.
+   7. Run `agents-check.sh`, fix any issues.
+   8. Push. Await feedback from the CI.
 
-## II. Dev Environment
+## Acceptance Tests
 
-1. **Dev Container**
+1. **Full Integration**
 
-   * **Base**: `cruizba/ubuntu-dind`.
-   * Structure under `.devcontainer/`:
+   * Use Docker-in-Docker via
+     `features/<feature_name>/test/docker-compose.yml`
+     (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
+   * Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
 
-     * `Dockerfile.devcontainer` (`FROM cruizba/ubuntu-dind`)
-     * `devcontainer.json` → vscode specific metadata, help maintain it correctly
-     * `docker-compose.yml` defines dev services & workspace mount
-     * `postStart.sh` installs deps & builds helpers - always run on container first launch
+2. **Partial Integration**
+
+   * If testing the feature on the full release with only controlled inputs and outputs is impossible, note the limitation in the README.md under that feature and bind-mount a `features/<feature_name>/test/entrypoint.sh` into the release environment using the docker-compose.yml. That entrypoint can install acceptance test specific deps and run tests bypassing the application's normal main entrypoint.
+
+## Formatting & Dependencies
+
+1. **Style & Linting**
+
+   * Humans: `check.sh` in dev container.
+   * Agents: `agents-check.sh` before every push. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
+   * Enforce strict formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.).
+
+2. **Dependencies**
+
+   * Pin every dependency to an exact version (latest release).
+
+## Development Environment
+
+1. **Dev Container** (`.devcontainer/`)
+
+   * Base image: [`cruizba/ubuntu-dind`](https://github.com/cruizba/ubuntu-dind).
+   * See [VS Code Dev Containers guide](https://code.visualstudio.com/docs/devcontainers/create-dev-container) and JSON spec: [Dev Container reference](https://devcontainers.github.io/implementors/json_reference/).
+   * Files:
+
+     * `Dockerfile.devcontainer`
+     * `devcontainer.json`
+     * `docker-compose.yml`
+     * `postStart.sh` (install, build, etc.).
 
 2. **Usage**
 
-   * Humans launch via VS Code Remote – Containers (“clone + open”).
-   * Humans run **All** builds, tests, and Docker commands *inside* this container.
-   * Agents do not run the container, builds, tests, etc. They push and await for a human to relay feedback from the CI.
+   * AGENTS DO NOT USE THIS, INSTEAD RELY SOLELY ON FEEDBACK FROM THE CI RELAYED BACK AFTER PUSH. MAINTAIN THE CI METICULOUSLY.
 
----
+## Release Environment
 
-## III. Features & Structure
+* Root-level `Dockerfile` and `docker-compose.yml` for production (see [Dockerfile best practices](https://docs.docker.com/build/building/best-practices/)).
+* Load all settings (credentials, URLs, mounts) from a top-level `.env` file.
 
-1. **Atomic Features**
+## CI & Testing (GitHub Actions)
 
-   * Folder under `features/` per feature in snake case (e.g. `generate_invoice_pdf`).
+1. **Trigger:** on any push.
 
-   * Each feature contains:
+2. **Steps:**
+   1\.
 
-     ```text
-     features/
-       <feature_name>/
-         src/
-           example_module.py
-         test/
-           docker-compose.yml  # sample env vars
-           example_test.py
-           input/    # sample input files
-           output/   # expected outputs for test assertions
-     ```
+   ```bash
+   docker-compose -f .devcontainer/docker-compose.yml up --build -d
+   ```
 
-   * **Testing Standards**:
+   2. Wait for `postStart.sh`.
+   3. Inside container:
 
-     * All tests should use the Docker-in-Docker (DinD) setup.
-     * Tests must be **fully integrated**, meaning they:
-
-       * Run the runtime container (`Dockerfile`) with their own pre-defined inputs (e.g. env vars, bind-mount files) supplied from the dev/test container (`Dockerfile.devcontainer`).
-       * Assert expected outputs.
-     * If full integration is **not possible** for a feature:
-
-       * A comment must explain the limitation.
-       * The test code should be bind-mounted into the runtime container and executed via a separate entrypoint that:
-
-         * Installs any test-specific dependencies.
-         * Runs the tests.
-
-2. **Shared Code**
-
-   * Common code in `shared/`. Tested through the features that use it.
-
----
-
-## IV. Testing & CI
-
-1. **Github Actions (CI Pipeline)**
-
-   * **Trigger**: on **push** to any branch.
-   * **Steps**:
-
-     1. **Build & start the dev-container** using the `.devcontainer` compose file:
+      * Run `check.sh`.
+      * Build runtime:
 
         ```bash
-        docker-compose -f .devcontainer/docker-compose.yml up --build -d
+        docker build -f Dockerfile -t repo-runtime:latest .
         ```
-     2. **Run and Wait** for `postStart.sh` to finish inside the container.
-     3. **Inside** the running dev-container (via `docker exec` or Actions container steps):
-        * **Run `check.sh`
-        * **Build runtime image**:
+      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test: <Feature Name>"`:
 
-          ```bash
-          docker build -f Dockerfile -t repo-runtime:latest .
-          ```
-        * **Run per-feature tests**: use a strategy across a matrix of features `Test: <Feature Name>`:
+        ```bash
+        docker-compose -f features/<feature_name>/docker-compose.yml up --abort-on-container-exit
+        ```
 
-          ```bash
-          docker-compose -f features/<Feature Name>/docker-compose.yml up --abort-on-container-exit
-          ```
+3. **Failure Reporting:**
+   * Output any Github Actions step failures exactly like:
 
-2. **Failure Reporting**
-
-   * On any build or test failure, CI logs should strive to print a final summary in this form. Human will relay this back exactly on failure:
-
-     ```text
-     ci failed, see below:
+     ```
+     ci failed on <step name>, see below:
      <relevant log snippet>
      ```
 
----
+## Logging & Observability
 
-## V. Logging & Observability
+* Emit logs sufficient to debug without stepping through code.
 
-* Logs alone must suffice to debug—no code stepping. Log everything you would need to handle test and build failures in the CI.
+## Maintenance
 
----
-
-## VI. Documentation
-
-1. **README.md** contains:
-
-   * **Who & Why**: target users and benefits, be extremely logical rather than rhetorical.
-   * **Features**: list with links to their tests.
-   * **Contributing**: clone → dev‑container → build → test → open PR.
-   * anything else that the agent deems relevant
-
----
-
-## VII. Releases
-
-* `.github/workflows/release.yml`:
-
-  * **Trigger**: on tag `vX.Y.Z`.
-  * Build & push Docker images (`secrets.DOCKER_{USERNAME,PASSWORD}`).
-  * Tag per org convention (e.g. `ghcr.io/org/repo:semver`).
-  * Update release notes with full image references.
-  * Include example `docker-compose.yml` for deployment. Help maintain this along with Dockerfile as we go.
-
----
-
-## VIII. Maintenance
-
-* Additionally, try to stay on top of these:
-  * **Refactor** non‑atomic code into feature folders.
-  * **Migrate** mock‑heavy tests to integration tests—or document why mocks remain.
-  * Keep both `Dockerfile` (release runtime) and `Dockerfile.devcontainer` (dev/test runtime) updated with all latest dependencies.
+* Reorganize code: feature-specific under `features/`; shared code under `shared/src/`.
+* Convert mocks/stubs into integrated acceptance tests when possible.
+* Keep all Dockerfiles and dependencies lean and up to date.
+* Add missing unit test coverage for features if *and only if* everything else above is done.
+* Add complete formal static website documentation for application if *and only if* everything else above is done.
