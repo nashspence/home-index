@@ -42,7 +42,8 @@ If a feature can’t be tested in the full-release image with only controlled I/
 
 * Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
 * Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
-* Maintain `check.sh` to enforce ultra-strict language appropriate formatter/typing/linter (ruff, `mypy --strict .`, Black (+ isort, autoflake), ESLint + Prettier, etc.).
+* Maintain `check.sh` to enforce ultra-strict language appropriate formatter/typing/linter (ruff, mypy, Black (+ isort, autoflake), ESLint + Prettier, etc.).
+* Target `mypy --strict .`, but if there are too many errors to fix in a single PR, add strict types only to code touched as part of the current PR and leave the rest untyped.
 
 ### Dependencies
 
@@ -100,8 +101,9 @@ Emit **logs sufficient to debug from CI output alone** without stepping through 
 * The README.md features section is perfect.
 * Ensure the Github Actions .yml files are perfectly clean and setup optimally for testing.
 * Reorganize code: feature-specific under `features/`; shared code under `shared/`; entrypoint code in repo root.
+* Keep all Dockerfiles and dependencies lean and up to date.
+* Progress towards strict typing (if applicable) - `mypy --strict .` or similar.
 * Remove tests with mocks/stubs/dummies in favor of integrated acceptance tests unless specifically created as unit tests to complement already fully functioning, passing integrated acceptance tests described above. 
 * Remove clutter (useless files, etc) from the repo. Maintain the .gitignore to help with this.
-* Keep all Dockerfiles and dependencies lean and up to date.
 * Add missing unit test coverage for features if *and only if* everything else above is done.
 * Add complete formal static website documentation for application if *and only if* everything else above is done.
