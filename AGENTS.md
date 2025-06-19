@@ -6,7 +6,7 @@
 
 ### Features Section (README.md)
 
-* Features are listed by *canonical* title. If they are not done yet, with a one-line stub description.
+* Features are listed by *canonical* title (in Title Case). If they are not done yet, with a one-line stub description.
 * Agents will map the user request to the listed feature and craft a PR to address it.
 * If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb phrase. A feature is something that the user will perceive as an atomic action the application can do for them.
 
