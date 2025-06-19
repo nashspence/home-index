@@ -42,7 +42,7 @@ If a feature can’t be tested in the full-release image with only controlled I/
 
 * Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
 * Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
-* Maintain `check.sh` to enforce strict formatter/linter (PEP 8, gofmt, rustfmt, ESLint + Prettier, etc.).
+* Maintain `check.sh` to enforce ultra-strict language appropriate formatter/typing/linter (ruff, `mypy --strict .`, Black (+ isort, autoflake), ESLint + Prettier, etc.).
 
 ### Dependencies
 
