@@ -73,14 +73,13 @@ import copy
 import math
 from xmlrpc.client import ServerProxy, Fault
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from multiprocessing import Process
 from itertools import chain
 from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
+import features.F1 as F1
 
 
 # endregion
@@ -107,7 +106,7 @@ MODULES_SLEEP_SECONDS = int(
 )
 
 MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
-MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
+MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://meilisearch:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
 MEILISEARCH_CHUNK_INDEX_NAME = os.environ.get(
     "MEILISEARCH_CHUNK_INDEX_NAME",
@@ -302,22 +301,6 @@ def save_modules_state():
     with hello_versions_file_path.open("w") as file:
         json.dump({"hello_versions": hello_versions}, file)
     is_modules_changed = False
-
-
-def parse_cron_env(env_var="CRON_EXPRESSION", default="0 3 * * *"):
-    cron_expression = os.getenv(env_var, default)
-    parts = cron_expression.split()
-    if len(parts) != 5:
-        raise ValueError(
-            f"Invalid cron expression in {env_var}: '{cron_expression}'. Must have 5 fields."
-        )
-    return {
-        "minute": parts[0],
-        "hour": parts[1],
-        "day": parts[2],
-        "month": parts[3],
-        "day_of_week": parts[4],
-    }
 
 
 # endregion
@@ -1123,14 +1106,14 @@ async def init_meili_and_sync():
 
 
 async def main():
+
     await init_meili()
     scheduler = BackgroundScheduler()
 
-    scheduler.add_job(
-        run_in_process,
-        (IntervalTrigger(seconds=60) if DEBUG else CronTrigger(**parse_cron_env())),
-        args=[init_meili_and_sync],
-        max_instances=1,
+    F1.scheduler.attach_sync_job(
+        scheduler,
+        DEBUG,
+        lambda: run_in_process(init_meili_and_sync),
     )
 
     if is_modules_changed:
