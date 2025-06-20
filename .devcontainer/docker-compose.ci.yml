@@ -1,4 +1,4 @@
 services:
   devcontainer:
-    deploy: null
-    ulimits: null
+    deploy: {}
+    ulimits: {}
