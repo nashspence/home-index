@@ -6,20 +6,19 @@
 
 ### Features Section (README.md)
 
-* Features are listed by *canonical* title (in Title Case). If they are not done yet, with a one-line stub description.
-* Agents will map the user request to the listed feature and craft a PR to address it.
-* If no approriate feature exists yet, agent will create one. Title will be truly minimal and contain a single verb phrase. A feature is something that the user will perceive as an atomic action the application can do for them.
+Features are listed as user goals with their title and number in the README.md. All features will be a minimally expressed user goal. The user goals will seem consistent with eachother. All bugs should map to a feature.
+
+Agents will map the prompt to a listed feature and craft a PR to address it. If prompt cannot be mapped to a feature, infer the missing one and craft a PR to add it. If an appropriate feature cannot be inferred, do **not** craft a PR - request prompter to clarify intent. 
 
 ### PR Steps (per feature)
 
-1. Name feature if no name exists - add to README.md.
-2. Write or update the complete acceptance test.
-3. Link title to exact acceptance test code lines.
-4. Implement or fix code under `features/<feature_name>/`; shared code under `shared/`; entrypoint code - for example `main.py` - in repo root
-5. Replace the stub description in `README.md` with full docs.
-6. Update all dependencies versions to latest, fix any issues.
-7. Run `agents-check.sh`, fix any issues.
-8. Push. Await potential failure output from the CI relayed by user. Fix and Push. Repeat... until PR accepted.
+1. Write or update the acceptance test.
+2. Link title to `features/<feature number>/` exact acceptance test code lines.
+3. Implement or fix code under `features/<feature number>/`; shared code under `shared/`; entrypoint code - for example `main.py` - in repo root
+4. Write or update the documentation of current implementation in `README.md` under the feature's heading.
+5. Update all dependencies versions to latest, fix any issues.
+6. Run `agents-check.sh`, fix any issues.
+7. Push.
 
 ## Acceptance Tests
 
@@ -28,14 +27,6 @@
 * Use Docker-in-Docker via `features/<feature_name>/test/docker-compose.yml` (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
 * Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
 
-### Partial Integration
-
-If a feature can’t be tested in the full-release image with only controlled I/O:
-
-1. Add a note under that feature in `README.md` explaining the limitation.
-2. In your `docker-compose.yml`, bind-mount `features/<feature_name>/test/entrypoint.sh` into the release service.
-3. Let that entrypoint install any test-only dependencies and invoke your acceptance tests directly—bypassing the app’s normal entrypoint.
-
 ## Formatting & Dependencies
 
 ### Style & Linting
@@ -43,7 +34,6 @@ If a feature can’t be tested in the full-release image with only controlled I/
 * Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
 * Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
 * Maintain `check.sh` to enforce ultra-strict language appropriate formatter/typing/linter (ruff, mypy, Black (+ isort, autoflake), ESLint + Prettier, etc.).
-* Target `mypy --strict .`, but if there are too many errors to fix in a single PR, add strict types only to code touched as part of the current PR and leave the rest untyped.
 
 ### Dependencies
 
@@ -55,7 +45,7 @@ Pin every dependency to an exact version (latest release).
 
 * Base image: [`cruizba/ubuntu-dind`](https://github.com/cruizba/ubuntu-dind).
 * See [VS Code Dev Containers guide](https://code.visualstudio.com/docs/devcontainers/create-dev-container) and JSON spec: [Dev Container reference](https://devcontainers.github.io/implementors/json_reference/).
-* Files:
+* Always create or update the following before push as development runtime:
   * `Dockerfile.devcontainer`
   * `devcontainer.json`
   * `docker-compose.yml`
@@ -63,12 +53,12 @@ Pin every dependency to an exact version (latest release).
 
 ## Release Environment
 
-* Root-level `Dockerfile` and `docker-compose.yml` for production (see [Dockerfile best practices](https://docs.docker.com/build/building/best-practices/)).
+* Always create or update root-level `Dockerfile` and `docker-compose.yml` as application runtime (see [Dockerfile best practices](https://docs.docker.com/build/building/best-practices/)) before push.
 * Load all settings (credentials, URLs, bind-mount paths) from a top-level `.env` file.
 
-## CI & Testing (GitHub Actions)
+## CI & Testing (GitHub Actions (`.github/workflows/test.yml`))
 
-**Trigger** on any push.
+* Always create or update the file before push. It must **Trigger** on any push.
 
 ### Steps:
    1. Build dev container:
@@ -86,24 +76,31 @@ Pin every dependency to an exact version (latest release).
         ```bash
         docker build -f Dockerfile -t repo-runtime:latest .
         ```
-      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test: <Feature Name>"`:
+      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test <feature number>: <feature name>"`:
 
         ```bash
-        docker-compose -f features/<feature_name>/test/docker-compose.yml up --abort-on-container-exit
+        docker-compose -f features/<feature number>/test/docker-compose.yml up --abort-on-container-exit
         ```
 
 ## Logging & Observability
 
-Emit **logs sufficient to debug from CI output alone** without stepping through code.
+Emit **logs sufficient to debug from CI output alone** without stepping through code. Always create or update logging to improve CI step failure output before push.
+
+## Incremental Adoption
+
+* Target `mypy --strict .` etc., but if there are too many issues to fix in a single PR, conform code touched as part of the current PR and leave the rest untyped.
+* Attempt to reorganize all code as specified under appropriate directories, but if there are too many issues to fix in a single PR, make note in the README.md of code that is not organized appropriately and just conform code touched as part of the current PR.
 
 ## Maintenance
 
-* The README.md features section is perfect.
-* Ensure the Github Actions .yml files are perfectly clean and setup optimally for testing.
-* Reorganize code: feature-specific under `features/`; shared code under `shared/`; entrypoint code in repo root.
-* Keep all Dockerfiles and dependencies lean and up to date.
-* Progress towards strict typing (if applicable) - `mypy --strict .` or similar.
-* Remove tests with mocks/stubs/dummies in favor of integrated acceptance tests unless specifically created as unit tests to complement already fully functioning, passing integrated acceptance tests described above. 
-* Remove clutter (useless files, etc) from the repo. Maintain the .gitignore to help with this.
-* Add missing unit test coverage for features if *and only if* everything else above is done.
-* Add complete formal static website documentation for application if *and only if* everything else above is done.
+If instructed to preform **maintenance**, craft a PR that incrementally progresses **one** of the following (ordered by priority):
+
+1. Rich documentation of each feature in the README.md features section completely describes the implementation details and how it assists with that particular goal. Otherwise, keep the README.md very sparse.
+2. `.github/workflows/test.yml` is perfectly clean and matches expectations.
+3. Organized repo: **all** feature-specific code under `features/`; **all** shared code under `shared/`; **all** entrypoint code in repo root.
+4. Each feature is has an appropriate passing integrated acceptance test, as described above. 
+5. Dockerfiles and dependencies lean and up to date.
+6. Strict typing (if applicable) - `mypy --strict .` or similar.
+7. Clean repo: remove all clutter (useless files, unnecessary code, etc) from the repo. (maintain the .gitignore to help with this.)
+8. Full unit test coverage for features. (if *and only if* everything else above is done)
+9. Formal static website documentation (`docs`) for application (if *and only if* everything else above is done)
