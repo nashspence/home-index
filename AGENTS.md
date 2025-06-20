@@ -63,6 +63,7 @@ Pin every dependency to an exact version (latest release).
 
 Always create or update the file before push. It must **Trigger** on any push:
 
+```
   test-features:
     runs-on: ubuntu-latest
     env:
@@ -117,6 +118,7 @@ Always create or update the file before push. It must **Trigger** on any push:
       - name: Stop dev container
         if: always()
         run: docker-compose -f .devcontainer/docker-compose.yml down -v
+```
 
 
 ## Logging & Observability
