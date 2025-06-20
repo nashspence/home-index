@@ -5,63 +5,6 @@ on:
     branches: ['**']
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      EXTERNAL_MEILISEARCH: '1'
-      MEILISEARCH_HOST: 'http://localhost:7700'
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-python@v5.6.0
-        with:
-          python-version: '3.11'
-      - name: Install deps
-        run: |
-          pip install -r requirements.txt
-          pip install pytest docker
-      - name: Build containers
-        run: docker compose build
-      - name: Start services
-        run: docker compose up -d
-      - name: Wait for Meilisearch
-        run: |
-          for i in {1..30}; do
-            if curl -fs http://localhost:7700/health > /dev/null; then
-              break
-            fi
-            sleep 2
-          done
-      - name: FileDocumentsMatchTheExpectedSchema
-        run: pytest -q tests/test_meilisearch_schema.py::test_file_documents_match_the_expected_schema
-      - name: ChunkDocumentsFollowTheChunkSchema
-        run: pytest -q tests/test_meilisearch_file_chunk_schema.py::test_chunk_documents_follow_the_chunk_schema
-      - name: ModulesCommunicateViaXmlRpc
-        run: pytest -q tests/test_run_server_module.py::test_modules_communicate_via_xml_rpc
-      - name: ModulesCanAddAndRemoveChunkData
-        run: pytest -q tests/test_chunk_integration.py::test_modules_can_add_and_remove_chunk_data
-      - name: ModulesMayReturnOnlyUpdatedDocuments
-        run: pytest -q tests/test_chunk_integration.py::test_modules_may_return_only_updated_documents
-      - name: RetryHelperStopsWhenACallSucceeds
-        run: pytest -q tests/test_retry.py::test_retry_helper_stops_when_a_call_succeeds
-      - name: RetryHelperFailsAfterRepeatedErrors
-        run: pytest -q tests/test_retry.py::test_retry_helper_fails_after_repeated_errors
-      - name: IndexingRunsAcrossManyFilesAndModules
-        run: pytest -q tests/test_large_indexing.py::test_indexing_runs_across_many_files_and_modules
-      - name: TextEmbeddingsUseSentenceTransformerModels
-        run: pytest -q tests/test_embeddings.py::test_text_embeddings_use_sentence_transformer_models
-      - name: MetadataPersistsIfTheArchiveDirectoryIsTemporarilyMissing
-        run: pytest -q tests/test_archive_support.py::test_metadata_persists_if_the_archive_directory_is_temporarily_missing
-      - name: ModuleMigrationsPersistVersionUpgrades
-        run: pytest -q tests/test_module_migrations.py::test_module_migrations_persist_version_upgrades
-      - name: MetadataAndSymlinksArePurgedAfterAnArchiveFileIsRemoved
-        run: pytest -q tests/test_archive_support.py::test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed
-      - name: TokentextsplitterDividesChunkTextIntoSmallerDocuments
-        run: pytest -q tests/test_chunk_utils.py::test_tokentextsplitter_divides_chunk_text_into_smaller_documents
-      - name: SegmentsWithHeadersConvertToChunkDocumentsReferencingTheSourceFile
-        run: pytest -q tests/test_chunk_utils.py::test_segments_with_headers_convert_to_chunk_documents_referencing_the_source_file
-      - name: Stop services
-        run: docker compose down
-
   test-all-features:
     runs-on: ubuntu-latest
     strategy:
