@@ -64,6 +64,9 @@ jobs:
 
   features:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: [F1]
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Build dev container
@@ -79,10 +82,10 @@ jobs:
       - name: Format and lint
         run: docker exec home-index-devcontainer ./check.sh
       - name: Build runtime image
-        run: docker exec home-index-devcontainer docker build -f Dockerfile -t home-index:latest .
-      - name: Unit Test: F1
-        run: docker exec home-index-devcontainer pytest -q features/F1/test/unit.py
-      - name: Acceptance Test: F1
-        run: docker exec home-index-devcontainer pytest -q features/F1/test/acceptance.py
+        run: docker exec home-index-devcontainer docker build -f Dockerfile -t repo-runtime:latest .
+      - name: Unit Test: ${{ matrix.feature }}
+        run: docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/unit.py
+      - name: Acceptance Test: ${{ matrix.feature }}
+        run: docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/acceptance.py
       - name: Tear down
         run: docker-compose -f .devcontainer/docker-compose.yml down -v
