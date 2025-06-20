@@ -7,11 +7,8 @@ on:
 jobs:
   test-all-features:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - feature: F1
-            name: my home server to be available when I need it
+    env:
+      FEATURES: "F1"
     steps:
       - uses: actions/checkout@v4.2.2
 
@@ -35,11 +32,34 @@ jobs:
       # ── build release image once ─────────────────────────────────────
       - name: Build release image
         run: docker exec home-index-devcontainer \
-               docker build -f Dockerfile -t repo-runtime:latest .
+               docker build -f Dockerfile -t home-index:test .
 
-      - name: Test ${{ matrix.feature }}: ${{ matrix.name }}
-        run: docker exec home-index-devcontainer \
-          docker-compose -f features/${{ matrix.feature }}/test/docker-compose.yml up --abort-on-container-exit
+      - name: Run tests for every feature
+        run: |
+          set -Eeuo pipefail
+          for feature in $FEATURES; do
+            echo "::group::Testing $feature"
+            docker exec home-index-devcontainer bash -Eeuo pipefail -c '
+              FEATURE="$0"
+
+              # Path inside the dev container workspace
+              UNIT_PATH="/workspace/features/${FEATURE}/test/unit.py"
+              ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
+
+              # Run unit tests only if the file exists
+              if [ -f "$UNIT_PATH" ]; then
+                echo "› unit.py found – running unit tests"
+                docker run --rm home-index:test pytest -q "features/${FEATURE}/test/unit.py"
+              else
+                echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
+              fi
+
+              # acceptance.py is mandatory
+              echo "› running acceptance tests"
+              docker run --rm home-index:test pytest -q "features/${FEATURE}/test/acceptance.py"
+            ' "$feature"
+            echo "::endgroup::"
+          done
 
       # ── tear down once everything is done ────────────────────────────
       - name: Stop dev container
