@@ -61,29 +61,63 @@ Pin every dependency to an exact version (latest release).
 
 ## CI & Testing (GitHub Actions (`.github/workflows/test.yml`))
 
-Always create or update the file before push. It must **Trigger** on any push.
+Always create or update the file before push. It must **Trigger** on any push:
 
-### Steps:
-   1. Build dev container:
+  test-features:
+    runs-on: ubuntu-latest
+    env:
+      REPO_NAME: "<repo name>"
+      FEATURES: "F1"
+    steps:
+      - uses: actions/checkout@v4.2.2
 
-       ```bash
-       docker-compose -f .devcontainer/docker-compose.yml up --build -d
-       ```
+      - name: Start dev container
+        run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
 
-   2. Wait for `postStart.sh`.
-   3. Inside dev container:
+      - name: Wait until venv is ready
+        run: |
+          for i in {1..30}; do
+            if docker exec ${REPO_NAME}-devcontainer test -d /workspace/venv; then exit 0; fi
+            sleep 2
+          done
+          echo "Dev container never became ready" >&2
+          exit 1
 
-      * Run `check.sh`.
-      * Build runtime container:
+      - name: Format & lint
+        run: docker exec ${REPO_NAME}-devcontainer ./check.sh
 
-        ```bash
-        docker build -f Dockerfile -t <repo name>:test .
-        ```
-      * Test each feature. Name each test step like `Acceptance Test: F<feature number>`:
+      - name: Build release image
+        run: docker exec ${REPO_NAME}-devcontainer \
+               docker build -f Dockerfile -t ${REPO_NAME}:test .
 
-        ```bash
-        pytest -q  features/F<feature number>/test/acceptance.py
-        ```
+      - name: Run tests for every feature
+        run: |
+          set -Eeuo pipefail
+          for feature in $FEATURES; do
+            echo "::group::Testing $feature"
+            docker exec ${REPO_NAME}-devcontainer bash -Eeuo pipefail -c '
+              FEATURE="$0"
+
+              UNIT_PATH="/workspace/features/${FEATURE}/test/unit.py"
+              ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
+
+              if [ -f "$UNIT_PATH" ]; then
+                echo "› unit.py found – running unit tests"
+                docker run --rm ${REPO_NAME}:test pytest -q "features/${FEATURE}/test/unit.py"
+              else
+                echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
+              fi
+
+              echo "› running acceptance tests"
+              docker run --rm ${REPO_NAME}:test pytest -q "features/${FEATURE}/test/acceptance.py"
+            ' "$feature"
+            echo "::endgroup::"
+          done
+
+      - name: Stop dev container
+        if: always()
+        run: docker-compose -f .devcontainer/docker-compose.yml down -v
+
 
 ## Logging & Observability
 
