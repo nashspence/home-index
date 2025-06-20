@@ -4,7 +4,7 @@
 
 ## Features
 
-Features are listed as user goals with their title and number in the README.md. All features will be a minimally expressed user goal. The user goals will seem consistent with eachother. All bugs should map to a feature.
+Features are listed as user goals with their title and number as subheadings in the Features section of the README.md. All features will be a minimally expressed user goal. The user goals will seem consistent with eachother. All bugs should map to a feature.
 
 Agents will map the prompt to a listed feature and craft a PR to address it. If prompt cannot be mapped to a feature, infer the missing one and craft a PR to add it. If an appropriate feature cannot be inferred, do **not** craft a PR - request prompter to clarify intent. 
 
@@ -12,19 +12,21 @@ Code should be be organized as follows: **all** feature-specific code under `fea
 
 ## How to Respond to a Prompt
 
-1. Write or update the acceptance test, if applicable.
-2. Implement or fix code
-3. Write or update the documentation of the feature implementation in `README.md`, if applicable.
-4. Update all dependencies versions to latest, fix any issues.
-5. Run `agents-check.sh`, fix any issues.
-6. Push.
+1. Map prompt to: (1) exact feature task, (2) general maintanence task or, (3) need to clarify intent.
+2. Write or update the acceptance test, if applicable.
+3. Implement or fix code
+4. Write or update the documentation of the features in `README.md`.
+5. Update all dependencies versions to latest, fix any issues.
+6. Run `agents-check.sh`, fix any issues.
+7. Push.
 
 ## Acceptance Tests
 
 ### Full Integration
 
 * Use Docker-in-Docker (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
-* Bind-mount `features/<feature number>/test/input/` and `features/<feature number>/test/output/` into release container. Control input files and environment config. Acceptance test will run `features/<feature number>/test/docker-compose.yml` and assert expected output files, responses, etc. from all containers.
+* Bind-mount `features/F<feature number>/test/input/` and `features/F<feature number>/test/output/` into release container. Control input files and environment config. Acceptance test will run `features/F<feature number>/test/docker-compose.yml` and assert expected output files, responses, etc. from all containers.
+* You **MUST** test exactly as the user would experience the feature's output during normal operation of the release! Do not try to add any hooks or redundant output into the release just to make testing easier.  
 
 ## Formatting & Dependencies
 
@@ -75,10 +77,10 @@ Always create or update the file before push. It must **Trigger** on any push.
         ```bash
         docker build -f Dockerfile -t repo-runtime:latest .
         ```
-      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test <feature number>: <feature name>"`:
+      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test F<feature number>: <feature name>"`:
 
         ```bash
-        docker-compose -f features/<feature number>/test/docker-compose.yml up --abort-on-container-exit
+        docker-compose -f features/F<feature number>/test/docker-compose.yml up --abort-on-container-exit
         ```
 
 ## Logging & Observability
