@@ -4,5 +4,5 @@ services:
       args:
         CUDA_MAJOR: "0"
         CUDA_MINOR: "0"
-    deploy: {}
-    ulimits: {}
+    deploy: null
+    ulimits: null
