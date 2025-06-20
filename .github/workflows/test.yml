@@ -66,12 +66,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [F1]
+        include:
+          - feature: F1
+            name: "my home server to be available when I need it"
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Build dev container
+        if: ${{ matrix.feature == 'F1' }}
         run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
       - name: Wait for dev container
+        if: ${{ matrix.feature == 'F1' }}
         run: |
           for i in {1..30}; do
             if docker exec home-index-devcontainer test -d /workspace/venv; then
@@ -80,12 +84,15 @@ jobs:
             sleep 2
           done
       - name: Format and lint
+        if: ${{ matrix.feature == 'F1' }}
         run: docker exec home-index-devcontainer ./check.sh
       - name: Build runtime image
+        if: ${{ matrix.feature == 'F1' }}
         run: docker exec home-index-devcontainer docker build -f Dockerfile -t repo-runtime:latest .
-      - name: Unit Test: ${{ matrix.feature }}
-        run: docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/unit.py
-      - name: Acceptance Test: ${{ matrix.feature }}
-        run: docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/acceptance.py
+      - name: Test ${{ matrix.feature }}: ${{ matrix.name }}
+        run: |
+          docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/unit.py
+          docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/acceptance.py
       - name: Tear down
+        if: ${{ matrix.feature == 'F1' }}
         run: docker-compose -f .devcontainer/docker-compose.yml down -v
