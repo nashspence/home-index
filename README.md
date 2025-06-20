@@ -93,7 +93,7 @@ Before launching, set the required environment variables described below.
 
 Key environment variables (defaults in brackets):
 
-- `MEILISEARCH_HOST` – address of Meilisearch [`http://localhost:7700`]
+- `MEILISEARCH_HOST` – address of Meilisearch [`http://meilisearch:7700`]
 - `INDEX_DIRECTORY` – directory containing files to index [`/files`]
 - `METADATA_DIRECTORY` – where module output is stored [`/files/metadata`]
 - `ARCHIVE_DIRECTORY` – special folder for archived files [`<INDEX_DIRECTORY>/archive`]
