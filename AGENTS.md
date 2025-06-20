@@ -1,7 +1,7 @@
 ### 0 Hard Prohibitions
 
-* **NEVER** build dev- or release-containers, run acceptance tests, `pip install -r …`, `pytest -q`, etc.
-* Work locally with only the libraries you need; rely on CI after every **push**.
+* **NEVER** build dev- or release-containers, run the acceptance tests, `pip install -r requirements.txt`.
+* Work locally, install only the libraries you need; if unit tests exist, run just them; otherwise, rely on CI after every **push**.
 
 ---
 
