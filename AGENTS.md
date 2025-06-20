@@ -25,7 +25,7 @@ Code should be be organized as follows: **all** feature-specific code under `fea
 ### Full Integration
 
 * Use Docker-in-Docker (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
-* Bind-mount `features/F<feature number>/test/input/` and `features/F<feature number>/test/output/` into release container. Control input files and environment config. Acceptance test will run `features/F<feature number>/test/docker-compose.yml` and assert expected output files, responses, etc. from all containers.
+* Bind-mount `features/F<feature number>/test/input/` and `features/F<feature number>/test/output/` into release container. Control input files and environment config. Acceptance test will run `features/F<feature number>/test/docker-compose.yml` (`release:latest` and supporting services) and assert expected output files, responses, etc. from all containers.
 * You **MUST** test exactly as the user would experience the feature's output during normal operation of the release! Do not try to add any hooks or redundant output into the release just to make testing easier.  
 
 ## Formatting & Dependencies
@@ -75,12 +75,12 @@ Always create or update the file before push. It must **Trigger** on any push.
       * Build runtime container:
 
         ```bash
-        docker build -f Dockerfile -t repo-runtime:latest .
+        docker build -f Dockerfile -t release:latest .
         ```
-      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test F<feature number>: <feature name>"`:
+      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"F<feature number>: <feature name> - Acceptance Test"`:
 
         ```bash
-        docker-compose -f features/F<feature number>/test/docker-compose.yml up --abort-on-container-exit
+        pytest -q  features/F<feature number>/test/acceptance.py
         ```
 
 ## Logging & Observability
