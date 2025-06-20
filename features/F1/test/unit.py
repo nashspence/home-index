@@ -1,24 +1,11 @@
-import sys
-from pathlib import Path
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
 
-
-def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
-    log_dir = tmp_path / "logs"
-    log_dir.mkdir()
-    monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
-    monkeypatch.setenv("MODULES", "")
-    index_dir = tmp_path / "index"
-    index_dir.mkdir()
-    monkeypatch.setenv("INDEX_DIRECTORY", str(index_dir))
+def test_cron_schedules_are_parsed_from_the_environment(monkeypatch):
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
-    import home_index.main as hi
-    import importlib
+    import features.F1 as F1
 
-    importlib.reload(hi)
-    result = hi.parse_cron_env()
+    result = F1.scheduler.parse_cron_env()
     assert result == {
         "minute": "15",
         "hour": "2",
@@ -28,18 +15,12 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
     }
 
 
-def test_malformed_cron_expressions_raise_valueerror(monkeypatch, tmp_path):
-    log_dir = tmp_path / "logs2"
-    log_dir.mkdir()
-    monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
-    monkeypatch.setenv("MODULES", "")
+def test_malformed_cron_expressions_raise_valueerror(monkeypatch):
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
-    import home_index.main as hi
-    import importlib
+    import features.F1 as F1
 
-    importlib.reload(hi)
     with pytest.raises(ValueError):
-        hi.parse_cron_env()
+        F1.scheduler.parse_cron_env()
 
 
 def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(

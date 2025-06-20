@@ -47,18 +47,12 @@ jobs:
         run: pytest -q tests/test_retry.py::test_retry_helper_fails_after_repeated_errors
       - name: IndexingRunsAcrossManyFilesAndModules
         run: pytest -q tests/test_large_indexing.py::test_indexing_runs_across_many_files_and_modules
-      - name: CronSchedulesAreParsedFromTheEnvironment
-        run: pytest -q tests/test_schedule.py::test_cron_schedules_are_parsed_from_the_environment
-      - name: MalformedCronExpressionsRaiseValueError
-        run: pytest -q tests/test_schedule.py::test_malformed_cron_expressions_raise_valueerror
       - name: TextEmbeddingsUseSentenceTransformerModels
         run: pytest -q tests/test_embeddings.py::test_text_embeddings_use_sentence_transformer_models
       - name: MetadataPersistsIfTheArchiveDirectoryIsTemporarilyMissing
         run: pytest -q tests/test_archive_support.py::test_metadata_persists_if_the_archive_directory_is_temporarily_missing
       - name: ModuleMigrationsPersistVersionUpgrades
         run: pytest -q tests/test_module_migrations.py::test_module_migrations_persist_version_upgrades
-      - name: SchedulerAttachesACronTriggerJobForPeriodicIndexing
-        run: pytest -q tests/test_schedule.py::test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing
       - name: MetadataAndSymlinksArePurgedAfterAnArchiveFileIsRemoved
         run: pytest -q tests/test_archive_support.py::test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed
       - name: TokentextsplitterDividesChunkTextIntoSmallerDocuments
@@ -67,3 +61,31 @@ jobs:
         run: pytest -q tests/test_chunk_utils.py::test_segments_with_headers_convert_to_chunk_documents_referencing_the_source_file
       - name: Stop services
         run: docker compose down
+
+  features:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: ['F1']
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Build dev container
+        run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
+      - name: Wait for dev container
+        run: |
+          for i in {1..30}; do
+            if docker exec home-index-devcontainer test -d /workspace/venv; then
+              break
+            fi
+            sleep 2
+          done
+      - name: Format and lint
+        run: docker exec home-index-devcontainer ./check.sh
+      - name: Build runtime image
+        run: docker exec home-index-devcontainer docker build -f Dockerfile -t home-index:latest .
+      - name: Unit Test: ${{ matrix.feature }} - my home server to be available when I need it
+        run: docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/unit.py
+      - name: Acceptance Test: ${{ matrix.feature }} - my home server to be available when I need it
+        run: docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/acceptance.py
+      - name: Tear down
+        run: docker-compose -f .devcontainer/docker-compose.yml down -v

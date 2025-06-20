@@ -20,22 +20,63 @@ Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust 
 
 ## Features
 
-I want:
+These goals define the features of this application, and will be referenced
+everywhere else by their number.
 
-  1. **my home server to be available when I need it**
-  2. **to link to my files by path**
-  3. **to know my files that were last modified within a range of time**
-  4. **to know my files of a specific type**
-  5. **to know my largest files**
-  6. **to know my duplicates files**
-  7. **to know about my files even when they are on disconnected external media**
-  8. **to know other information about my files**
-  9. **to view my files in a web browser**
-  10. **to know which ones of my files match a concept**
-  11. **to know which ones of my files contain a text phrase**
-  12. **to separate my manually created files from my derived files**
+### F1: my home server to be available when I need it
 
-These goals define the features of this application, and will be referenced everywhere else by their number.
+Home Index stays available by periodically synchronizing its index with your
+files. The scheduler for this behavior lives under `features/F1`. The refresh
+schedule is controlled by the `CRON_EXPRESSION` environment variable. Automated
+tests start the service in Docker and confirm the scheduler runs on this
+interval.
+
+### F2: to link to my files by path
+
+Every indexed document records all of its file paths in the `metadata/by-path`
+directory. This allows you to move or rename files while keeping historical
+references intact.
+
+### F3: to know my files that were last modified within a range of time
+
+Modification timestamps are indexed so you can filter documents by date.
+
+### F4: to know my files of a specific type
+
+MIME types are detected and stored for each file, enabling type-based queries.
+
+### F5: to know my largest files
+
+File sizes are stored in the index which allows sorting or filtering by size.
+
+### F6: to know my duplicates files
+
+File hashes are computed so duplicates can be detected across directories.
+
+### F7: to know about my files even when they are on disconnected external media
+
+An archive directory preserves metadata for files moved to removable media so
+search results remain available.
+
+### F8: to know other information about my files
+
+External modules can attach additional metadata such as OCR text or captions.
+
+### F9: to view my files in a web browser
+
+Optional front-end applications integrate with Meilisearch to provide a web UI.
+
+### F10: to know which ones of my files match a concept
+
+Embeddings allow semantic queries against stored vectors.
+
+### F11: to know which ones of my files contain a text phrase
+
+Full text search through Meilisearch locates matching documents.
+
+### F12: to separate my manually created files from my derived files
+
+Metadata marks derived files so they can be filtered from manually created ones.
 
 ## Running manually
 
