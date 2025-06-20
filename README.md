@@ -20,21 +20,22 @@ Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust 
 
 ## Features
 
-The list below highlights key functionality. Each tested feature links directly to its verifying test case.
+I want:
 
-1. **Maintain a File Directory in the Metadata Directory for Each Unique Hash in the Files Directory**
-2. **Maintain a File Directory in the Metadata Directory for Each Unique File in the Files Directory**
-3. **Indexes for Text-Based Queries with the External Search Engine by File Hash**
-4. **Indexes for Text-Based Queries with the External Search Engine by Path**
-5. **Indexes for Text-Based Queries with the External Search Engine by Last Modified Time**
-6. **Indexes for Text-Based Queries with the External Search Engine by Type**
-7. **Indexes for Text-Based Queries with the External Search Engine by Size**
-8. **Indexes for Text-Based Queries with the External Search Engine by Number of Copies**
-9. **Retains Index Documents in Metadata Directory When in an Unmounted Archive**
-10. **Syncs Metadata Directory with External Search Engine**
-11. **Indexes for Text-Based Queries with the External Search Engine by Additional Fields Provided by a Chain of External Modules**
-12. **Indexes for Text-Based Queries with the External Search Engine by Next External Module Name**
-13. **Indexes for Concept-Based Queries of File Content with the External Search Engine When Provided by a Chain of External Modules**
+1. **my home server to be available when I need it**
+2. **to link to my files by path**
+3. **to know my files that were last modified within a range of time**
+4. **to know my files of a specific type**
+5. **to know my largest files**
+6. **to know my duplicates files**
+7. **to know about my files even when they are on disconnected external media**
+8. **to know other information about my files**
+9. **to view my files in a web browser**
+10. **to know which ones of my files match a concept**
+11. **to know which ones of my files contain a text phrase**
+12. **to separate my manually created files from my derived files**
+
+These goals define the features of this application, and will be referenced everywhere else by their number.
 
 ## Running manually
 
