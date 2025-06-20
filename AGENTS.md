@@ -50,7 +50,7 @@ repo/
 3. Implement / fix code.
 4. Update **README.md §2**.
 5. Bump deps; resolve breakage.
-6. Run unit test (if they exist); fix issues.
+6. Run all unit tests (if they exist); fix issues.
 7. Run `agents-check.sh`; fix issues.
 8. **Push**.
 
