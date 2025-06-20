@@ -22,18 +22,18 @@ Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust 
 
 I want:
 
-1. **my home server to be available when I need it**
-2. **to link to my files by path**
-3. **to know my files that were last modified within a range of time**
-4. **to know my files of a specific type**
-5. **to know my largest files**
-6. **to know my duplicates files**
-7. **to know about my files even when they are on disconnected external media**
-8. **to know other information about my files**
-9. **to view my files in a web browser**
-10. **to know which ones of my files match a concept**
-11. **to know which ones of my files contain a text phrase**
-12. **to separate my manually created files from my derived files**
+  1. **my home server to be available when I need it**
+  2. **to link to my files by path**
+  3. **to know my files that were last modified within a range of time**
+  4. **to know my files of a specific type**
+  5. **to know my largest files**
+  6. **to know my duplicates files**
+  7. **to know about my files even when they are on disconnected external media**
+  8. **to know other information about my files**
+  9. **to view my files in a web browser**
+  10. **to know which ones of my files match a concept**
+  11. **to know which ones of my files contain a text phrase**
+  12. **to separate my manually created files from my derived files**
 
 These goals define the features of this application, and will be referenced everywhere else by their number.
 
