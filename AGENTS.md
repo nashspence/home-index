@@ -10,12 +10,14 @@ Agents will map the prompt to a listed feature and craft a PR to address it. If 
 
 Code should be be organized as follows: **all** feature-specific code under `features/`; **all** shared code under `shared/`; **all** entrypoint code in repo root.
 
+Under each feature heading in the features section, include 3 sub-headings: (1) formally describe the mapping of expected user inputs to expected user outputs (2) explain this mapping in natural language (3) explain exactly how the mapping helps acheive the user goal in natural language.
+
 ## How to Respond to a Prompt
 
 1. Map prompt to: (1) exact feature task, (2) general maintanence task or, (3) need to clarify intent.
 2. Write or update the acceptance test, if applicable.
 3. Implement or fix code
-4. Write or update the documentation of the features in `README.md`.
+4. Write or update the documentation of the target feature in `README.md`.
 5. Update all dependencies versions to latest, fix any issues.
 6. Run `agents-check.sh`, fix any issues.
 7. Push.
