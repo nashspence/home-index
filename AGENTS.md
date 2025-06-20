@@ -73,7 +73,7 @@ Always create or update the file before push. It must **Trigger** on any push.
       * Build runtime container:
 
         ```bash
-        docker build -f Dockerfile -t home-index:latest .
+        docker build -f Dockerfile -t repo-runtime:latest .
         ```
       * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"Test <feature number>: <feature name>"`:
 
