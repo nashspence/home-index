@@ -22,23 +22,19 @@ Files and logs are stored under `bind-mounts/`. Edit the compose file to adjust 
 
 The list below highlights key functionality. Each tested feature links directly to its verifying test case.
 
-- [file documents match the expected schema](tests/test_meilisearch_schema.py#L9-L12)
-- [chunk documents follow the chunk schema](tests/test_meilisearch_file_chunk_schema.py#L8-L10)
-- [modules communicate via XML-RPC](tests/test_run_server_module.py#L30-L65)
-- [modules can add and remove chunk data](tests/test_chunk_integration.py#L147-L209)
-- [modules may return only updated documents](tests/test_chunk_integration.py#L211-L260)
-- [retry helper stops when a call succeeds](tests/test_retry.py#L32-L46)
-- [retry helper fails after repeated errors](tests/test_retry.py#L49-L58)
-- [indexing runs across many files and modules](tests/test_large_indexing.py#L106-L178)
-- [cron schedules are parsed from the environment](tests/test_schedule.py#L8-L28)
-- [malformed cron expressions raise ValueError](tests/test_schedule.py#L31-L42)
-- [text embeddings use SentenceTransformer models](tests/test_embeddings.py#L7-L20)
-- [metadata persists if the archive directory is temporarily missing](tests/test_archive_support.py#L9-L51)
-- [module migrations persist version upgrades](tests/test_module_migrations.py#L7-L31)
-- [scheduler attaches a CronTrigger job for periodic indexing](tests/test_schedule.py#L45-L94)
-- [metadata and symlinks are purged after an archive file is removed](tests/test_archive_support.py#L53-L95)
-- [TokenTextSplitter divides chunk text into smaller documents](tests/test_chunk_utils.py#L23-L30)
-- [segments with headers convert to chunk documents referencing the source file](tests/test_chunk_utils.py#L7-L20)
+1. **Maintain a File Directory in the Metadata Directory for Each Unique Hash in the Files Directory**
+2. **Maintain a File Directory in the Metadata Directory for Each Unique File in the Files Directory**
+3. **Indexes for Text-Based Queries with the External Search Engine by File Hash**
+4. **Indexes for Text-Based Queries with the External Search Engine by Path**
+5. **Indexes for Text-Based Queries with the External Search Engine by Last Modified Time**
+6. **Indexes for Text-Based Queries with the External Search Engine by Type**
+7. **Indexes for Text-Based Queries with the External Search Engine by Size**
+8. **Indexes for Text-Based Queries with the External Search Engine by Number of Copies**
+9. **Retains Index Documents in Metadata Directory When in an Unmounted Archive**
+10. **Syncs Metadata Directory with External Search Engine**
+11. **Indexes for Text-Based Queries with the External Search Engine by Additional Fields Provided by a Chain of External Modules**
+12. **Indexes for Text-Based Queries with the External Search Engine by Next External Module Name**
+13. **Indexes for Concept-Based Queries of File Content with the External Search Engine When Provided by a Chain of External Modules**
 
 ## Running manually
 
