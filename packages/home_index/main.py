@@ -87,7 +87,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import features.F1 as F1
+from features.F1 import scheduler as F1_scheduler
 
 
 # endregion
@@ -309,6 +309,13 @@ def save_modules_state():
     with hello_versions_file_path.open("w") as file:
         json.dump({"hello_versions": hello_versions}, file)
     is_modules_changed = False
+
+
+def parse_cron_env(
+    env_var: str = "CRON_EXPRESSION", default: str = "0 3 * * *"
+) -> dict:
+    """Return CronTrigger kwargs for the configured cron expression."""
+    return F1_scheduler.parse_cron_env(env_var=env_var, default=default)
 
 
 # endregion
@@ -1118,7 +1125,7 @@ async def main():
     await init_meili()
     scheduler = BackgroundScheduler()
 
-    F1.scheduler.attach_sync_job(
+    F1_scheduler.attach_sync_job(
         scheduler,
         DEBUG,
         lambda: run_in_process(init_meili_and_sync),
