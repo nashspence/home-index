@@ -79,7 +79,7 @@ Always create or update the file before push. It must **Trigger** on any push.
         ```bash
         docker build -f Dockerfile -t <repo name>:test .
         ```
-      * Test each feature (use [GitHub Actions matrix jobs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow)). Name each test step like `"F<feature number>: <feature name> - Acceptance Test"`:
+      * Test each feature. Name each test step like `Acceptance Test: F<feature number>`:
 
         ```bash
         pytest -q  features/F<feature number>/test/acceptance.py
