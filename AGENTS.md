@@ -57,7 +57,7 @@ Pin every dependency to an exact version (latest release).
 
 ## CI & Testing (GitHub Actions (`.github/workflows/test.yml`))
 
-* Always create or update the file before push. It must **Trigger** on any push.
+Always create or update the file before push. It must **Trigger** on any push.
 
 ### Steps:
    1. Build dev container:
