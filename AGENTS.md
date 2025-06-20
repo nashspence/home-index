@@ -1,145 +1,167 @@
-## Important!!!
+### 0 Hard Prohibitions
 
-**You must NOT build the dev or release containers or run integrated acceptance tests. You must NOT `pip install -r requirements.txt` (or similar). You must NOT `pytest -q` (or similar). Rely on CI feedback from me AFTER YOU PUSH and install only whatever dependencies you need for your own quick experiments.**
+* **NEVER** build dev- or release-containers, run acceptance tests, `pip install -r …`, `pytest -q`, etc.
+* Work locally with only the libraries you need; rely on CI after every **push**.
 
-## Features
+---
 
-Features are listed as user goals with their title and number as subheadings in the Features section of the README.md. All features will be a minimally expressed user goal. The user goals will seem consistent with eachother. All bugs should map to a feature.
+### 1 Repository Layout
 
-Agents will map the prompt to a listed feature and craft a PR to address it. If prompt cannot be mapped to a feature, infer the missing one and craft a PR to add it. If an appropriate feature cannot be inferred, do **not** craft a PR - request prompter to clarify intent. 
-
-Code should be be organized as follows: **all** feature-specific code under `features/`; **all** shared code under `shared/`; **all** entrypoint code in repo root.
-
-Under each feature heading in the features section, include 3 sub-headings: (1) formally describe the mapping of expected user inputs to expected user outputs (2) explain this mapping in natural language (3) explain exactly how the mapping helps acheive the user goal in natural language.
-
-## How to Respond to a Prompt
-
-1. Map prompt to: (1) exact feature task, (2) general maintanence task or, (3) need to clarify intent.
-2. Write or update the acceptance test, if applicable.
-3. Implement or fix code
-4. Write or update the documentation of the target feature in `README.md`.
-5. Update all dependencies versions to latest, fix any issues.
-6. Run `agents-check.sh`, fix any issues.
-7. Push.
-
-## Acceptance Tests
-
-### Full Integration
-
-* Use Docker-in-Docker (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
-* Bind-mount `features/F<feature number>/test/input/` and `features/F<feature number>/test/output/` into release container. Control input files and environment config. Acceptance test will run `features/F<feature number>/test/docker-compose.yml` (`<repo name>:test` and supporting services) and assert expected output files, responses, etc. from all containers.
-* You **MUST** test exactly as the user would experience the feature's output during normal operation of the release! Do not try to add any hooks or redundant output into the release just to make testing easier.  
-
-## Formatting & Dependencies
-
-### Style & Linting
-
-* Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
-* Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
-* Maintain `check.sh` to enforce language appropriate formatter/typing/linter (ruff, mypy, Black (+ isort, autoflake), ESLint + Prettier, etc.) - strict as possible given repo state at the current PR.
-
-### Dependencies
-
-Pin every dependency to an exact version (latest release).
-
-## Development Environment
-
-### Dev Container (`.devcontainer/`)
-
-* Base image: [`cruizba/ubuntu-dind`](https://github.com/cruizba/ubuntu-dind).
-* See [VS Code Dev Containers guide](https://code.visualstudio.com/docs/devcontainers/create-dev-container) and JSON spec: [Dev Container reference](https://devcontainers.github.io/implementors/json_reference/).
-* Always create or update the following before push as development runtime:
-  * `Dockerfile.devcontainer`
-  * `devcontainer.json`
-  * `docker-compose.yml`
-  * `postStart.sh` (install, build, etc.).
-
-## Release Environment
-
-* Always create or update root-level `Dockerfile` and `docker-compose.yml` as application runtime (see [Dockerfile best practices](https://docs.docker.com/build/building/best-practices/)) before push.
-* Load all settings (credentials, URLs, bind-mount paths) from a top-level `.env` file.
-
-## CI & Testing (GitHub Actions (`.github/workflows/test.yml`))
-
-Always create or update the file before push. It must **Trigger** on any push:
-
+```text
+repo/
+├── features/                 # F1, F2, …
+│   └── F?/test/              # acceptance tests
+│       └── docker-compose.yml
+├── shared/                   # cross-feature code
+├── tests/                    # unit tests (optional)
+├── .devcontainer/
+│   ├── Dockerfile.devcontainer
+│   ├── devcontainer.json
+│   ├── docker-compose.yml
+│   └── postStart.sh
+├── .github/workflows/
+│   └── test.yml
+├── Dockerfile                # release build
+├── docker-compose.yml        # release runtime
+├── agents-check.sh
+├── check.sh                  # lint / format
+└── README.md
 ```
-  test-features:
+
+---
+
+### 2 Features (`README.md`)
+
+* Each **Fx** title is a user goal written as **“I want …”**.
+* Bugs must map to an existing **Fx**; if none fits, add it or ask for clarification.
+
+| Sub-heading         | Content                                    |
+| ------------------- | ------------------------------------------ |
+| **(1) Formal I/O**  | Exact input → output mapping (symbolic OK) |
+| **(2) Explanation** | Same mapping in plain language             |
+| **(3) Goal Fit**    | Why it fulfils the “I want …” goal         |
+
+---
+
+### 3 Prompt → PR Workflow
+
+1. Classify prompt → **feature**, **maintenance**, or **unclear** (ask).
+2. Edit / add acceptance tests (unit tests optional).
+3. Implement / fix code.
+4. Update **README.md §2**.
+5. Bump deps; resolve breakage.
+6. Run `agents-check.sh`; fix issues.
+7. **Push**.
+
+---
+
+### 4 Tests
+
+#### 4.1 Acceptance Tests
+
+* One `features/Fx/test/docker-compose.yml`.
+* Vary scenarios with **env vars** + **input files**; the test dir must hold **all inputs and capture all outputs**.
+* Assert the **exact user-facing output** (UI state, API response, CLI logs, exit codes).
+* Each test script **starts and stops** `<repo>:ci` via its compose file.
+
+#### 4.2 Unit Tests (optional)
+
+* Live under `tests/`.
+* Run **inside the dev container**.
+* **Mock / stub / dummy everything** except (a) the code under test and (b) Python built-ins.
+
+---
+
+### 5 CI (`.github/workflows/test.yml`)
+
+```yaml
+name: test-features
+on: [push]
+
+jobs:
+  test:
     runs-on: ubuntu-latest
     env:
-      REPO_NAME: "<repo name>"
-      FEATURES: "F1"
+      REPO: "<repo>"
+      FEATURES: $(ls features | grep '^F')
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4
 
-      - name: Start dev container
-        run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
+      # dev container
+      - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
+      - run: docker exec ${REPO}-devcontainer ./check.sh
 
-      - name: Wait until venv is ready
-        run: |
-          for i in {1..30}; do
-            if docker exec ${REPO_NAME}-devcontainer test -d /workspace/venv; then exit 0; fi
-            sleep 2
-          done
-          echo "Dev container never became ready" >&2
-          exit 1
+      # unit tests
+      - run: |
+          if [ -d tests ]; then
+            docker exec ${REPO}-devcontainer pytest -q tests
+          fi
 
-      - name: Format & lint
-        run: docker exec ${REPO_NAME}-devcontainer ./check.sh
+      # build release image for acceptance tests
+      - run: docker exec ${REPO}-devcontainer \
+             docker build -f Dockerfile -t ${REPO}:ci .
 
-      - name: Build release image
-        run: docker exec ${REPO_NAME}-devcontainer \
-               docker build -f Dockerfile -t ${REPO_NAME}:test .
-
-      - name: Run tests for every feature
-        run: |
-          set -Eeuo pipefail
-          for feature in $FEATURES; do
-            echo "::group::Testing $feature"
-            docker exec ${REPO_NAME}-devcontainer bash -Eeuo pipefail -c '
-              FEATURE="$0"
-
-              UNIT_PATH="/workspace/features/${FEATURE}/test/unit.py"
-              ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
-
-              if [ -f "$UNIT_PATH" ]; then
-                echo "› unit.py found – running unit tests"
-                docker run --rm ${REPO_NAME}:test pytest -q "features/${FEATURE}/test/unit.py"
-              else
-                echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
-              fi
-
-              echo "› running acceptance tests"
-              docker run --rm ${REPO_NAME}:test pytest -q "features/${FEATURE}/test/acceptance.py"
-            ' "$feature"
-            echo "::endgroup::"
+      # acceptance tests per feature
+      - run: |
+          set -euo pipefail
+          for f in $FEATURES; do
+            docker exec ${REPO}-devcontainer \
+              pytest -q "features/${f}/test"
           done
 
-      - name: Stop dev container
-        if: always()
-        run: docker-compose -f .devcontainer/docker-compose.yml down -v
+      - run: docker-compose -f .devcontainer/docker-compose.yml down -v
 ```
 
+---
 
-## Logging & Observability
+### 6 Style & Linting
 
-Emit **logs sufficient to debug from CI output alone** without stepping through code. Always create or update logging to improve CI step failure output before push.
+* Humans: run `check.sh` in the dev container.
+* Agents: run `agents-check.sh` before **push** (installs deps, then `check.sh`).
+* Keep linters strict (ruff, mypy, Black + isort, ESLint + Prettier, …).
 
-## Incremental Adoption
+---
 
-* Target `mypy --strict .` etc., but if there are too many issues to fix in a single PR, conform code touched as part of the current PR and leave the rest untyped.
-* Attempt to reorganize all code as specified under appropriate directories, but if there are too many issues to fix in a single PR, make note in the README.md of code that is not organized appropriately and just conform code touched as part of the current PR.
+### 7 Dependencies
 
-## Maintenance
+Pin **every** dependency to the exact latest release.
 
-If instructed to preform **maintenance**, craft a PR that incrementally progresses **one** of the following (ordered by priority):
+---
 
-1. Rich documentation of each feature in the README.md features section completely describes the implementation details and how it assists with that particular goal. Otherwise, keep the README.md very sparse.
-2. `.github/workflows/test.yml` is perfectly clean and matches expectations.
-3. Fully organized codebased - as per expectation described above.
-4. Each feature is has an appropriate passing integrated acceptance test, as described above. 
-5. Dockerfiles and dependencies lean and up to date.
-6. Strict typing (if applicable) - `mypy --strict .` or similar.
-7. Clean repo: remove all clutter (useless files, unnecessary code, etc) from the repo. (maintain the .gitignore to help with this.)
-8. Full unit test coverage for features. (if *and only if* everything else above is done)
-9. Formal static website documentation (`docs`) for application (if *and only if* everything else above is done)
+### 8 Dev Container (`.devcontainer/`)
+
+* Base: `cruizba/ubuntu-dind`.
+* Keep **Dockerfile.devcontainer**, **devcontainer.json**, **docker-compose.yml**, **postStart.sh** in sync.
+
+---
+
+### 9 Release Environment
+
+Maintain root-level **Dockerfile** + **docker-compose.yml** (follow Docker best practices).
+
+---
+
+### 10 Logging
+
+Emit logs sufficient to debug CI failures without interactive sessions.
+
+---
+
+### 11 Incremental Adoption
+
+Strict typing, full re-org, etc. may be phased; note any remaining gaps in **README.md**.
+
+---
+
+### 12 Maintenance Priorities (one per PR)
+
+1. **Optimise each feature’s inputs & outputs to match its “I want …” goal**.
+2. Rich per-feature docs (README §2).
+3. Perfect `test.yml`.
+4. Directory re-org complete.
+5. Passing acceptance tests.
+6. Lean, up-to-date Docker & deps.
+7. Strict typing.
+8. Remove clutter.
+9. Full unit-test coverage.
+10. Static docs (`docs/`).
