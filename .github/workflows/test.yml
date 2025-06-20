@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Start dev container
-        run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
+        run: docker compose -f .devcontainer/docker-compose.yml up --build -d
       - name: Wait until venv is ready
         run: |
           for i in {1..30}; do
@@ -112,4 +112,4 @@ jobs:
           done
       - name: Stop dev container
         if: always()
-        run: docker-compose -f .devcontainer/docker-compose.yml down -v
+        run: docker compose -f .devcontainer/docker-compose.yml down -v
