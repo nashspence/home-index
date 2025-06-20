@@ -79,6 +79,14 @@ from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
+import sys
+
+# Ensure the 'features' package is importable when running tests directly from
+# the packages directory.
+FEATURES_PATH = Path(__file__).resolve().parents[2] / "features"
+if FEATURES_PATH.exists() and str(FEATURES_PATH) not in sys.path:
+    sys.path.insert(0, str(FEATURES_PATH))
+
 import features.F1 as F1
 
 
