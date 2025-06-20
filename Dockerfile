@@ -11,6 +11,27 @@ RUN apt-get update && apt-get install -y \
     shared-mime-info \
     && apt-get clean
 
+# ── *Optional* CUDA user-space install (skipped when CUDA_MAJOR=0) ──────────
+ARG CUDA_MAJOR=0
+ARG CUDA_MINOR=0
+ARG CUDA_PKG
+RUN set -eux; \
+    if [ "${CUDA_MAJOR}" != "0" ]; then \
+        CUDA_PKG="${CUDA_PKG:-${CUDA_MAJOR}-${CUDA_MINOR}}"; \
+        UBUNTU_REL=$(lsb_release -sr | tr -d .); \
+        curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_REL}/x86_64/cuda-ubuntu${UBUNTU_REL}.pin \
+          -o /etc/apt/preferences.d/cuda-repository-pin-600; \
+        curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_REL}/x86_64/3bf863cc.pub | \
+          gpg --dearmor -o /usr/share/keyrings/cuda.gpg; \
+        echo "deb [signed-by=/usr/share/keyrings/cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_REL}/x86_64/ /" \
+          > /etc/apt/sources.list.d/cuda.list; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+            cuda-toolkit-${CUDA_PKG} \
+            cuda-compat-${CUDA_PKG}; \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
 WORKDIR /app
 
 COPY requirements.txt .

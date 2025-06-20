@@ -19,6 +19,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.devcontainer
+      args:
+        # Override in CI to "0" to drop CUDA for a smaller, CPU-only image
+        CUDA_MAJOR: "${CUDA_MAJOR:-12}"
+        CUDA_MINOR: "${CUDA_MINOR:-9}"
     command: [ "/bin/sh" ]
     container_name: home-index-devcontainer
     hostname: home-index-devcontainer
