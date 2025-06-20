@@ -1,7 +1,7 @@
 ### 0 Hard Prohibitions
 
-* **NEVER** build dev- or release-containers, run the acceptance tests, `pip install -r requirements.txt`.
-* Work locally, install only the libraries you need; if unit tests exist, run just them; otherwise, rely on CI after every **push**.
+* **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt`.
+* Work locally with only the libs you need; if unit tests exist, you may run them, but rely on CI after every **push**.
 
 ---
 
@@ -24,7 +24,7 @@ repo/
 ├── Dockerfile                # release build
 ├── docker-compose.yml        # release runtime
 ├── agents-check.sh
-├── check.sh                  # lint / format
+├── check.sh                  # lint / format **+ unit tests**
 └── README.md
 ```
 
@@ -32,14 +32,14 @@ repo/
 
 ### 2 Features (`README.md`)
 
-* Each **Fx** title is a user goal written as **“I want …”**.
-* Bugs must map to an existing **Fx**; if none fits, add it or ask for clarification.
+* Each **Fx** heading states a user goal as **“I want …”**.
+* Bugs must map to an existing **Fx**; if none fits, add it or ask.
 
-| Sub-heading         | Content                                    |
-| ------------------- | ------------------------------------------ |
-| **(1) Formal I/O**  | Exact input → output mapping (symbolic OK) |
-| **(2) Explanation** | Same mapping in plain language             |
-| **(3) Goal Fit**    | Why it fulfils the “I want …” goal         |
+| Sub-heading         | Content                            |
+| ------------------- | ---------------------------------- |
+| **(1) Formal I/O**  | Exact input → output (symbolic OK) |
+| **(2) Explanation** | Same mapping in plain language     |
+| **(3) Goal Fit**    | Why it fulfils the “I want …” goal |
 
 ---
 
@@ -50,9 +50,8 @@ repo/
 3. Implement / fix code.
 4. Update **README.md §2**.
 5. Bump deps; resolve breakage.
-6. Run all unit tests (if they exist); fix issues.
-7. Run `agents-check.sh`; fix issues.
-8. **Push**.
+6. Run `agents-check.sh` (includes unit tests); fix issues.
+7. **Push**.
 
 ---
 
@@ -60,15 +59,15 @@ repo/
 
 #### 4.1 Acceptance Tests
 
-* One `features/Fx/test/docker-compose.yml`.
-* Vary scenarios with **env vars** + **input files**; the test dir must hold **all inputs and capture all outputs**.
-* Assert the **exact user-facing output** (UI state, API response, CLI logs, exit codes).
-* Each test script **starts and stops** `<repo>:ci` via its compose file.
+* Single `features/Fx/test/docker-compose.yml`.
+* Vary scenarios via **env vars** + **input files**; the test dir must hold **all inputs and capture all outputs**.
+* Assert **exact user-facing output** (UI state, API response, CLI logs, exit codes).
+* The test script **starts and stops** `<repo>:ci` via its compose file.
 
 #### 4.2 Unit Tests (optional)
 
-* Live under `tests/`.
-* Run **inside the dev container**.
+* Live in `tests/`.
+* Executed by **`check.sh` inside the dev container** (CI and local).
 * **Mock / stub / dummy everything** except (a) the code under test and (b) Python built-ins.
 
 ---
@@ -90,13 +89,7 @@ jobs:
 
       # dev container
       - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer ./check.sh
-
-      # unit tests
-      - run: |
-          if [ -d tests ]; then
-            docker exec ${REPO}-devcontainer pytest -q tests
-          fi
+      - run: docker exec ${REPO}-devcontainer ./check.sh   # lint + unit tests
 
       # build release image for acceptance tests
       - run: docker exec ${REPO}-devcontainer \
@@ -117,40 +110,39 @@ jobs:
 
 ### 6 Style & Linting
 
-* Humans: run `check.sh` in the dev container.
-* Agents: run `agents-check.sh` before **push** (installs deps, then `check.sh`).
+* `check.sh` → run formatters / linters **and** unit tests.
+* Agents invoke `agents-check.sh` (installs deps, then `check.sh`) before every push.
 * Keep linters strict (ruff, mypy, Black + isort, ESLint + Prettier, …).
 
 ---
 
 ### 7 Dependencies
 
-Pin **every** dependency to the exact latest release.
+Pin **every** dependency to its exact latest release.
 
 ---
 
 ### 8 Dev Container (`.devcontainer/`)
 
-* Base: `cruizba/ubuntu-dind`.
-* Keep **Dockerfile.devcontainer**, **devcontainer.json**, **docker-compose.yml**, **postStart.sh** in sync.
+Base image: `cruizba/ubuntu-dind`. Keep all dev-container files synced.
 
 ---
 
 ### 9 Release Environment
 
-Maintain root-level **Dockerfile** + **docker-compose.yml** (follow Docker best practices).
+Maintain root-level **Dockerfile** and **docker-compose.yml** (follow Docker best practices).
 
 ---
 
 ### 10 Logging
 
-Emit logs sufficient to debug CI failures without interactive sessions.
+Log enough detail to debug CI failures without interactive sessions.
 
 ---
 
 ### 11 Incremental Adoption
 
-Strict typing, full re-org, etc. may be phased; note any remaining gaps in **README.md**.
+Phased strict typing, full re-org, etc.; note gaps in **README.md**.
 
 ---
 
