@@ -2,30 +2,29 @@
 
 **You must NOT build the dev or release containers or run integrated acceptance tests. You must NOT `pip install -r requirements.txt` (or similar). You must NOT `pytest -q` (or similar). Rely on CI feedback from me AFTER YOU PUSH and install only whatever dependencies you need for your own quick experiments.**
 
-## PR Workflow
-
-### Features Section (README.md)
+## Features
 
 Features are listed as user goals with their title and number in the README.md. All features will be a minimally expressed user goal. The user goals will seem consistent with eachother. All bugs should map to a feature.
 
 Agents will map the prompt to a listed feature and craft a PR to address it. If prompt cannot be mapped to a feature, infer the missing one and craft a PR to add it. If an appropriate feature cannot be inferred, do **not** craft a PR - request prompter to clarify intent. 
 
-### PR Steps (per feature)
+Code should be be organized as follows: **all** feature-specific code under `features/`; **all** shared code under `shared/`; **all** entrypoint code in repo root.
 
-1. Write or update the acceptance test.
-2. Link title to `features/<feature number>/` exact acceptance test code lines.
-3. Implement or fix code under `features/<feature number>/`; shared code under `shared/`; entrypoint code - for example `main.py` - in repo root
-4. Write or update the documentation of current implementation in `README.md` under the feature's heading.
-5. Update all dependencies versions to latest, fix any issues.
-6. Run `agents-check.sh`, fix any issues.
-7. Push.
+## How to Respond to a Prompt
+
+1. Write or update the acceptance test, if applicable.
+2. Implement or fix code
+3. Write or update the documentation of the feature implementation in `README.md`, if applicable.
+4. Update all dependencies versions to latest, fix any issues.
+5. Run `agents-check.sh`, fix any issues.
+6. Push.
 
 ## Acceptance Tests
 
 ### Full Integration
 
-* Use Docker-in-Docker via `features/<feature_name>/test/docker-compose.yml` (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
-* Mount inputs (`.../test/input/`) and assert outputs (`.../test/output/`).
+* Use Docker-in-Docker (see [Docker-in-Docker for CI](https://docs.docker.com/build/ci/)).
+* Bind-mount `features/<feature number>/test/input/` and `features/<feature number>/test/output/` into release container. Control input files and environment config. Acceptance test will run `features/<feature number>/test/docker-compose.yml` and assert expected output files, responses, etc. from all containers.
 
 ## Formatting & Dependencies
 
@@ -33,7 +32,7 @@ Agents will map the prompt to a listed feature and craft a PR to address it. If 
 
 * Humans: `check.sh` in dev container. AGENTS DO NOT RUN THIS.
 * Agents: RUN `agents-check.sh` BEFORE EVERY PUSH. `agents-check.sh` installs all `check.sh` dependencies and then runs `check.sh`.
-* Maintain `check.sh` to enforce ultra-strict language appropriate formatter/typing/linter (ruff, mypy, Black (+ isort, autoflake), ESLint + Prettier, etc.).
+* Maintain `check.sh` to enforce language appropriate formatter/typing/linter (ruff, mypy, Black (+ isort, autoflake), ESLint + Prettier, etc.) - strict as possible given repo state at the current PR.
 
 ### Dependencies
 
@@ -97,7 +96,7 @@ If instructed to preform **maintenance**, craft a PR that incrementally progress
 
 1. Rich documentation of each feature in the README.md features section completely describes the implementation details and how it assists with that particular goal. Otherwise, keep the README.md very sparse.
 2. `.github/workflows/test.yml` is perfectly clean and matches expectations.
-3. Organized repo: **all** feature-specific code under `features/`; **all** shared code under `shared/`; **all** entrypoint code in repo root.
+3. Fully organized codebased - as per expectation described above.
 4. Each feature is has an appropriate passing integrated acceptance test, as described above. 
 5. Dockerfiles and dependencies lean and up to date.
 6. Strict typing (if applicable) - `mypy --strict .` or similar.
