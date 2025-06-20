@@ -1,15 +1,11 @@
 version: '3.9'
 services:
   home-index:
-    image: home-index:latest
+    image: home-index:test
     environment:
       - CRON_EXPRESSION=${CRON_EXPRESSION}
-      - MODULES=
       - MEILISEARCH_HOST=http://meilisearch:7700
-      - LOGGING_DIRECTORY=/home-index
       - METADATA_DIRECTORY=/home-index/metadata
-      - BY_ID_DIRECTORY=/home-index/metadata/by-id
-      - BY_PATH_DIRECTORY=/home-index/metadata/by-path
       - ARCHIVE_DIRECTORY=/home-index/archive
     volumes:
       - ./input:/files:ro

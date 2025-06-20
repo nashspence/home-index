@@ -89,7 +89,7 @@ jobs:
       # ── build release image once ─────────────────────────────────────
       - name: Build release image
         run: docker exec home-index-devcontainer \
-               docker build -f Dockerfile -t home-index:latest .
+               docker build -f Dockerfile -t home-index:test .
 
       # ── loop over features – run tests -------------------------------
       - name: Run tests for every feature
@@ -107,14 +107,14 @@ jobs:
               # Run unit tests only if the file exists
               if [ -f "$UNIT_PATH" ]; then
                 echo "› unit.py found – running unit tests"
-                docker run --rm home-index:latest pytest -q "features/${FEATURE}/test/unit.py"
+                docker run --rm home-index:test pytest -q "features/${FEATURE}/test/unit.py"
               else
                 echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
               fi
 
               # acceptance.py is mandatory
               echo "› running acceptance tests"
-              docker run --rm home-index:latest pytest -q "features/${FEATURE}/test/acceptance.py"
+              docker run --rm home-index:test pytest -q "features/${FEATURE}/test/acceptance.py"
             ' "$feature"
             echo "::endgroup::"
           done
