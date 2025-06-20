@@ -62,37 +62,64 @@ jobs:
       - name: Stop services
         run: docker compose down
 
-  features:
+  test-all-features:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - feature: F1
-            name: "my home server to be available when I need it"
+    env:
+      FEATURES: "F1"
     steps:
       - uses: actions/checkout@v4.2.2
-      - name: Build dev container
-        if: ${{ matrix.feature == 'F1' }}
+
+      # ── dev container up once ─────────────────────────────────────────
+      - name: Start dev container
         run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - name: Wait for dev container
-        if: ${{ matrix.feature == 'F1' }}
+
+      - name: Wait until venv is ready
         run: |
           for i in {1..30}; do
-            if docker exec home-index-devcontainer test -d /workspace/venv; then
-              break
-            fi
+            if docker exec home-index-devcontainer test -d /workspace/venv; then exit 0; fi
             sleep 2
           done
-      - name: Format and lint
-        if: ${{ matrix.feature == 'F1' }}
+          echo "Dev container never became ready" >&2
+          exit 1
+
+      # ── quality gates (once) ─────────────────────────────────────────
+      - name: Format & lint
         run: docker exec home-index-devcontainer ./check.sh
-      - name: Build runtime image
-        if: ${{ matrix.feature == 'F1' }}
-        run: docker exec home-index-devcontainer docker build -f Dockerfile -t repo-runtime:latest .
-      - name: Test ${{ matrix.feature }}: ${{ matrix.name }}
+
+      # ── build release image once ─────────────────────────────────────
+      - name: Build release image
+        run: docker exec home-index-devcontainer \
+               docker build -f Dockerfile -t repo-runtime:ci .
+
+      # ── loop over features – run tests -------------------------------
+      - name: Run tests for every feature
         run: |
-          docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/unit.py
-          docker exec home-index-devcontainer pytest -q features/${{ matrix.feature }}/test/acceptance.py
-      - name: Tear down
-        if: ${{ matrix.feature == 'F1' }}
+          set -Eeuo pipefail
+          for feature in $FEATURES; do
+            echo "::group::Testing $feature"
+            docker exec home-index-devcontainer bash -Eeuo pipefail -c '
+              FEATURE="$0"
+
+              # Path inside the dev container workspace
+              UNIT_PATH="/workspace/features/${FEATURE}/test/unit.py"
+              ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
+
+              # Run unit tests only if the file exists
+              if [ -f "$UNIT_PATH" ]; then
+                echo "› unit.py found – running unit tests"
+                docker run --rm repo-runtime:ci pytest -q "features/${FEATURE}/test/unit.py"
+              else
+                echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
+              fi
+
+              # acceptance.py is mandatory
+              echo "› running acceptance tests"
+              docker run --rm repo-runtime:ci pytest -q "features/${FEATURE}/test/acceptance.py"
+            ' "$feature"
+            echo "::endgroup::"
+          done
+
+      # ── tear down once everything is done ────────────────────────────
+      - name: Stop dev container
+        if: always()
         run: docker-compose -f .devcontainer/docker-compose.yml down -v
