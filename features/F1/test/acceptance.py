@@ -1,4 +1,3 @@
-import os
 import shutil
 import subprocess
 import time
@@ -74,5 +73,5 @@ def test_indexing_runs_on_schedule(tmp_path: Path) -> None:
     workdir = compose_file.parent
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
-    for cron in os.environ.get("CRON_EXPRESSION", "* * * * *").split(";"):
+    for cron in ["* * * * *", "*/2 * * * *"]:
         _run_once(compose_file, workdir, output_dir, env_file, cron)
