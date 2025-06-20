@@ -82,7 +82,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      REPO: "<repo>"
+      REPO: ${{ github.event.repository.name }}
       FEATURES: $(ls features | grep '^F')
     steps:
       - uses: actions/checkout@v4
