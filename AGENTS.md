@@ -119,7 +119,9 @@ jobs:
 
 ### 7 Dependencies
 
-Pin **every** dependency to its exact latest release.
+* Install deps directly in Dockerfiles, do not use requirements.txt, package.json, etc.
+* Remove unnecessary deps.
+* Pin **every** dep to its exact latest release.
 
 ---
 
@@ -149,8 +151,8 @@ Phased strict typing, full re-org, etc.; note gaps in **README.md**.
 
 ### 12 Maintenance Priorities (one per PR)
 
-1. **Optimise each feature’s inputs & outputs to match its “I want …” goal**.
-2. Rich per-feature docs (README §2).
+1. **Optimise feature’s inputs & outputs to match its “I want …” goal**.
+2. Rich feature docs (README §2).
 3. Perfect `test.yml`.
 4. Directory re-org complete.
 5. Passing acceptance tests.
@@ -159,3 +161,4 @@ Phased strict typing, full re-org, etc.; note gaps in **README.md**.
 8. Remove clutter.
 9. Full unit-test coverage.
 10. Static docs (`docs/`).
+11. Propose new use goal -> feature
