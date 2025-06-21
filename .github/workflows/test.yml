@@ -105,12 +105,12 @@ jobs:
               ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
               if [ -f "$UNIT_PATH" ]; then
                 echo "› unit.py found – running unit tests"
-                docker run --rm repo-runtime:latest pytest -q "features/${FEATURE}/test/unit.py"
+                docker run --rm --entrypoint pytest repo-runtime:latest -q "features/${FEATURE}/test/unit.py"
               else
                 echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
               fi
               echo "› running acceptance tests"
-              docker run --rm repo-runtime:latest pytest -q "features/${FEATURE}/test/acceptance.py"
+              docker run --rm --entrypoint pytest repo-runtime:latest -q "features/${FEATURE}/test/acceptance.py"
             ' "$feature"
             echo "::endgroup::"
           done
