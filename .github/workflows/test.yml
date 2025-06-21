@@ -91,10 +91,10 @@ jobs:
           echo "Dev container never became ready" >&2
           exit 1
       - name: Format & lint
-        run: docker exec home-index-devcontainer ./check.sh
+        run: docker exec home-index-devcontainer /workspace/check.sh
       - name: Build release image
         run: docker exec home-index-devcontainer \
-               docker build -f Dockerfile -t repo-runtime:latest .
+               docker build -f /workspace/Dockerfile -t repo-runtime:latest /workspace
       - name: Run tests for every feature
         run: |
           set -Eeuo pipefail
