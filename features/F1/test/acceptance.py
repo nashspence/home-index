@@ -50,7 +50,7 @@ def _run_once(
                 timestamps = [
                     line.split(" [", 1)[0] for line in logs if "start file sync" in line
                 ]
-                if len(timestamps) >= 2:
+                if len(timestamps) >= 3:
                     break
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for sync logs")
@@ -67,7 +67,7 @@ def _run_once(
             check=True,
             cwd=workdir,
         )
-        times = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S,%f") for t in timestamps[:2]]
+        times = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S,%f") for t in timestamps[-2:]]
         assert (times[1] - times[0]).total_seconds() >= expected_interval
         by_id = output_dir / "metadata" / "by-id"
         assert any(by_id.iterdir())
