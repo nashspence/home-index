@@ -20,7 +20,8 @@ repo/
 │   ├── docker-compose.yml
 │   └── postStart.sh
 ├── .github/workflows/
-│   └── test.yml
+│   ├── test.yml                 # CI
+│   └── release.yml              # Docker image release
 ├── Dockerfile                   # release build
 ├── docker-compose.yml           # release runtime
 ├── agents-check.sh
@@ -60,14 +61,14 @@ repo/
 #### 4.1 Acceptance Tests
 
 * One `features/Fx/test/docker-compose.yml`.
-* Vary scenarios with **env vars** + **input files**; the test dir must contain **all inputs and capture all outputs**.
-* Assert the **exact user-facing output** (UI state, API responses, CLI logs, exit codes).
+* Vary scenarios via **env vars** + **input files**; the test dir must contain **all inputs and capture all outputs**.
+* Assert **exact user-facing output** (UI state, API responses, CLI logs, exit codes).
 * Each test script **starts and stops** `<repo>:ci` via its compose file.
 
 #### 4.2 Unit Tests (optional)
 
 * Live in `tests/`.
-* Executed by **`check.sh` inside the dev container** (both locally and in CI).
+* Executed by **`check.sh` inside the dev container** (local & CI).
 * **Mock / stub / dummy everything** except (a) the code under test and (b) Python built-ins.
 
 ---
@@ -109,56 +110,104 @@ jobs:
 
 ---
 
-### 6 Style & Linting
+### 6 Release Workflow (`.github/workflows/release.yml`)
 
-* `check.sh` runs formatters / linters **and** unit tests.
-* Agents run `agents-check.sh` (installs deps, then `check.sh`) before every push.
-* Enforce strict tooling (ruff, mypy, Black + isort, ESLint + Prettier, …).
+A minimalist publish-on-GitHub-Release workflow using official Docker actions:
+
+```yaml
+name: release-image
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Log in to Docker Hub
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Generate tags & labels (e.g. v1.2.3, latest)
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
+
+      # Build and push the image
+      - uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Show final tag(s) in the run summary
+      - run: echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+```
 
 ---
 
-### 7 Dependencies
+### 7 Style & Linting
+
+* `check.sh` ≤ formatters / linters **and** unit tests.
+* Agents run `agents-check.sh` (installs deps, then `check.sh`) before every push.
+* Enforce strict tools (ruff, mypy, Black + isort, ESLint + Prettier, …).
+
+---
+
+### 8 Dependencies
 
 * Install deps directly in Dockerfiles; avoid `requirements.txt`, `package.json`, etc.
 * Remove unused deps and **pin every dep to its exact latest release.**
 
 ---
 
-### 8 Dev Container (`.devcontainer/`)
+### 9 Dev Container (`.devcontainer/`)
 
 Base image: `cruizba/ubuntu-dind`. Keep all dev-container files in sync.
 
 ---
 
-### 9 Release Environment
+### 10 Release Environment
 
 Maintain root-level **Dockerfile** and **docker-compose.yml** (follow Docker best practices).
 
 ---
 
-### 10 Logging
+### 11 Logging
 
 Emit logs sufficient to diagnose CI failures without interactive sessions.
 
 ---
 
-### 11 Incremental Adoption
+### 12 Incremental Adoption
 
-Move toward strict typing, full re-org, etc.; note remaining gaps in **README.md**.
+Progressively move toward strict typing, full re-org, etc.; record gaps in **README.md**.
 
 ---
 
-### 12 Maintenance Priorities (target one feature per maintenance PR)
+### 13 Maintenance Priorities (one focus per PR)
 
-1. Make implicit code paths explicit by adding a missing feature & docs.
-2. Restructure / extract modules to match the target layout.
+1. Add missing feature & docs for implicit code paths.
+2. Restructure / extract modules to match target layout.
 3. Optimise `test.yml`.
 4. Achieve passing acceptance tests.
-5. Complete a feature’s docs (README §2).
-6. Optimise a feature’s inputs & outputs to match its “I want …” goal.
+5. Complete feature docs (README §2).
+6. Optimise a feature’s inputs ↔ outputs to its “I want …” goal.
 7. Lean, up-to-date Docker & deps.
 8. Apply strict typing.
 9. Remove clutter.
 10. Reach full unit-test coverage.
 11. Add static docs (`docs/`).
 12. Propose new user goals → features.
+    
