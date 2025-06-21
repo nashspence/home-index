@@ -171,6 +171,7 @@ jobs:
 * Install dev deps using venv (or equivalent) directly in poststart.sh
 * Install runtime deps directly in Dockerfile
 * Remove unused deps and **pin every dep to its exact latest release.**
+* Keep containers as small as possible
 
 ---
 
@@ -201,13 +202,13 @@ Progressively move toward strict typing, full re-org, etc.; record gaps in **REA
 ### 13 Maintenance Priorities (one focus per PR)
 
 1. (until all explicit) Add the missing feature (§2) for an implicit code path. 
-2. Restructure / extract modules to match target layout.
-3. Optimise `test.yml`.
-4. Achieve passing acceptance tests.
-5. Complete feature docs (README §2).
+2. Create / restructure / extract files in repo to match target layout (§1).
+3. Optimise `test.yml`. (§5)
+4. Achieve passing acceptance tests. (§4)
+5. Complete feature docs (§2).
 6. Optimise a feature’s inputs ↔ outputs to its “I want …” goal.
-7. Lean, up-to-date Docker & deps.
-8. Apply strict typing.
+7. Lean, up-to-date Docker & deps. (§8)
+8. Apply strict typing. (§7)
 9. Remove clutter.
 10. Reach full unit-test coverage.
 11. Add static docs (`docs/`).
