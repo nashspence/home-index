@@ -154,6 +154,14 @@ Home Index makes directories of files searchable with minimal configuration. It 
 ## Contributions
 
 Pull requests are welcome. Use the dev container (`.devcontainer/`) via VS Code Remote – Containers to mirror CI. GitHub Actions run integration tests on every push.
+The default dev container builds without GPU support. To enable NVIDIA GPUs run with the additional compose file:
+
+```bash
+docker compose \
+  -f .devcontainer/docker-compose.yml \
+  -f .devcontainer/docker-compose.gpu.yml \
+  up --build -d
+```
 
 ## License
 

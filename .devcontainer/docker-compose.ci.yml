@@ -1,8 +1,0 @@
-services:
-  devcontainer:
-    build:
-      args:
-        CUDA_MAJOR: "0"
-        CUDA_MINOR: "0"
-    deploy: null
-    ulimits: null
