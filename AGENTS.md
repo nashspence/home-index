@@ -145,20 +145,21 @@ Log enough detail to debug CI failures without interactive sessions.
 
 ### 11 Incremental Adoption
 
-Phased strict typing, full re-org, etc.; note gaps in **README.md**.
+Phased strict typing, full re-org, etc.
 
 ---
 
 ### 12 Maintenance Priorities (one per PR)
 
-1. **Optimise feature’s inputs & outputs to match its “I want …” goal**.
-2. Rich feature docs (README §2).
-3. Perfect `test.yml`.
-4. Directory re-org complete.
-5. Passing acceptance tests.
-6. Lean, up-to-date Docker & deps.
-7. Strict typing.
-8. Remove clutter.
-9. Full unit-test coverage.
-10. Static docs (`docs/`).
-11. Propose new use goal -> feature
+1. Infer and list the implicit features behind code not covered by existing features.
+2. Optimise a feature’s inputs & outputs to match its “I want …” goal**.
+3. Complete a feature's docs (README §2).
+4. Perfect `test.yml`.
+5. Directory re-org complete.
+6. Passing acceptance tests.
+7. Lean, up-to-date Docker & deps.
+8. Strict typing.
+9. Remove clutter.
+10. Full unit-test coverage.
+11. Static docs (`docs/`).
+12. Propose new use goal -> feature
