@@ -64,7 +64,7 @@ repo/
 * Vary scenarios via **env vars** + **input files**; the test dir must contain **all inputs and capture all outputs**.
 * Assert **exact user-facing output** (UI state, API responses, CLI logs, exit codes).
 * Each test script **starts and stops** `<repo>:ci` via its compose file.
-* MUST output all relevant container logs with testing tool logs on a test failure.
+* MUST output all relevant container logs in addition to test failure logs on a test failure.
 
 #### 4.2 Unit Tests (optional)
 
