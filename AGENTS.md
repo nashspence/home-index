@@ -1,15 +1,15 @@
-### 0 Hard Prohibitions
+## 1 Principles
 
-* **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt`.
-* Work locally with only the libs you need (run unit tests if present), then **push** and rely on CI.
+### 1.1 Hard Prohibitions  
+- **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
+- Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
 
 ---
 
-### 1 Repository Layout
-
+## 2 Repository Layout
 ```text
 repo/
-├── features/                    # F1, F2, …
+├── features/                    # F1, F2, … (each with tests)
 │   └── F?/test/                 # acceptance tests
 │       └── docker-compose.yml
 ├── shared/                      # cross-feature code
@@ -27,14 +27,14 @@ repo/
 ├── agents-check.sh
 ├── check.sh                     # lint / format **+ unit tests**
 └── README.md
-```
+````
 
 ---
 
-### 2 Features (`README.md`)
+## 3 Features (`README.md`)
 
-* Every **Fx** heading states a user goal as **“I want …”**.
-* Bugs must map to an existing **Fx**; otherwise add the feature or request clarification.
+* Every **Fx** heading states a concise user goal as **“I want …”**.
+* A bug must map to an existing **Fx**; otherwise add the feature or request clarification.
 
 | Sub-heading         | Content                             |
 | ------------------- | ----------------------------------- |
@@ -44,37 +44,23 @@ repo/
 
 ---
 
-### 3 Prompt → PR Workflow
+## 4 Testing
 
-1. Classify prompt → **feature**, **maintenance**, or **unclear** (ask).
-2. Edit / add acceptance tests (unit tests optional).
-3. Implement / fix code.
-4. Update **README.md §2**.
-5. Bump deps; resolve breakage.
-6. Run `agents-check.sh` (runs `check.sh`, linters **and** unit tests); fix issues.
-7. **Push**.
+### 4.1 Acceptance Tests
 
----
-
-### 4 Tests
-
-#### 4.1 Acceptance Tests
-
-* One `features/Fx/test/docker-compose.yml`.
-* Vary scenarios via **env vars** + **input files**; the test dir must contain **all inputs and capture all outputs**.
+* One `features/Fx/test/docker-compose.yml` per feature.
+* Vary scenarios via **env vars** + **input files**; the test directory must contain **all inputs and capture all outputs**.
 * Assert **exact user-facing output** (UI state, API responses, CLI logs, exit codes).
 * Each test script **starts and stops** `<repo>:ci` via its compose file.
-* MUST output all relevant container logs in addition to test failure logs on a test failure.
+* On failure, **MUST** output all relevant release env container logs in addition to test failure logs.
 
-#### 4.2 Unit Tests (optional)
+### 4.2 Unit Tests (optional)
 
-* Live in `tests/`.
+* Located in `tests/`.
 * Executed by **`check.sh` inside the dev container** (local & CI).
-* **Mock / stub / dummy everything** except (a) the code under test and (b) Python built-ins.
+* **Mock / stub / dummy everything** except (a) code under test and (b) Python built-ins.
 
----
-
-### 5 CI (`.github/workflows/test.yml`)
+### 4.3 Continuous Integration (`.github/workflows/test.yml`)
 
 ```yaml
 name: test-features
@@ -111,9 +97,9 @@ jobs:
 
 ---
 
-### 6 Release Workflow (`.github/workflows/release.yml`)
+## 5 Release
 
-A minimalist publish-on-GitHub-Release workflow using official Docker actions:
+### 5.1 Workflow (`.github/workflows/release.yml`)
 
 ```yaml
 name: release-image
@@ -156,56 +142,68 @@ jobs:
       - run: echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
 ```
 
----
+### 5.2 Release Environment
 
-### 7 Style & Linting
-
-* `check.sh` ≤ formatters / linters **and** unit tests.
-* Agents run `agents-check.sh` (installs deps, then `check.sh`) before every push.
-* Enforce strict tools (ruff, mypy, Black + isort, ESLint + Prettier, …).
+* Maintain root-level **Dockerfile** and **docker-compose.yml**.
+* Follow Docker best practices; keep images lean and secure.
 
 ---
 
-### 8 Dependencies
+## 6 Development
 
-* Avoid `requirements.txt`, `package.json`, etc.
-* Install dev deps using venv (or equivalent) directly in poststart.sh
-* Install runtime deps directly in Dockerfile
-* Remove unused deps and **pin every dep to its exact latest release.**
-* Keep containers as small as possible
+### 6.1 Prompt Classification
 
----
+Classify prompt as one of: 
+- **feature work (use §6.2)**
+- **general maintenance (use §6.3)**
+- **unclear** (ask).
 
-### 9 Dev Container (`.devcontainer/`)
+### 6.2 Feature Work
+1. Edit / add acceptance tests (unit tests optional).
+2. Implement / fix code.
+3. Run a full maintenance pass (§6.3 priorities 2-12) on the *affected feature code*
+4. Run `agents-check.sh` (calls `check.sh`, linters **and** unit tests); fix issues.
+5. Update **README.md §3 Features**.
+6. Update adoption state of repo in README.md (§6.7)
+7. **Push**.
 
-Base image: `cruizba/ubuntu-dind`. Keep all dev-container files in sync.
+### 6.3 General Maintenance
 
----
+*(always exactly one focus per PR unless performing the mandated maintenance pass in 6.1-6)*
 
-### 10 Release Environment
-
-Maintain root-level **Dockerfile** and **docker-compose.yml** (follow Docker best practices).
-
----
-
-### 11 Incremental Adoption
-
-Progressively move toward strict typing, full re-org, etc.; record adoption state at time PR in **README.md**.
-
----
-
-### 12 Maintenance Priorities (one focus per PR)
-
-1. (until all explicit) Add the missing feature (§2) for an implicit code path. 
-2. Create / restructure / split files to exactly match target layout (§1).
-3. Optimise `test.yml`. (§5)
-4. Achieve passing acceptance tests. (§4)
-5. Complete feature docs (§2).
-6. Optimise a feature’s inputs ↔ outputs to its “I want …” goal.
-7. Lean, up-to-date Docker & deps. (§8)
-8. Apply strict typing. (§7)
+1. Until 100% explicit codebase: add the missing feature (§3) for an implicit code path.
+2. Create / restructure / split files to match **§2 Repository Layout** exactly.
+3. Optimise `test.yml` (§4.3).
+4. Achieve passing acceptance tests (§4).
+5. Complete feature docs (§3).
+6. Optimise a feature’s I/O for its “I want …” goal.
+7. Lean, up-to-date Docker & deps (§6.5).
+8. Apply strict typing (§6.2).
 9. Remove clutter.
 10. Reach full unit-test coverage.
 11. Add static docs (`docs/`).
-12. Improve Perf: target Pareto frontier
-    
+12. Improve performance; target the Pareto frontier.
+
+### 6.4 Style & Linting
+
+* `check.sh` runs formatters / linters / type checkers **and** unit tests.
+* Agents run `agents-check.sh` (installs deps, then `check.sh`) before every push.
+* Enforce strict tools: ruff, mypy, Black + isort, ts (strict) + ESLint + Prettier, …
+
+### 6.5 Dependencies
+
+* Avoid `requirements.txt`, `package.json`, etc.
+* Install dev deps via venv (or equivalent) in `postStart.sh`.
+* Install runtime deps in the Dockerfile.
+* Remove unused deps and **pin each dep to its exact latest release**.
+* Keep containers as small as possible.
+
+### 6.6 Development Environment (dev container)
+
+* Located in `.devcontainer/`; base image **`cruizba/ubuntu-dind`**.
+* Keep all dev-container files in sync.
+
+### 6.7 Incremental Adoption
+
+* Progress repo incrementally towards 100% accordance with this document - `AGENTS.md`. Maintain detailed record of the current state of this progression in `README.md` under the heading `Incremental Adoption`.
+
