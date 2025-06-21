@@ -202,7 +202,7 @@ Progressively move toward strict typing, full re-org, etc.; record gaps in **REA
 ### 13 Maintenance Priorities (one focus per PR)
 
 1. (until all explicit) Add the missing feature (§2) for an implicit code path. 
-2. Create / restructure / extract files in repo to match target layout (§1).
+2. Create / restructure / split files to exactly match target layout (§1).
 3. Optimise `test.yml`. (§5)
 4. Achieve passing acceptance tests. (§4)
 5. Complete feature docs (§2).
