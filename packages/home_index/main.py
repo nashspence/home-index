@@ -333,23 +333,29 @@ async def init_meili():
     logging.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
 
-    try:
-        index = await client.get_index(MEILISEARCH_INDEX_NAME)
-    except Exception as e:
-        if getattr(e, "code", None) == "index_not_found":
-            try:
-                logging.info(f'meili create index "{MEILISEARCH_INDEX_NAME}"')
-                index = await client.create_index(
-                    MEILISEARCH_INDEX_NAME, primary_key="id"
-                )
-            except Exception:
-                logging.exception(
-                    f'meili create index failed "{MEILISEARCH_INDEX_NAME}"'
-                )
+    for attempt in range(30):
+        try:
+            index = await client.get_index(MEILISEARCH_INDEX_NAME)
+            break
+        except Exception as e:
+            if getattr(e, "code", None) != "index_not_found" and attempt < 29:
+                logging.warning("meili unavailable, retrying in 1s")
+                await asyncio.sleep(1)
+                continue
+            if getattr(e, "code", None) == "index_not_found":
+                try:
+                    logging.info(f'meili create index "{MEILISEARCH_INDEX_NAME}"')
+                    index = await client.create_index(
+                        MEILISEARCH_INDEX_NAME, primary_key="id"
+                    )
+                except Exception:
+                    logging.exception(
+                        f'meili create index failed "{MEILISEARCH_INDEX_NAME}"'
+                    )
+                    raise
+            else:
+                logging.exception("meili init failed")
                 raise
-        else:
-            logging.exception("meili init failed")
-            raise
 
     try:
         chunk_index = await client.get_index(MEILISEARCH_CHUNK_INDEX_NAME)
