@@ -80,6 +80,8 @@ jobs:
           docker compose \
             -f .devcontainer/docker-compose.yml \
             up --build -d
+      - name: Run poststart script
+        run: docker exec home-index-devcontainer poststart.sh
       - name: Wait until venv is ready
         run: |
           for i in {1..30}; do
