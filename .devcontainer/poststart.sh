@@ -10,4 +10,5 @@ python -m venv venv
 ./venv/bin/pip install --upgrade pip
 PATH="/workspace/venv/bin:$PATH"
 ./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install black==25.1.0 ruff==0.12.0
 source /workspace/venv/bin/activate
