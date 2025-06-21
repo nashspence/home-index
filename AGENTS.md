@@ -167,7 +167,9 @@ jobs:
 
 ### 8 Dependencies
 
-* Install deps directly in Dockerfiles; avoid `requirements.txt`, `package.json`, etc.
+* Avoid `requirements.txt`, `package.json`, etc.
+* Install dev deps using venv (or equivalent) directly in poststart.sh
+* Install runtime deps directly in Dockerfile
 * Remove unused deps and **pin every dep to its exact latest release.**
 
 ---
