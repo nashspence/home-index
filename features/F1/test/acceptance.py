@@ -71,6 +71,25 @@ def _run_once(
         assert (times[1] - times[0]).total_seconds() >= expected_interval
         by_id = output_dir / "metadata" / "by-id"
         assert any(by_id.iterdir())
+    except Exception:
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                str(env_file),
+                "-f",
+                str(compose_file),
+                "logs",
+                "--no-color",
+            ],
+            check=False,
+            cwd=workdir,
+        )
+        if (output_dir / "files.log").exists():
+            print("--- files.log ---")
+            print((output_dir / "files.log").read_text())
+        raise
     finally:
         subprocess.run(
             [
@@ -83,7 +102,7 @@ def _run_once(
                 "rm",
                 "-fsv",
             ],
-            check=True,
+            check=False,
             cwd=workdir,
         )
 
