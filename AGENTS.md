@@ -35,11 +35,11 @@ repo/
 * Each **Fx** heading states a user goal as **“I want …”**.
 * Bugs must map to an existing **Fx**; if none fits, add it or ask.
 
-| Sub-heading         | Content                            |
-| ------------------- | ---------------------------------- |
-| **(1) Formal I/O**  | Exact input → output (symbolic OK) |
-| **(2) Explanation** | Same mapping in plain language     |
-| **(3) Goal Fit**    | Why it fulfils the “I want …” goal |
+| Sub-heading         | Content                             |
+| ------------------- | ----------------------------------- |
+| **(1) Formal I/O**  | Exact input → output (symbolic OK)  |
+| **(2) Explanation** | Same mapping in plain language      |
+| **(3) Goal Fit**    | Why it promotes the “I want …” goal |
 
 ---
 
@@ -50,7 +50,7 @@ repo/
 3. Implement / fix code.
 4. Update **README.md §2**.
 5. Bump deps; resolve breakage.
-6. Run `agents-check.sh` (includes unit tests); fix issues.
+6. Run `agents-check.sh`; fix issues.
 7. **Push**.
 
 ---
@@ -59,7 +59,7 @@ repo/
 
 #### 4.1 Acceptance Tests
 
-* Single `features/Fx/test/docker-compose.yml`.
+* Target a single template `features/Fx/test/docker-compose.yml`.
 * Vary scenarios via **env vars** + **input files**; the test dir must hold **all inputs and capture all outputs**.
 * Assert **exact user-facing output** (UI state, API response, CLI logs, exit codes).
 * The test script **starts and stops** `<repo>:ci` via its compose file.
@@ -112,7 +112,7 @@ jobs:
 ### 6 Style & Linting
 
 * `check.sh` → run formatters / linters **and** unit tests.
-* Agents invoke `agents-check.sh` (installs deps, then `check.sh`) before every push.
+* Agents invoke `agents-check.sh` (installs `check.sh` deps, then `check.sh`) before every push.
 * Keep linters strict (ruff, mypy, Black + isort, ESLint + Prettier, …).
 
 ---
