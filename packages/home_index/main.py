@@ -81,9 +81,10 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_compl
 from multiprocessing import Manager
 import sys
 
-# Ensure the 'features' package is importable when running tests directly from
-# the packages directory.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Ensure the 'features' package is importable regardless of install location.
+PROJECT_ROOT = Path(__file__).resolve()
+while not (PROJECT_ROOT / "features").exists() and PROJECT_ROOT.parent != PROJECT_ROOT:
+    PROJECT_ROOT = PROJECT_ROOT.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
