@@ -40,7 +40,8 @@ def _run_once(
     try:
         start = time.time()
         expected_interval = _expected_interval(cron)
-        deadline = start + expected_interval * 2 + 60
+        # Allow ample time for container startup and at least two sync cycles.
+        deadline = start + expected_interval * 3 + 120
         timestamps: list[str] = []
         while True:
             time.sleep(5)
