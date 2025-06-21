@@ -1,4 +1,15 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+# Run from the repository root so formatting checks don't scan the whole
+# container filesystem.
+cd "$(dirname "$0")"
+
+# Activate the development virtual environment if it exists so the
+# tools installed by `.devcontainer/poststart.sh` are on PATH.
+if [ -f "venv/bin/activate" ]; then
+  source "venv/bin/activate"
+fi
+
 black --check .
 ruff check .
