@@ -64,6 +64,7 @@ repo/
 * Vary scenarios via **env vars** + **input files**; the test dir must contain **all inputs and capture all outputs**.
 * Assert **exact user-facing output** (UI state, API responses, CLI logs, exit codes).
 * Each test script **starts and stops** `<repo>:ci` via its compose file.
+* MUST output all relevant container logs with testing tool logs on a test failure.
 
 #### 4.2 Unit Tests (optional)
 
@@ -187,19 +188,13 @@ Maintain root-level **Dockerfile** and **docker-compose.yml** (follow Docker bes
 
 ---
 
-### 11 Logging
+### 11 Incremental Adoption
 
-Emit logs sufficient to diagnose CI failures without interactive sessions.
-
----
-
-### 12 Incremental Adoption
-
-Progressively move toward strict typing, full re-org, etc.; record gaps in **README.md**.
+Progressively move toward strict typing, full re-org, etc.; record adoption state at time PR in **README.md**.
 
 ---
 
-### 13 Maintenance Priorities (one focus per PR)
+### 12 Maintenance Priorities (one focus per PR)
 
 1. (until all explicit) Add the missing feature (§2) for an implicit code path. 
 2. Create / restructure / split files to exactly match target layout (§1).
