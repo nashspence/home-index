@@ -89,6 +89,7 @@ jobs:
 
       # dev container
       - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
+      - run: docker exec ${REPO}-devcontainer poststart.sh
       - run: docker exec ${REPO}-devcontainer ./check.sh   # lint + unit tests
 
       # build release image for acceptance tests
