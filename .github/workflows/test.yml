@@ -105,12 +105,12 @@ jobs:
               ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
               if [ -f "$UNIT_PATH" ]; then
                 echo "› unit.py found – running unit tests"
-                /workspace/venv/bin/pytest -q "features/${FEATURE}/test/unit.py"
+                cd /workspace && /workspace/venv/bin/pytest -q "/workspace/features/${FEATURE}/test/unit.py"
               else
                 echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
               fi
               echo "› running acceptance tests"
-              /workspace/venv/bin/pytest -q "features/${FEATURE}/test/acceptance.py"
+              cd /workspace && /workspace/venv/bin/pytest -q "/workspace/features/${FEATURE}/test/acceptance.py"
             ' "$feature"
             echo "::endgroup::"
           done
