@@ -93,8 +93,7 @@ jobs:
       - name: Format & lint
         run: docker exec home-index-devcontainer /workspace/check.sh
       - name: Build release image
-        run: docker exec home-index-devcontainer \
-               docker build -f /workspace/Dockerfile -t repo-runtime:latest /workspace
+        run: docker exec home-index-devcontainer docker build -f /workspace/Dockerfile -t repo-runtime:latest /workspace
       - name: Run tests for every feature
         run: |
           set -Eeuo pipefail
