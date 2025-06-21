@@ -59,9 +59,13 @@ RUN set -eux; \
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-venv \
-    python3-pip && \
+    python3-pip \
+    file \
+    libmagic1 \
+    shared-mime-info && \
     ln -sf /usr/bin/python3 /usr/bin/python && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip
+    ln -sf /usr/bin/pip3 /usr/bin/pip && \
+    apt-get clean
 
 COPY poststart.sh /usr/local/bin/poststart.sh
 RUN chmod +x /usr/local/bin/poststart.sh
