@@ -147,6 +147,12 @@ def _safe_mkdir(path: Path) -> None:
     except PermissionError:
         # May run in read-only environments during imports
         pass
+    except OSError as e:
+        if e.errno == 30:  # Read-only file system
+            # Ignore read-only file systems so tests can mount /files as ro
+            pass
+        else:
+            raise
 
 
 _safe_mkdir(INDEX_DIRECTORY)

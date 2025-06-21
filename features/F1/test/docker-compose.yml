@@ -5,7 +5,6 @@ services:
     environment:
       - CRON_EXPRESSION=${CRON_EXPRESSION}
       - METADATA_DIRECTORY=/home-index/metadata
-      - ARCHIVE_DIRECTORY=/home-index/archive
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
