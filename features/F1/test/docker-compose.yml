@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+  home-index:
+    image: repo-runtime:latest
+    environment:
+      - CRON_EXPRESSION=${CRON_EXPRESSION}
+      - METADATA_DIRECTORY=/home-index/metadata
+    volumes:
+      - ./input:/files:ro
+      - ./output:/home-index
+    depends_on:
+      - meilisearch
+  meilisearch:
+    image: getmeili/meilisearch:v1.15.2
+    environment:
+      - MEILI_NO_ANALYTICS=true
+    volumes:
+      - ./output/meili:/meili_data
+

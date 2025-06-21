@@ -5,8 +5,10 @@ if [ -d /tmp/.ssh ]; then
   chmod 700 /root/.ssh
   chmod 600 /root/.ssh/*
 fi
+cd /workspace
 python -m venv venv
-/workspace/venv/bin/pip install --upgrade pip
+./venv/bin/pip install --upgrade pip
 PATH="/workspace/venv/bin:$PATH"
-/workspace/venv/bin/pip install -r requirements.txt
-source venv/bin/activate
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install black==25.1.0 ruff==0.12.0 pytest==8.4.1
+source /workspace/venv/bin/activate

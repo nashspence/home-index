@@ -63,9 +63,10 @@ import asyncio
 import json
 import shutil
 import time
-import magic
 import mimetypes
 import xxhash
+
+import magic
 
 # Initialize a single magic.Magic instance for MIME type detection
 magic_mime = magic.Magic(mime=True)
@@ -73,14 +74,22 @@ import copy
 import math
 from xmlrpc.client import ServerProxy, Fault
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from multiprocessing import Process
 from itertools import chain
 from meilisearch_python_sdk import AsyncClient
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
+import sys
+
+# Ensure the 'features' package is importable regardless of install location.
+PROJECT_ROOT = Path(__file__).resolve()
+while not (PROJECT_ROOT / "features").exists() and PROJECT_ROOT.parent != PROJECT_ROOT:
+    PROJECT_ROOT = PROJECT_ROOT.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from features.F1 import scheduler as F1_scheduler
 
 
 # endregion
@@ -107,7 +116,7 @@ MODULES_SLEEP_SECONDS = int(
 )
 
 MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
-MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700")
+MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://meilisearch:7700")
 MEILISEARCH_INDEX_NAME = os.environ.get("MEILISEARCH_INDEX_NAME", "files")
 MEILISEARCH_CHUNK_INDEX_NAME = os.environ.get(
     "MEILISEARCH_CHUNK_INDEX_NAME",
@@ -138,6 +147,12 @@ def _safe_mkdir(path: Path) -> None:
     except PermissionError:
         # May run in read-only environments during imports
         pass
+    except OSError as e:
+        if e.errno == 30:  # Read-only file system
+            # Ignore read-only file systems so tests can mount /files as ro
+            pass
+        else:
+            raise
 
 
 _safe_mkdir(INDEX_DIRECTORY)
@@ -304,20 +319,11 @@ def save_modules_state():
     is_modules_changed = False
 
 
-def parse_cron_env(env_var="CRON_EXPRESSION", default="0 3 * * *"):
-    cron_expression = os.getenv(env_var, default)
-    parts = cron_expression.split()
-    if len(parts) != 5:
-        raise ValueError(
-            f"Invalid cron expression in {env_var}: '{cron_expression}'. Must have 5 fields."
-        )
-    return {
-        "minute": parts[0],
-        "hour": parts[1],
-        "day": parts[2],
-        "month": parts[3],
-        "day_of_week": parts[4],
-    }
+def parse_cron_env(
+    env_var: str = "CRON_EXPRESSION", default: str = "0 3 * * *"
+) -> dict:
+    """Return CronTrigger kwargs for the configured cron expression."""
+    return F1_scheduler.parse_cron_env(env_var=env_var, default=default)
 
 
 # endregion
@@ -334,23 +340,29 @@ async def init_meili():
     logging.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
 
-    try:
-        index = await client.get_index(MEILISEARCH_INDEX_NAME)
-    except Exception as e:
-        if getattr(e, "code", None) == "index_not_found":
-            try:
-                logging.info(f'meili create index "{MEILISEARCH_INDEX_NAME}"')
-                index = await client.create_index(
-                    MEILISEARCH_INDEX_NAME, primary_key="id"
-                )
-            except Exception:
-                logging.exception(
-                    f'meili create index failed "{MEILISEARCH_INDEX_NAME}"'
-                )
+    for attempt in range(30):
+        try:
+            index = await client.get_index(MEILISEARCH_INDEX_NAME)
+            break
+        except Exception as e:
+            if getattr(e, "code", None) != "index_not_found" and attempt < 29:
+                logging.warning("meili unavailable, retrying in 1s")
+                await asyncio.sleep(1)
+                continue
+            if getattr(e, "code", None) == "index_not_found":
+                try:
+                    logging.info(f'meili create index "{MEILISEARCH_INDEX_NAME}"')
+                    index = await client.create_index(
+                        MEILISEARCH_INDEX_NAME, primary_key="id"
+                    )
+                except Exception:
+                    logging.exception(
+                        f'meili create index failed "{MEILISEARCH_INDEX_NAME}"'
+                    )
+                    raise
+            else:
+                logging.exception("meili init failed")
                 raise
-        else:
-            logging.exception("meili init failed")
-            raise
 
     try:
         chunk_index = await client.get_index(MEILISEARCH_CHUNK_INDEX_NAME)
@@ -1123,14 +1135,14 @@ async def init_meili_and_sync():
 
 
 async def main():
+
     await init_meili()
     scheduler = BackgroundScheduler()
 
-    scheduler.add_job(
-        run_in_process,
-        (IntervalTrigger(seconds=60) if DEBUG else CronTrigger(**parse_cron_env())),
-        args=[init_meili_and_sync],
-        max_instances=1,
+    F1_scheduler.attach_sync_job(
+        scheduler,
+        DEBUG,
+        lambda: run_in_process(init_meili_and_sync),
     )
 
     if is_modules_changed:
