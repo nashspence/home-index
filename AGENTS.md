@@ -209,5 +209,5 @@ Progressively move toward strict typing, full re-org, etc.; record gaps in **REA
 9. Remove clutter.
 10. Reach full unit-test coverage.
 11. Add static docs (`docs/`).
-12. Propose new user goals → features.
+12. Improve Perf: target Pareto frontier
     
