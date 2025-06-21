@@ -4,8 +4,6 @@ services:
     image: repo-runtime:latest
     environment:
       - CRON_EXPRESSION=${CRON_EXPRESSION}
-      - MEILISEARCH_HOST=http://meilisearch:7700
-      - INDEX_DIRECTORY=/home-index
       - METADATA_DIRECTORY=/home-index/metadata
     volumes:
       - ./input:/files:ro
