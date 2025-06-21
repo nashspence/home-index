@@ -3,9 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.devcontainer
-      args:
-        CUDA_MAJOR: "0"
-        CUDA_MINOR: "0"
     command: [ "/bin/sh" ]
     container_name: home-index-devcontainer
     hostname: home-index-devcontainer

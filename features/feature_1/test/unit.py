@@ -3,7 +3,7 @@ import pytest
 
 def test_cron_schedules_are_parsed_from_the_environment(monkeypatch):
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
-    import features.F1 as F1
+    import features.feature_1 as F1
 
     result = F1.scheduler.parse_cron_env()
     assert result == {
@@ -17,7 +17,7 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch):
 
 def test_malformed_cron_expressions_raise_valueerror(monkeypatch):
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
-    import features.F1 as F1
+    import features.feature_1 as F1
 
     with pytest.raises(ValueError):
         F1.scheduler.parse_cron_env()

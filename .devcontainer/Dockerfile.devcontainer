@@ -22,8 +22,8 @@ RUN apt-get update && \
     apt-get install -y libncurses5
 
 # ── *Optional* CUDA user-space install (skipped when CUDA_MAJOR=0) ──────────
-ARG CUDA_MAJOR=12
-ARG CUDA_MINOR=9
+ARG CUDA_MAJOR=0
+ARG CUDA_MINOR=0
 ARG CUDA_PKG
 RUN set -eux; \
     if [ "${CUDA_MAJOR}" != "0" ]; then \

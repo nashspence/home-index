@@ -26,7 +26,7 @@ everywhere else by their number.
 ### F1: my home server to be available when I need it
 
 Home Index stays available by periodically synchronizing its index with your
-files. The scheduler for this behavior lives under `features/F1`. The refresh
+files. The scheduler for this behavior lives under `features/feature_1`. The refresh
 schedule is controlled by the `CRON_EXPRESSION` environment variable. Automated
 tests start the service in Docker and confirm the scheduler runs on this
 interval.
