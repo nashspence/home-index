@@ -4,6 +4,16 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from apscheduler.triggers.cron import CronTrigger
+
+
+def _expected_interval(cron: str) -> float:
+    trigger = CronTrigger.from_crontab(cron)
+    now = datetime.now(trigger.timezone)
+    first = trigger.get_next_fire_time(None, now)
+    second = trigger.get_next_fire_time(first, first)
+    return (second - first).total_seconds()
+
 
 def _run_once(
     compose_file: Path, workdir: Path, output_dir: Path, env_file: Path, cron: str
@@ -29,6 +39,8 @@ def _run_once(
     )
     try:
         start = time.time()
+        expected_interval = _expected_interval(cron)
+        deadline = start + expected_interval * 2 + 60
         timestamps: list[str] = []
         while True:
             time.sleep(5)
@@ -39,7 +51,7 @@ def _run_once(
                 ]
                 if len(timestamps) >= 2:
                     break
-            if time.time() - start > 120:
+            if time.time() > deadline:
                 raise AssertionError("Timed out waiting for sync logs")
         subprocess.run(
             [
@@ -55,7 +67,7 @@ def _run_once(
             cwd=workdir,
         )
         times = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S,%f") for t in timestamps[:2]]
-        assert (times[1] - times[0]).total_seconds() >= 60
+        assert (times[1] - times[0]).total_seconds() >= expected_interval
         by_id = output_dir / "metadata" / "by-id"
         assert any(by_id.iterdir())
     finally:
