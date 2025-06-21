@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
     attr \
     file \
     git \
-    libmagic1 \
+    libmagic1t64 \
+    libmagic-mgc \
     tzdata \
     shared-mime-info \
     && apt-get clean
