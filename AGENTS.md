@@ -169,12 +169,12 @@ Has an inferrable target feature. For example, "Fix bug on F1", "Implement F2".
   
 Create the PR as follows:
 
-  1. Edit / add acceptance tests (unit tests optional).
+  1. Edit / add acceptance tests (unit tests optional) (§4).
   2. Implement / fix code.
-  3. Run a full maintenance pass (see **maintenance** priorities 2-12) on the *affected feature code*
-  4. Run `agents-check.sh`; fix issues.
-  5. Update **README.md §3 Features**.
-  6. Comprehensive update to `Incremental Adoption` (§6.5)
+  3. Run a full maintenance pass on the *affected feature code*. (§6.1.2: address priorities 2-12)
+  4. Run `agents-check.sh`; fix issues. (§6.2)
+  5. Update docs. (§3.2)
+  6. Update `Incremental Adoption`. (§6.5)
   7. **Push**.
          
 #### 6.1.2 Maintenance Work
