@@ -163,7 +163,7 @@ docker compose \
   up --build -d
 ```
 
-## Incremental Adoption
+## Planned Maintenance
 
 Home Index partially implements the guidelines in `AGENTS.md`. Outstanding gaps:
 
