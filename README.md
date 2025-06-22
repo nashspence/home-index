@@ -36,4 +36,4 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 ## Planned Maintenance
 
 - Expand acceptance tests to cover all features.
-- Rewrite feature docs to conform to AGENTS.md.
+- Rewrite remaining feature docs to conform to AGENTS.md.
