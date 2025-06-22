@@ -18,7 +18,7 @@ jobs:
 
       # Dev container
       - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer ./postStart.sh
+      - run: docker exec ${REPO}-devcontainer postStart.sh
       - run: docker exec ${REPO}-devcontainer ./check.sh
 
       # Build release image for acceptance tests
@@ -29,7 +29,7 @@ jobs:
           set -euo pipefail
           for f in $FEATURES; do
             docker exec -e IMAGE=${REPO}:ci ${REPO}-devcontainer \
-              pytest -q "features/${f}/test"
+              bash -lc "source venv/bin/activate && pytest -q 'features/${f}/test'"
           done
 
       - run: docker-compose -f .devcontainer/docker-compose.yml down -v
