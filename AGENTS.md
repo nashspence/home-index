@@ -98,7 +98,7 @@ Create the PR as follows:
 
   1. Edit / add acceptance tests (unit tests optional) (§4).
   2. Implement / fix code.
-  3. Run a full maintenance pass on the *affected feature code*. (§6.1.2: resolve priorities 2-12)
+  3. Run a full maintenance pass on the *affected feature code*. (§6.5: address priorities 2-12)
   4. Run `agents-check.sh`; fix issues. (§6.2)
   5. Update docs. (§3.2)
   6. Update `Planned Maintenance`. (§6.5)
