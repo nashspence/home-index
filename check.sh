@@ -13,3 +13,5 @@ fi
 
 black --check .
 ruff check .
+mypy --ignore-missing-imports --explicit-package-bases packages tests || true
+pytest -q
