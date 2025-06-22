@@ -34,7 +34,7 @@ repo/
 
 ## 3 Features
 
-### Canonical List
+### 3.1 Canonical List
 * Under `Features` heading in README.md.
 * Has an **Fx** designation - ex. F1.
 * Has a title concise user goal as **“I want …”** - ex. "I want to preview my work before commit.".
@@ -185,18 +185,17 @@ Create the PR as follows:
 
   1. Resolve exactly one from the following prioritized list:
      
-    1. Until 100% explicit codebase: add the missing feature (§3) for an implicit code path.
+    1. Until 100% explicit codebase: add the missing feature for an implicit code path. (§3.1)
     2. Create / restructure / split files to match repo expectations. (§2)
     3. Optimise `test.yml` (§4.3).
     4. Achieve passing acceptance tests (§4.1).
-    5. Complete feature docs (§3).
-    6. Optimise a feature’s I/O for its “I want …” goal. (§3)
+    5. Perfect static docs (`docs/`). (§3.2)
+    6. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
     7. Lean, up-to-date Docker & deps (§6.3).
     8. Apply strict typing (§6.2).
     9. Remove clutter.
     10. Reach full unit-test coverage. (§4.2)
-    11. Add static docs (`docs/`).
-    12. Improve performance; target the Pareto frontier.
+    11. Improve performance; target the Pareto frontier.
   
   3. Run `agents-check.sh`; fix issues.
   4. Comprehensive update to `Incremental Adoption` (§6.5)
