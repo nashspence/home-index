@@ -3,7 +3,7 @@
 ### 1.1 Hard Prohibitions  
 - **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
 - Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
-- **NEVER** push without updating `Incremental Adoption` state (see §6.7)
+- **NEVER** stray from process in §6.1 Handling a Prompt
 
 ---
 
@@ -152,11 +152,11 @@ jobs:
 
 ## 6 Development
 
-### 6.1 Prompt Classification
+### 6.1 Handling a Prompt
 
 Classify prompt as one of: 
-- **feature work (use §6.2)**
-- **general maintenance (use §6.3)**
+- **feature work (follow §6.2)**
+- **general maintenance (follow §6.3)**
 - **unclear** (ask).
 
 ### 6.2 Feature Work
@@ -165,7 +165,7 @@ Classify prompt as one of:
 3. Run a full maintenance pass (§6.3 priorities 2-12) on the *affected feature code*
 4. Run `agents-check.sh` (calls `check.sh`, linters **and** unit tests); fix issues.
 5. Update **README.md §3 Features**.
-6. Update adoption state of repo in README.md (§6.7)
+6. Comprehensive update to `Incremental Adoption` (§6.7)
 7. **Push**.
 
 ### 6.3 General Maintenance
@@ -184,6 +184,8 @@ Classify prompt as one of:
 10. Reach full unit-test coverage.
 11. Add static docs (`docs/`).
 12. Improve performance; target the Pareto frontier.
+
+* before push -> comprehensive update to `Incremental Adoption` (§6.7)*
 
 ### 6.4 Style & Linting
 
