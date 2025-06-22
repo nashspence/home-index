@@ -1,21 +1,18 @@
 # Home Index
 
-Home Index is a file indexing service built around [Meilisearch](https://www.meilisearch.com/). It scans a directory of files, stores metadata under a configurable location and can enrich that metadata by calling external **modules**. Modules handle tasks such as transcription, OCR, scraping, thumbnails or caption generation so your files become easily searchable.
+Home Index is a personal file search engine that syncs and enriches metadata.
 
 ## Features
 
-- [F1 "I want my home server to be available when I need it"](docs/F1.md)
-- F2: to link to my files by path
-- F3: to know my files that were last modified within a range of time
-- F4: to know my files of a specific type
-- F5: to know my largest files
-- F6: to know my duplicates files
-- F7: to know about my files even when they are on disconnected external media
-- F8: to run intensive indexing operations on other machines
-- F9: to view my files in a web browser
-- F10: to know which ones of my files match a concept
-- F11: to know which ones of my files contain a text phrase
-- F12: to separate my manually created files from my derived files
+- [F1 "I want scheduled file sync"](docs/F1.md)
+- F2 "I want metadata stored by file ID"
+- F3 "I want each path linked to its metadata"
+- F4 "I want to detect duplicate files"
+- F5 "I want metadata for files on offline media"
+- F6 "I want to search my file metadata"
+- F7 "I want modules to enrich files"
+- F8 "I want those modules to run on other machines"
+- F9 "I want to search file chunks by concept"
 
 ### Well-known modules
 
@@ -35,3 +32,8 @@ your files using a locally run language model backed by Meilisearch.
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Planned Maintenance
+
+- Add documentation for features F2–F9.
+- Expand acceptance tests to cover all features.
