@@ -68,7 +68,7 @@ RUN apt-get update && apt-get install -y \
     ln -sf /usr/bin/pip3 /usr/bin/pip && \
     apt-get clean
 
-COPY poststart.sh /usr/local/bin/poststart.sh
-RUN chmod +x /usr/local/bin/poststart.sh
+COPY postStart.sh /usr/local/bin/postStart.sh
+RUN chmod +x /usr/local/bin/postStart.sh
 
 CMD ["bash"]

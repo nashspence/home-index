@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Activate the development virtual environment if it exists so the
-# tools installed by `.devcontainer/poststart.sh` are on PATH.
+# tools installed by `.devcontainer/postStart.sh` are on PATH.
 if [ -f "venv/bin/activate" ]; then
   source "venv/bin/activate"
 fi
