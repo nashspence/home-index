@@ -96,9 +96,20 @@ Infer from this example [`.github/workflows/release.yml`](https://raw.githubuser
 
 ### 6.1 Handling a Prompt
 
-Classify prompt as either Feature Work, Maintenance Work, or Unclear and proceed as the corresponding section says.
+Classify prompt as either Goal Work, Feature Work, Maintenance Work, or Unclear and proceed as the corresponding section says.
 
-#### 6.1.1 Feature Work
+#### 6.1.1 Goal Work
+
+Asks for specific adjustment of the Features list.
+
+Create the PR as follows:
+
+  1. Deep scan the repo to ensure features are minimal vertical slices that cover **100%** of existing code and are expressed **EXACTLY** according to specifications. (§3.1)
+  2. Update `Features`. (§3.1)
+  3. Update `Planned Maintenance` based off changes. (§6.5)
+  4. **Push**.
+
+#### 6.1.2 Feature Work
 
 Has an inferrable target feature. For example, "Fix bug on F1", "Implement F2".
   
@@ -112,7 +123,7 @@ Create the PR as follows:
   6. Update `Planned Maintenance`. (§6.5)
   7. **Push**.
          
-#### 6.1.2 Maintenance Work
+#### 6.1.3 Maintenance Work
 
 No inferrable target feature. For example, "Do maintenance.", "Clean up the repo.".
   
@@ -124,7 +135,7 @@ Create the PR as follows:
   4. Update `Planned Maintenance`. (§6.5)
   5. **Push**.
          
-#### 6.1.3 Unclear
+#### 6.1.4 Unclear
 
 Do not create a PR. Clarify.
 
@@ -151,17 +162,16 @@ Do not create a PR. Clarify.
 
 Progress repo incrementally towards 100% accordance with this document. `README.md` under the heading `Planned Maintenance`, update a prioritized list of tasks to fix with **everything** you know is **not** in accordance with `AGENTS.md` any time you push. Use the following ordered list as the priority heuristic:
 
-  1. Ensure features are clean, managable, and cover **100%** of existing code - if not, add, remove, rename, etc. (§3.1)
-  2. Create / restructure / split files to match repo expectations. (§2)
-  3. Optimise `test.yml` (§4.3).
-  4. Achieve passing acceptance tests (§4.1).
-  5. Perfect static docs (`docs/`). (§3.2)
-  6. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
-  7. Lean, up-to-date Docker & deps (§6.3).
-  8. Apply strict typing (§6.2).
-  9. Remove unnecessary file and code. Refactor code to conform to community conventions.
-  10. Reach full unit-test coverage. (§4.2)
-  11. Improve performance; target the Pareto frontier.
+  1. Create / restructure / split files to match repo expectations. (§2)
+  2. Optimise `test.yml` (§4.3).
+  3. Achieve passing acceptance tests (§4.1).
+  4. Perfect static docs (`docs/`). (§3.2)
+  5. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
+  6. Lean, up-to-date Docker & deps (§6.3).
+  7. Apply strict typing (§6.2).
+  8. Remove unnecessary file and code. Refactor code to conform to community conventions.
+  9. Reach full unit-test coverage. (§4.2)
+  10. Improve performance; target the Pareto frontier.
 
 
 
