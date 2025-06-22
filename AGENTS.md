@@ -217,7 +217,7 @@ Do not create a PR. Clarify.
 * Install dev deps via venv (or equivalent) in `postStart.sh`.
 * Install runtime deps in the Dockerfile.
 * Remove unused deps and **pin each dep to its exact latest release**.
-* Keep containers as small as possible.
+* Follow Docker best practices; keep images lean and secure.
 
 ### 6.4 Development Environment (dev container)
 
