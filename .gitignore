@@ -5,3 +5,4 @@
 docker-compose.override*.yml
 docker-data
 venv
+__pycache__/

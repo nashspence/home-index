@@ -2,15 +2,11 @@ FROM python:3.11.13-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
-    attr \
-    file \
-    git \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     libmagic-mgc \
     tzdata \
-    shared-mime-info \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
 # ── *Optional* CUDA user-space install (skipped when CUDA_MAJOR=0) ──────────
 ARG CUDA_MAJOR=0
@@ -35,8 +31,14 @@ RUN set -eux; \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir \
+    apscheduler==3.11.0 \
+    debugpy==1.8.14 \
+    meilisearch-python-sdk==4.7.1 \
+    python-magic==0.4.27 \
+    xxhash==3.5.0 \
+    sentence-transformers==4.1.0 \
+    transformers==4.52.4
 RUN python - <<'EOF'
 from transformers import AutoTokenizer
 from sentence_transformers import SentenceTransformer

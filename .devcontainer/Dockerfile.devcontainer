@@ -11,15 +11,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sed \
     coreutils \
     sudo \
-    openssh-client
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # Add repository for older libraries and install libtinfo5 or libncurses5
 RUN apt-get update && \
-    apt-get install -y software-properties-common && \
+    apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository "deb http://archive.ubuntu.com/ubuntu/ focal main universe" && \
     apt-get update && \
-    apt-get install -y libtinfo5 || \
-    apt-get install -y libncurses5
+    apt-get install -y --no-install-recommends libtinfo5 || \
+    apt-get install -y --no-install-recommends libncurses5 && \
+    rm -rf /var/lib/apt/lists/*
 
 # ── *Optional* CUDA user-space install (skipped when CUDA_MAJOR=0) ──────────
 ARG CUDA_MAJOR=0
@@ -51,22 +53,22 @@ RUN set -eux; \
             sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
             tee /etc/apt/sources.list.d/nvidia-container-toolkit.list; \
         apt-get update -q; \
-        apt-get install -yq nvidia-container-toolkit; \
+        apt-get install -yq --no-install-recommends nvidia-container-toolkit; \
+        rm -rf /var/lib/apt/lists/*; \
         nvidia-ctk runtime configure --runtime=docker; \
     fi
 
 # Install Python and related tools
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-venv \
     python3-pip \
     file \
     libmagic1t64 \
-    libmagic-mgc \
-    shared-mime-info && \
+    libmagic-mgc && \
     ln -sf /usr/bin/python3 /usr/bin/python && \
     ln -sf /usr/bin/pip3 /usr/bin/pip && \
-    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
 COPY postStart.sh /usr/local/bin/postStart.sh
 RUN chmod +x /usr/local/bin/postStart.sh
