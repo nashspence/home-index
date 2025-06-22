@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from apscheduler.triggers.cron import CronTrigger
+from typing import cast
 
 
 def _parse_cron(cron: str) -> dict[str, str]:
@@ -33,8 +34,14 @@ def _expected_interval(cron: str) -> float:
     trigger = CronTrigger(**_parse_cron(cron))
     now = datetime.now(trigger.timezone)
     first = trigger.get_next_fire_time(None, now)
+    if first is None:
+        raise ValueError("CronTrigger failed to produce first fire time")
     second = trigger.get_next_fire_time(first, first)
-    return (second - first).total_seconds()
+    if second is None:
+        raise ValueError("CronTrigger failed to produce second fire time")
+    first_dt = cast(datetime, first)
+    second_dt = cast(datetime, second)
+    return (second_dt - first_dt).total_seconds()
 
 
 def _run_once(
