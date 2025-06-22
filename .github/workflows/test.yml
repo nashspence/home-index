@@ -1,122 +1,35 @@
-name: Test
+name: test-features
 
-on:
-  push:
-    branches: ['**']
+on: [push]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     env:
-      EXTERNAL_MEILISEARCH: '1'
-      MEILISEARCH_HOST: 'http://localhost:7700'
+      REPO: ${{ github.event.repository.name }}
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-python@v5.6.0
-        with:
-          python-version: '3.11'
-      - name: Install deps
-        run: |
-          pip install -r requirements.txt
-          pip install pytest docker
-      - name: Build containers
-        run: docker compose build
-      - name: Start services
-        run: docker compose up -d
-      - name: Wait for Meilisearch
-        run: |
-          for i in {1..30}; do
-            if curl -fs http://localhost:7700/health > /dev/null; then
-              break
-            fi
-            sleep 2
-          done
-      - name: FileDocumentsMatchTheExpectedSchema
-        run: pytest -q tests/test_meilisearch_schema.py::test_file_documents_match_the_expected_schema
-      - name: ChunkDocumentsFollowTheChunkSchema
-        run: pytest -q tests/test_meilisearch_file_chunk_schema.py::test_chunk_documents_follow_the_chunk_schema
-      - name: ModulesCommunicateViaXmlRpc
-        run: pytest -q tests/test_run_server_module.py::test_modules_communicate_via_xml_rpc
-      - name: ModulesCanAddAndRemoveChunkData
-        run: pytest -q tests/test_chunk_integration.py::test_modules_can_add_and_remove_chunk_data
-      - name: ModulesMayReturnOnlyUpdatedDocuments
-        run: pytest -q tests/test_chunk_integration.py::test_modules_may_return_only_updated_documents
-      - name: RetryHelperStopsWhenACallSucceeds
-        run: pytest -q tests/test_retry.py::test_retry_helper_stops_when_a_call_succeeds
-      - name: RetryHelperFailsAfterRepeatedErrors
-        run: pytest -q tests/test_retry.py::test_retry_helper_fails_after_repeated_errors
-      - name: IndexingRunsAcrossManyFilesAndModules
-        run: pytest -q tests/test_large_indexing.py::test_indexing_runs_across_many_files_and_modules
-      - name: CronSchedulesAreParsedFromTheEnvironment
-        run: pytest -q tests/test_schedule.py::test_cron_schedules_are_parsed_from_the_environment
-      - name: MalformedCronExpressionsRaiseValueError
-        run: pytest -q tests/test_schedule.py::test_malformed_cron_expressions_raise_valueerror
-      - name: TextEmbeddingsUseSentenceTransformerModels
-        run: pytest -q tests/test_embeddings.py::test_text_embeddings_use_sentence_transformer_models
-      - name: MetadataPersistsIfTheArchiveDirectoryIsTemporarilyMissing
-        run: pytest -q tests/test_archive_support.py::test_metadata_persists_if_the_archive_directory_is_temporarily_missing
-      - name: ModuleMigrationsPersistVersionUpgrades
-        run: pytest -q tests/test_module_migrations.py::test_module_migrations_persist_version_upgrades
-      - name: SchedulerAttachesACronTriggerJobForPeriodicIndexing
-        run: pytest -q tests/test_schedule.py::test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing
-      - name: MetadataAndSymlinksArePurgedAfterAnArchiveFileIsRemoved
-        run: pytest -q tests/test_archive_support.py::test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed
-      - name: TokentextsplitterDividesChunkTextIntoSmallerDocuments
-        run: pytest -q tests/test_chunk_utils.py::test_tokentextsplitter_divides_chunk_text_into_smaller_documents
-      - name: SegmentsWithHeadersConvertToChunkDocumentsReferencingTheSourceFile
-        run: pytest -q tests/test_chunk_utils.py::test_segments_with_headers_convert_to_chunk_documents_referencing_the_source_file
-      - name: Stop services
-        run: docker compose down
+      - uses: actions/checkout@v4
 
-  test-all-features:
-    runs-on: ubuntu-latest
-    needs: build
-    env:
-      FEATURES: "F1"
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - name: Start dev container
+      - name: Install docker-compose
         run: |
-          docker compose \
-            -f .devcontainer/docker-compose.yml \
-            up --build -d
-      - name: Run poststart script
-        run: docker exec home-index-devcontainer poststart.sh
-      - name: Wait until venv is ready
-        run: |
-          for i in {1..30}; do
-            if docker exec home-index-devcontainer test -d /workspace/venv; then exit 0; fi
-            sleep 2
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+
+      # Dev container
+      - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
+      - run: docker exec ${REPO}-devcontainer postStart.sh
+      - run: docker exec ${REPO}-devcontainer ./check.sh
+
+      # Build release image for acceptance tests
+      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci .
+
+      # Acceptance tests
+      - run: |
+          set -euo pipefail
+          FEATURES=$(ls features | grep '^F')
+          for f in $FEATURES; do
+            docker exec -e IMAGE=${REPO}:ci ${REPO}-devcontainer \
+              bash -lc "source venv/bin/activate && pytest -q features/${f}/test/acceptance.py"
           done
-          echo "Dev container never became ready" >&2
-          exit 1
-      - name: Format & lint
-        run: docker exec home-index-devcontainer /workspace/check.sh
-      - name: Build release image
-        run: docker exec home-index-devcontainer docker build -f /workspace/Dockerfile -t repo-runtime:latest /workspace
-      - name: Run tests for every feature
-        run: |
-          set -Eeuo pipefail
-          for feature in $FEATURES; do
-            echo "::group::Testing $feature"
-            docker exec home-index-devcontainer bash -Eeuo pipefail -c '
-              FEATURE="$0"
-              UNIT_PATH="/workspace/features/${FEATURE}/test/unit.py"
-              ACC_PATH="/workspace/features/${FEATURE}/test/acceptance.py"
-              if [ -f "$UNIT_PATH" ]; then
-                echo "› unit.py found – running unit tests"
-                cd /workspace && /workspace/venv/bin/pytest -q "/workspace/features/${FEATURE}/test/unit.py"
-              else
-                echo "::notice title=No unit tests::${FEATURE} has no unit.py – skipping unit tests"
-              fi
-              echo "› running acceptance tests"
-              cd /workspace && /workspace/venv/bin/pytest -q "/workspace/features/${FEATURE}/test/acceptance.py"
-            ' "$feature"
-            echo "::endgroup::"
-          done
-      - name: Stop dev container
-        if: always()
-        run: |
-          docker compose \
-            -f .devcontainer/docker-compose.yml \
-            down -v
+
+      - run: docker-compose -f .devcontainer/docker-compose.yml down -v

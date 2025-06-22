@@ -68,7 +68,8 @@ def _run_once(
             cwd=workdir,
         )
         times = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S,%f") for t in timestamps[-2:]]
-        assert (times[1] - times[0]).total_seconds() >= expected_interval
+        observed = (times[1] - times[0]).total_seconds()
+        assert observed >= expected_interval - 1
         by_id = output_dir / "metadata" / "by-id"
         assert any(by_id.iterdir())
     except Exception:

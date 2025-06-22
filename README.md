@@ -163,6 +163,15 @@ docker compose \
   up --build -d
 ```
 
+## Incremental Adoption
+
+Home Index partially implements the guidelines in `AGENTS.md`. Outstanding gaps:
+
+- Features **F2–F12** are documentation-only and lack code or tests.
+- Python dependencies are pinned in `requirements.txt` rather than installed purely via the Dockerfile.
+- Unit tests exist only for `F1`.
+- CI sets `IMAGE` to `${REPO}:ci` so acceptance tests use the correct release image.
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.

@@ -2,7 +2,7 @@
 	"name": "home-index",
 	"dockerComposeFile": "./docker-compose.yml",
 	"service": "devcontainer",
-	"postStartCommand": "poststart.sh",
+        "postStartCommand": "postStart.sh",
 	"workspaceFolder": "/workspace",
 	"customizations": {
 		"vscode": {
