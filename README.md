@@ -163,6 +163,19 @@ docker compose \
   up --build -d
 ```
 
+## Incremental Adoption
+
+Home Index is gradually aligning with the rules in `AGENTS.md`.
+
+- **F1** is implemented with unit and acceptance tests. **F2–F12** remain
+  documentation-only.
+- `.devcontainer/` matches the prescribed layout and runs in CI via
+  `.github/workflows/test.yml`.
+- The release workflow builds and publishes the Docker image using
+  `docker/metadata-action` and `docker/build-push-action`.
+- Root `Dockerfile` and `docker-compose.yml` define the runtime environment.
+- `agents-check.sh` enforces formatting with Black and Ruff.
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
