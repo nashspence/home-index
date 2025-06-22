@@ -32,10 +32,17 @@ repo/
 
 ---
 
-## 3 Features (`README.md`)
+## 3 Features
 
-* Every **Fx** heading states a concise user goal as **“I want …”**.
-* A bug must map to an existing **Fx**; otherwise add the feature or request clarification.
+### Canonical List
+* Under `Features` heading in README.md.
+* Has an **Fx** designation - ex. F1.
+* Has a title concise user goal as **“I want …”** - ex. "I want to preview my work before commit.".
+* Link to static documentation if it exists (§3.2).
+
+### 3.2 Feature Documentation
+
+In `docs` directory, one file per feature:
 
 | Sub-heading         | Content                                                                          |
 | ------------------- | ---------------------------------------------------------------------------------|
@@ -157,6 +164,8 @@ jobs:
 Classify prompt as either Feature Work, Maintenance Work, or Unclear.
 
 #### 6.1.1 Feature Work
+
+Has an inferrable target feature. For example, "Fix bug on F1", "Implement F2".
   
 Create the PR as follows:
 
@@ -169,21 +178,23 @@ Create the PR as follows:
   7. **Push**.
          
 #### 6.1.2 Maintenance Work
+
+No inferrable target feature. For example, "Do maintenance.", "Clean up the repo.".
   
 Create the PR as follows:
 
   1. Resolve exactly one from the following prioritized list:
      
     1. Until 100% explicit codebase: add the missing feature (§3) for an implicit code path.
-    2. Create / restructure / split files to match **§2 Repository Layout** exactly.
+    2. Create / restructure / split files to match repo expectations. (§2)
     3. Optimise `test.yml` (§4.3).
-    4. Achieve passing acceptance tests (§4).
+    4. Achieve passing acceptance tests (§4.1).
     5. Complete feature docs (§3).
-    6. Optimise a feature’s I/O for its “I want …” goal.
+    6. Optimise a feature’s I/O for its “I want …” goal. (§3)
     7. Lean, up-to-date Docker & deps (§6.3).
     8. Apply strict typing (§6.2).
     9. Remove clutter.
-    10. Reach full unit-test coverage.
+    10. Reach full unit-test coverage. (§4.2)
     11. Add static docs (`docs/`).
     12. Improve performance; target the Pareto frontier.
   
@@ -191,7 +202,7 @@ Create the PR as follows:
   4. Comprehensive update to `Incremental Adoption` (§6.5)
   5. **Push**.
          
-#### 6.1.3 Maintenance Work
+#### 6.1.3 Unclear
 
 Do not create a PR. Clarify.
 
