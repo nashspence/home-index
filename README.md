@@ -35,3 +35,16 @@ your files using a locally run language model backed by Meilisearch.
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Planned Maintenance
+
+1. Document and implement features **F2–F12** so every listed goal has a
+   corresponding feature package and acceptance test.
+2. Restructure generic code under a `shared` package and keep feature code
+   isolated in their respective `Fx` directories.
+3. Optimise `.github/workflows/test.yml` to reduce setup time and enable
+   caching.
+4. Fix MyPy errors in `packages/home_index/main.py` and `tests/test_retry.py`.
+5. Remove `requirements.txt`; pin exact dependency versions in the Dockerfile
+   and devcontainer setup.
+6. Expand unit test coverage and remove unused code.
