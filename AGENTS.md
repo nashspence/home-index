@@ -1,7 +1,7 @@
 ## 1 Principles
 
 ### 1.1 Hard Prohibitions
-- **NEVER** deviate from §6.1 Handling a Prompt
+- **NEVER** deviate from §6.1 Handling a Prompt.
 - **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
 - Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
 
@@ -35,10 +35,9 @@ repo/
 ## 3 Features
 
 ### 3.1 Canonical List
-* Under `Features` heading in README.md.
-* Has an **Fx** designation - ex. F1.
-* Has a title that is a concise *domain-aware user goal* in the form **“I want …”** - ex. "I want to preview my work before commit.".
-* Link to static documentation if it exists (§3.2).
+* Listed under `Features` in README.md.
+* Each feature has an **Fx** designation - ex. F1 - and a title that is a concise *user goal* in the form **“I want …”** - ex. F1 "I want to preview my work before commit.". Together, goals should describe a *consistent, informed, domain-aware user*.
+* Links to static documentation (§3.2).
 
 ### 3.2 Feature Documentation
 
@@ -52,7 +51,7 @@ In `docs` directory, one file per feature. Infer from this example [`docs/F1`](h
 
 * One `features/Fx/test/docker-compose.yml` per feature.
 * Vary scenarios via **env vars** + **input files**; the test directory must contain **all inputs and capture all outputs**.
-* Assert **exact user-facing output** (UI state, API responses, CLI logs, exit codes).
+* Assert **EXACT user-facing output** (UI state, API responses, CLI logs, exit codes).
 * Each test script **starts and stops** `<repo>:ci` via its compose file.
 * On failure, **MUST** output all relevant release env container logs in addition to test failure logs.
 
@@ -66,52 +65,17 @@ In `docs` directory, one file per feature. Infer from this example [`docs/F1`](h
 
 Infer from this example [`.github/workflows/test.yml`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/test.yml).
 
+### 4.4 Test Environment
+
+See §6.4.
+
 ---
 
 ## 5 Release
 
-### 5.1 Workflow (`.github/workflows/release.yml`)
+### 5.1 Workflow
 
-```yaml
-name: release
-
-on:
-  release:
-    types: [published]
-
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Log in to Docker Hub
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # Generate tags & labels (e.g. v1.2.3, latest)
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
-
-      # Build and push the image
-      - uses: docker/build-push-action@v4
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      # Show final tag(s) in the run summary
-      - run: echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-```
+Infer from this example [`.github/workflows/release.yml`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/release.yml).
 
 ### 5.2 Release Environment
 
@@ -134,10 +98,10 @@ Create the PR as follows:
 
   1. Edit / add acceptance tests (unit tests optional) (§4).
   2. Implement / fix code.
-  3. Run a full maintenance pass on the *affected feature code*. (§6.1.2: address priorities 2-12)
+  3. Run a full maintenance pass on the *affected feature code*. (§6.1.2: resolve priorities 2-12)
   4. Run `agents-check.sh`; fix issues. (§6.2)
   5. Update docs. (§3.2)
-  6. Update `Incremental Adoption`. (§6.5)
+  6. Update `Planned Maintenance`. (§6.5)
   7. **Push**.
          
 #### 6.1.2 Maintenance Work
@@ -160,8 +124,8 @@ Create the PR as follows:
     10. Reach full unit-test coverage. (§4.2)
     11. Improve performance; target the Pareto frontier.
   
-  3. Run `agents-check.sh`; fix issues.
-  4. Comprehensive update to `Incremental Adoption` (§6.5)
+  3. Run `agents-check.sh`; fix issues. (§6.2)
+  4. Update `Planned Maintenance`. (§6.5)
   5. **Push**.
          
 #### 6.1.3 Unclear
@@ -184,10 +148,10 @@ Do not create a PR. Clarify.
 
 ### 6.4 Development Environment (dev container)
 
-* Located in `.devcontainer/`; base image **`cruizba/ubuntu-dind`**.
-* Keep all dev-container files in sync.
+* Contained in `.devcontainer/`; base image **`cruizba/ubuntu-dind`**.
+* Maintain a clean conventional vscode dev-container.
 
 ### 6.5 Incremental Adoption
 
-* Progress repo incrementally towards 100% accordance with this document - `AGENTS.md`. Include a comprehensive report of **everything** you know is **not** in accordance any time you push in `README.md` under the heading `Incremental Adoption`.
+* Progress repo incrementally towards 100% accordance with this document - `AGENTS.md`. Include a comprehensive systematic report of **everything** you know is **not** in accordance any time you push in `README.md` under the heading `Planned Maintenance`.
 
