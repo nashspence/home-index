@@ -13,3 +13,4 @@ fi
 
 black --check .
 ruff check .
+pytest -q
