@@ -176,7 +176,7 @@ Home Index is gradually aligning with the rules in `AGENTS.md`.
 - CI installs docker-compose so the dev container launches successfully.
 - Root `Dockerfile` and `docker-compose.yml` define the runtime environment.
 - `agents-check.sh` enforces formatting with Black and Ruff.
-- `postStart.sh` sets up the dev environment and runs correctly in CI.
+- `postStart.sh` (invoked via `docker exec … postStart.sh`) sets up the dev environment and runs correctly in CI.
 
 ## License
 
