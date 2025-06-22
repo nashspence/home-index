@@ -1,20 +1,19 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
-
-
-def test_text_embeddings_use_sentence_transformer_models(tmp_path, monkeypatch):
-    log_dir = tmp_path / "logs"
-    log_dir.mkdir()
-    monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
-
-    import home_index.main as hi
+def test_embed_texts_uses_provided_model(monkeypatch):
     import importlib
+    import home_index.main as hi
 
     importlib.reload(hi)
 
-    hi.embedding_model = None
+    class DummyModel:
+        class Vec(list):
+            def tolist(self):
+                return list(self)
+
+        def encode(self, texts, convert_to_numpy=True):
+            return [self.Vec([len(t)] * hi.EMBED_DIM) for t in texts]
+
+    hi.embedding_model = DummyModel()
+
     result = hi.embed_texts(["a", "bb"])
-    assert len(result) == 2
-    assert all(len(vec) == hi.EMBED_DIM for vec in result)
+
+    assert result == [[1] * hi.EMBED_DIM, [2] * hi.EMBED_DIM]

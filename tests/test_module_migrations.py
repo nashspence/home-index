@@ -1,9 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
-
-
 def test_module_migrations_persist_version_upgrades(tmp_path):
     from home_index_module.run_server import apply_migrations_if_needed, load_version
 

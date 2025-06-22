@@ -1,9 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
-
-
 def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source_file():
     from home_index_module.run_server import segments_to_chunk_docs
 
