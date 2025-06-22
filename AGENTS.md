@@ -3,7 +3,7 @@
 ### 1.1 Hard Prohibitions  
 - **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
 - Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
-- **NEVER** stray from process in §6.1 Handling a Prompt
+- **NEVER** deviate from §6.1 Handling a Prompt
 
 ---
 
@@ -154,46 +154,54 @@ jobs:
 
 ### 6.1 Handling a Prompt
 
-Classify prompt as one of: 
-- **feature work (follow §6.2)**
-- **general maintenance (follow §6.3)**
-- **unclear** (ask).
+Classify prompt as either Feature Work, Maintenance Work, or Unclear.
 
-### 6.2 Feature Work
-1. Edit / add acceptance tests (unit tests optional).
-2. Implement / fix code.
-3. Run a full maintenance pass (§6.3 priorities 2-12) on the *affected feature code*
-4. Run `agents-check.sh` (calls `check.sh`, linters **and** unit tests); fix issues.
-5. Update **README.md §3 Features**.
-6. Comprehensive update to `Incremental Adoption` (§6.7)
-7. **Push**.
+#### 6.1.1 Feature Work
+  
+Create the PR as follows:
 
-### 6.3 General Maintenance
+  1. Edit / add acceptance tests (unit tests optional).
+  2. Implement / fix code.
+  3. Run a full maintenance pass (see **maintenance** priorities 2-12) on the *affected feature code*
+  4. Run `agents-check.sh`; fix issues.
+  5. Update **README.md §3 Features**.
+  6. Comprehensive update to `Incremental Adoption` (§6.5)
+  7. **Push**.
+         
+#### 6.1.2 Maintenance Work
+  
+Create the PR as follows:
 
-*(always **exactly** one focus per PR unless performing the mandated maintenance pass in 6.1-6)*
+  1. Resolve exactly one from the following prioritized list:
+     
+    1. Until 100% explicit codebase: add the missing feature (§3) for an implicit code path.
+    2. Create / restructure / split files to match **§2 Repository Layout** exactly.
+    3. Optimise `test.yml` (§4.3).
+    4. Achieve passing acceptance tests (§4).
+    5. Complete feature docs (§3).
+    6. Optimise a feature’s I/O for its “I want …” goal.
+    7. Lean, up-to-date Docker & deps (§6.3).
+    8. Apply strict typing (§6.2).
+    9. Remove clutter.
+    10. Reach full unit-test coverage.
+    11. Add static docs (`docs/`).
+    12. Improve performance; target the Pareto frontier.
+  
+  3. Run `agents-check.sh`; fix issues.
+  4. Comprehensive update to `Incremental Adoption` (§6.5)
+  5. **Push**.
+         
+#### 6.1.3 Maintenance Work
 
-1. Until 100% explicit codebase: add the missing feature (§3) for an implicit code path.
-2. Create / restructure / split files to match **§2 Repository Layout** exactly.
-3. Optimise `test.yml` (§4.3).
-4. Achieve passing acceptance tests (§4).
-5. Complete feature docs (§3).
-6. Optimise a feature’s I/O for its “I want …” goal.
-7. Lean, up-to-date Docker & deps (§6.5).
-8. Apply strict typing (§6.2).
-9. Remove clutter.
-10. Reach full unit-test coverage.
-11. Add static docs (`docs/`).
-12. Improve performance; target the Pareto frontier.
+Do not create a PR. Clarify.
 
-* before push -> comprehensive update to `Incremental Adoption` (§6.7)*
-
-### 6.4 Style & Linting
+### 6.2 Style & Linting
 
 * `check.sh` runs formatters / linters / type checkers **and** unit tests.
 * Agents run `agents-check.sh` (installs deps, then `check.sh`) before every push.
 * Enforce strict tools: ruff, mypy, Black + isort, ts (strict) + ESLint + Prettier, …
 
-### 6.5 Dependencies
+### 6.3 Dependencies
 
 * Avoid `requirements.txt`, `package.json`, etc.
 * Install dev deps via venv (or equivalent) in `postStart.sh`.
@@ -201,12 +209,12 @@ Classify prompt as one of:
 * Remove unused deps and **pin each dep to its exact latest release**.
 * Keep containers as small as possible.
 
-### 6.6 Development Environment (dev container)
+### 6.4 Development Environment (dev container)
 
 * Located in `.devcontainer/`; base image **`cruizba/ubuntu-dind`**.
 * Keep all dev-container files in sync.
 
-### 6.7 Incremental Adoption
+### 6.5 Incremental Adoption
 
-* Progress repo incrementally towards 100% accordance with this document - `AGENTS.md`. Maintain detailed record of the current state of this progression in `README.md` under the heading `Incremental Adoption`.
+* Progress repo incrementally towards 100% accordance with this document - `AGENTS.md`. Include a comprehensive report of **everything** you know is **not** in accordance any time you push in `README.md` under the heading `Incremental Adoption`.
 
