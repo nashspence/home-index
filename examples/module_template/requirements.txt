@@ -1,4 +1,0 @@
-# Pin the version of home-index used for the module template to the
-# commit currently checked out in this repository. This avoids pulling
-# arbitrary changes when building example modules.
-git+https://github.com/nashspence/home-index.git@1e5a67cb90465abf1c8e0885c7614c9e28314660
