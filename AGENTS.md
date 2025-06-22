@@ -149,7 +149,7 @@ Do not create a PR. Clarify.
 
 Progress repo incrementally towards 100% accordance with this document. `README.md` under the heading `Planned Maintenance`, update a prioritized list of tasks to fix with **everything** you know is **not** in accordance with `AGENTS.md` any time you push. Use the following ordered list as the priority heuristic:
 
-  1. Until 100% explicit codebase: add the missing feature for an implicit code path. (§3.1)
+  1. Ensure features are clean, managable, and cover **100%** of existing code - if not, add, remove, rename, etc. (§3.1)
   2. Create / restructure / split files to match repo expectations. (§2)
   3. Optimise `test.yml` (§4.3).
   4. Achieve passing acceptance tests (§4.1).
