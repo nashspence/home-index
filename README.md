@@ -173,6 +173,7 @@ Home Index is gradually aligning with the rules in `AGENTS.md`.
   `.github/workflows/test.yml`.
 - The release workflow builds and publishes the Docker image using
   `docker/metadata-action` and `docker/build-push-action`.
+- CI installs docker-compose so the dev container launches successfully.
 - Root `Dockerfile` and `docker-compose.yml` define the runtime environment.
 - `agents-check.sh` enforces formatting with Black and Ruff.
 
