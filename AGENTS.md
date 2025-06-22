@@ -42,13 +42,7 @@ repo/
 
 ### 3.2 Feature Documentation
 
-In `docs` directory, one file per feature:
-
-| Sub-heading         | Content                                                                          |
-| ------------------- | ---------------------------------------------------------------------------------|
-| **(1) Formal I/O**  | Exact input → output (Ultra-compact, unambiguous spec in Metric Temporal Logic)  |
-| **(2) Explanation** | Same mapping in elegant plain language                                           |
-| **(3) Goal Fit**    | How it advances the “I want …” goal                                              |
+In `docs` directory, one file per feature. Strive to emulate this [example](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md).
 
 ---
 
