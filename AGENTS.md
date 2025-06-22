@@ -110,20 +110,8 @@ No inferrable target feature. For example, "Do maintenance.", "Clean up the repo
   
 Create the PR as follows:
 
-  1. Resolve exactly one from the following prioritized list:
-     
-    1. Until 100% explicit codebase: add the missing feature for an implicit code path. (§3.1)
-    2. Create / restructure / split files to match repo expectations. (§2)
-    3. Optimise `test.yml` (§4.3).
-    4. Achieve passing acceptance tests (§4.1).
-    5. Perfect static docs (`docs/`). (§3.2)
-    6. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
-    7. Lean, up-to-date Docker & deps (§6.3).
-    8. Apply strict typing (§6.2).
-    9. Remove unnecessary file and code. Refactor code to conform to community conventions.
-    10. Reach full unit-test coverage. (§4.2)
-    11. Improve performance; target the Pareto frontier.
-  
+  1. Check `Planned Maintenance`. If there is no planned maintanance, do a **deep scan** of the repo to locate and prioritize tasks based onf (§6.5). Skip straight to step 3.
+  2. Resolve one item from `Planned Maintenance`. (§6.5)
   3. Run `agents-check.sh`; fix issues. (§6.2)
   4. Update `Planned Maintenance`. (§6.5)
   5. **Push**.
@@ -153,5 +141,19 @@ Do not create a PR. Clarify.
 
 ### 6.5 Incremental Adoption
 
-* Progress repo incrementally towards 100% accordance with this document - `AGENTS.md`. Include a comprehensive systematic report of **everything** you know is **not** in accordance any time you push in `README.md` under the heading `Planned Maintenance`.
+Progress repo incrementally towards 100% accordance with this document. `README.md` under the heading `Planned Maintenance`, update a prioritized list of tasks to fix with **everything** you know is **not** in accordance with `AGENTS.md` any time you push. Use the following ordered list as the priority heuristic:
+
+  1. Until 100% explicit codebase: add the missing feature for an implicit code path. (§3.1)
+  2. Create / restructure / split files to match repo expectations. (§2)
+  3. Optimise `test.yml` (§4.3).
+  4. Achieve passing acceptance tests (§4.1).
+  5. Perfect static docs (`docs/`). (§3.2)
+  6. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
+  7. Lean, up-to-date Docker & deps (§6.3).
+  8. Apply strict typing (§6.2).
+  9. Remove unnecessary file and code. Refactor code to conform to community conventions.
+  10. Reach full unit-test coverage. (§4.2)
+  11. Improve performance; target the Pareto frontier.
+
+
 
