@@ -3,6 +3,7 @@
 ### 1.1 Hard Prohibitions  
 - **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
 - Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
+- **NEVER** push without updating `Incremental Adoption` state (see §6.7)
 
 ---
 
@@ -36,11 +37,11 @@ repo/
 * Every **Fx** heading states a concise user goal as **“I want …”**.
 * A bug must map to an existing **Fx**; otherwise add the feature or request clarification.
 
-| Sub-heading         | Content                             |
-| ------------------- | ----------------------------------- |
-| **(1) Formal I/O**  | Exact input → output (symbolic OK)  |
-| **(2) Explanation** | Same mapping in plain language      |
-| **(3) Goal Fit**    | How it advances the “I want …” goal |
+| Sub-heading         | Content                                                                          |
+| ------------------- | ---------------------------------------------------------------------------------|
+| **(1) Formal I/O**  | Exact input → output (Ultra-compact, unambiguous spec in Metric Temporal Logic)  |
+| **(2) Explanation** | Same mapping in elegant plain language                                           |
+| **(3) Goal Fit**    | How it advances the “I want …” goal                                              |
 
 ---
 
@@ -169,7 +170,7 @@ Classify prompt as one of:
 
 ### 6.3 General Maintenance
 
-*(always exactly one focus per PR unless performing the mandated maintenance pass in 6.1-6)*
+*(always **exactly** one focus per PR unless performing the mandated maintenance pass in 6.1-6)*
 
 1. Until 100% explicit codebase: add the missing feature (§3) for an implicit code path.
 2. Create / restructure / split files to match **§2 Repository Layout** exactly.
