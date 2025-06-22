@@ -28,7 +28,7 @@ jobs:
           set -euo pipefail
           FEATURES=$(ls features | grep '^F')
           for f in $FEATURES; do
-            docker exec -e REPO=${REPO} ${REPO}-devcontainer bash -lc "source venv/bin/activate && pytest -q features/${f}/test/acceptance.py"
+            docker exec -e IMAGE=${REPO}:ci ${REPO}-devcontainer bash -lc "source venv/bin/activate && pytest -q features/${f}/test/acceptance.py"
           done
 
       - run: docker-compose -f .devcontainer/docker-compose.yml down -v
