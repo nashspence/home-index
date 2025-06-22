@@ -177,7 +177,8 @@ Home Index is gradually aligning with the rules in `AGENTS.md`.
 - Root `Dockerfile` and `docker-compose.yml` define the runtime environment.
 - `agents-check.sh` enforces formatting with Black and Ruff.
 - `postStart.sh` (invoked via `docker exec … postStart.sh`) sets up the dev environment and runs correctly in CI.
-- CI sources the virtual environment before running acceptance tests.
+- CI runs acceptance tests directly via `pytest` thanks to PATH setup.
+- A symlink at the repo root points to `.devcontainer/postStart.sh` so CI can run `./postStart.sh`.
 - The dev container now has `/workspace` as its working directory so CI commands run as documented.
 
 ## License
