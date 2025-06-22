@@ -41,7 +41,12 @@ repo/
 
 ### 3.2 Feature Documentation
 
-In `docs` directory, one file per feature. Infer from this example [`docs/F1`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md).
+In `docs` directory, one file per feature. Conform strongly to this example [`docs/F1`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md):
+
+- Value section **MUST** match length, tone, and of the example to describe WHY the feature helps the user's goal.
+- Specification **MUST** match example form and describe a passing acceptance test.
+- Vocabulary **MUST** be **EXACTLY** the inputs and outputs the user will interact with.
+
 
 ---
 
