@@ -14,17 +14,26 @@ def parse_cron_env(
     """Return CronTrigger kwargs from the CRON_EXPRESSION environment variable."""
     cron_expression = os.getenv(env_var, default)
     parts = cron_expression.split()
-    if len(parts) != 5:
-        raise ValueError(
-            f"Invalid cron expression in {env_var}: '{cron_expression}'. Must have 5 fields."
-        )
-    return {
-        "minute": parts[0],
-        "hour": parts[1],
-        "day": parts[2],
-        "month": parts[3],
-        "day_of_week": parts[4],
-    }
+    if len(parts) == 5:
+        return {
+            "minute": parts[0],
+            "hour": parts[1],
+            "day": parts[2],
+            "month": parts[3],
+            "day_of_week": parts[4],
+        }
+    if len(parts) == 6:
+        return {
+            "second": parts[0],
+            "minute": parts[1],
+            "hour": parts[2],
+            "day": parts[3],
+            "month": parts[4],
+            "day_of_week": parts[5],
+        }
+    raise ValueError(
+        f"Invalid cron expression in {env_var}: '{cron_expression}'. Must have 5 or 6 fields."
+    )
 
 
 def attach_sync_job(

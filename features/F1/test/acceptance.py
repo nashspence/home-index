@@ -7,8 +7,30 @@ from pathlib import Path
 from apscheduler.triggers.cron import CronTrigger
 
 
+def _parse_cron(cron: str) -> dict[str, str]:
+    parts = cron.split()
+    if len(parts) == 5:
+        return {
+            "minute": parts[0],
+            "hour": parts[1],
+            "day": parts[2],
+            "month": parts[3],
+            "day_of_week": parts[4],
+        }
+    if len(parts) == 6:
+        return {
+            "second": parts[0],
+            "minute": parts[1],
+            "hour": parts[2],
+            "day": parts[3],
+            "month": parts[4],
+            "day_of_week": parts[5],
+        }
+    raise ValueError("cron must have 5 or 6 fields")
+
+
 def _expected_interval(cron: str) -> float:
-    trigger = CronTrigger.from_crontab(cron)
+    trigger = CronTrigger(**_parse_cron(cron))
     now = datetime.now(trigger.timezone)
     first = trigger.get_next_fire_time(None, now)
     second = trigger.get_next_fire_time(first, first)
@@ -44,7 +66,7 @@ def _run_once(
         deadline = start + expected_interval * 3 + 120
         timestamps: list[str] = []
         while True:
-            time.sleep(5)
+            time.sleep(0.5)
             if (output_dir / "files.log").exists():
                 logs = (output_dir / "files.log").read_text().splitlines()
                 timestamps = [
@@ -113,5 +135,5 @@ def test_indexing_runs_on_schedule(tmp_path: Path) -> None:
     workdir = compose_file.parent
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
-    for cron in ["* * * * *", "*/2 * * * *"]:
+    for cron in ["* * * * * *", "*/2 * * * * *"]:
         _run_once(compose_file, workdir, output_dir, env_file, cron)
