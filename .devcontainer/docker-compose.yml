@@ -4,7 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile.devcontainer
     command: [ "/bin/sh" ]
-    working_dir: /workspace
     container_name: home-index-devcontainer
     hostname: home-index-devcontainer
     privileged: true
