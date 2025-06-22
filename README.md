@@ -37,3 +37,4 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 - Expand acceptance tests to cover all features.
 - Rewrite remaining feature docs to conform to AGENTS.md.
+- Add missing documentation for features F2–F9 and corresponding tests.

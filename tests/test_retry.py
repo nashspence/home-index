@@ -2,6 +2,8 @@ import ast
 import pathlib
 import os
 import time
+from typing import List
+
 import pytest
 
 # Importing only the retry helper via AST avoids executing side effects in the
@@ -10,7 +12,7 @@ import pytest
 # Extract retry_until_ready function without importing entire module
 SRC = pathlib.Path("packages/home_index/main.py").read_text()
 module = ast.parse(SRC)
-nodes = []
+nodes: List[ast.AST] = []
 for node in module.body:
     if (
         isinstance(node, ast.Assign)

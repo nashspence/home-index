@@ -123,9 +123,9 @@ MEILISEARCH_CHUNK_INDEX_NAME = os.environ.get(
     "file_chunks",
 )
 
-CPU_COUNT = os.cpu_count()
-MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT / 2))
-MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT / 2))
+CPU_COUNT = os.cpu_count() or 1
+MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT // 2))
+MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT // 2))
 
 # embedding configuration
 EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL_NAME", "intfloat/e5-small-v2")
