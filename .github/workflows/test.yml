@@ -18,7 +18,7 @@ jobs:
 
       # Dev container
       - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer ./postStart.sh
+      - run: docker exec ${REPO}-devcontainer postStart.sh
       - run: docker exec ${REPO}-devcontainer ./check.sh
 
       # Build release image for acceptance tests
