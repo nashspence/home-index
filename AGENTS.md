@@ -42,7 +42,7 @@ repo/
 
 ### 3.2 Feature Documentation
 
-In `docs` directory, one file per feature. Strive to emulate this [example](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md).
+In `docs` directory, one file per feature. Infer from this example [`docs/F1`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md).
 
 ---
 
@@ -62,40 +62,9 @@ In `docs` directory, one file per feature. Strive to emulate this [example](http
 * Executed by **`check.sh` inside the dev container** (local & CI).
 * **Mock / stub / dummy everything** except (a) code under test and (b) Python built-ins.
 
-### 4.3 Continuous Integration (`.github/workflows/test.yml`)
+### 4.3 Continuous Integration
 
-```yaml
-name: test
-on: [push]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    env:
-      REPO: ${{ github.event.repository.name }}
-      FEATURES: $(ls features | grep '^F')
-    steps:
-      - uses: actions/checkout@v4
-
-      # Dev container
-      - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer ./postStart.sh
-      - run: docker exec ${REPO}-devcontainer ./check.sh   # lint + unit tests
-
-      # Build release image for acceptance tests
-      - run: docker exec ${REPO}-devcontainer \
-             docker build -f Dockerfile -t ${REPO}:ci .
-
-      # Acceptance tests
-      - run: |
-          set -euo pipefail
-          for f in $FEATURES; do
-            docker exec ${REPO}-devcontainer \
-              pytest -q "features/${f}/test"
-          done
-
-      - run: docker-compose -f .devcontainer/docker-compose.yml down -v
-```
+Infer from this example [`.github/workflows/test.yml`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/test.yml).
 
 ---
 
