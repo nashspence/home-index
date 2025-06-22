@@ -22,8 +22,7 @@ jobs:
       - run: docker exec ${REPO}-devcontainer ./check.sh
 
       # Build release image for acceptance tests
-      - run: docker exec ${REPO}-devcontainer \
-             docker build -f Dockerfile -t ${REPO}:ci .
+      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci .
 
       # Acceptance tests
       - run: |
