@@ -37,7 +37,7 @@ repo/
 ### 3.1 Canonical List
 * Under `Features` heading in README.md.
 * Has an **Fx** designation - ex. F1.
-* Has a title that is a concise *domain-aware user goal* as **“I want …”** - ex. "I want to preview my work before commit.".
+* Has a title that is a concise *domain-aware user goal* in the form **“I want …”** - ex. "I want to preview my work before commit.".
 * Link to static documentation if it exists (§3.2).
 
 ### 3.2 Feature Documentation
