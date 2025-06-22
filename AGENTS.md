@@ -43,7 +43,7 @@ repo/
 
 ### 3.2 Feature Documentation
 
-In `docs` directory, one file per feature. Conform strongly to this example [`docs/F1`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md):
+In `docs` directory, one file per feature. Conform **exactly** to the structure and content in this example [`docs/F1`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md):
 
 ---
 
@@ -109,9 +109,9 @@ Has an inferrable target feature. For example, "Fix bug on F1", "Implement F2".
   
 Create the PR as follows:
 
-  1. Edit / add acceptance tests (unit tests optional) (§4).
+  1. Edit / add acceptance tests (unit tests optional). (§4)
   2. Implement / fix code.
-  3. Run a full maintenance pass on the *affected feature code*. (§6.5: address priorities 2-12)
+  3. Run a full maintenance pass on the *affected feature code*. (§6.5)
   4. Run `agents-check.sh`; fix issues. (§6.2)
   5. Update docs. (§3.2)
   6. Update `Planned Maintenance`. (§6.5)
@@ -124,7 +124,7 @@ No inferrable target feature. For example, "Do maintenance.", "Clean up the repo
 Create the PR as follows:
 
   1. Check `Planned Maintenance`. 
-  2. Resolve one item from `Planned Maintenance`. If there is no planned maintanance items, do a **deep scan** of the repo to locate and prioritize tasks, and skip straight to step 4. (§6.5)
+  2. Resolve one item from `Planned Maintenance` for *one* feature (or shared code module). If there is no planned maintanance items, do a **deep scan** of the repo to locate and prioritize tasks, and skip straight to step 4. (§6.5)
   3. Run `agents-check.sh`; fix issues. (§6.2)
   4. Update `Planned Maintenance`. (§6.5)
   5. **Push**.
@@ -157,15 +157,13 @@ Do not create a PR. Clarify.
 Progress repo incrementally towards 100% accordance with this document. `README.md` under the heading `Planned Maintenance`, update a prioritized list of tasks to fix with **everything** you know is **not** in accordance with `AGENTS.md` any time you push. Use the following ordered list as the priority heuristic:
 
   1. Create / restructure / split files to match repo expectations. (§2)
-  2. Optimise `test.yml` (§4.3).
-  3. Achieve passing acceptance tests (§4.1).
-  4. Perfect static docs (`docs/`). (§3.2)
-  5. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
-  6. Lean, up-to-date Docker & deps (§6.3).
-  7. Apply strict typing (§6.2).
-  8. Remove unnecessary file and code. Refactor code to conform to community conventions.
-  9. Reach full unit-test coverage. (§4.2)
-  10. Improve performance; target the Pareto frontier.
+  2. Infer optimal I/O from “I want …” goal then write passing acceptance tests; update `test.yml`. (§3.1->§4)
+  4. Write static docs (`docs/`). (§3.2)
+  5. Lean, up-to-date Docker & deps (§6.3).
+  6. Apply strict typing (§6.2).
+  7. Remove unnecessary file and code. Refactor code to conform to community conventions.
+  8. Reach full unit-test coverage. (§4.2)
+  9. Improve performance; target the Pareto frontier.
 
 
 
