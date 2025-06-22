@@ -11,7 +11,7 @@ Home Index is a file indexing service built around [Meilisearch](https://www.mei
 - F5: to know my largest files
 - F6: to know my duplicates files
 - F7: to know about my files even when they are on disconnected external media
-- F8: to know other information about my files
+- F8: to run intensive indexing operations on other machines
 - F9: to view my files in a web browser
 - F10: to know which ones of my files match a concept
 - F11: to know which ones of my files contain a text phrase
