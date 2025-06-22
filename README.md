@@ -35,7 +35,3 @@ your files using a locally run language model backed by Meilisearch.
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
-
-## Planned Maintenance
-
-- Add documentation for features F2–F12.
