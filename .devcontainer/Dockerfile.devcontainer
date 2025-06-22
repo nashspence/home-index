@@ -70,5 +70,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY postStart.sh /usr/local/bin/postStart.sh
 RUN chmod +x /usr/local/bin/postStart.sh
+RUN mkdir -p /workspace
+WORKDIR /workspace
 
 CMD ["bash"]
