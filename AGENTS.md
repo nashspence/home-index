@@ -1,9 +1,9 @@
 ## 1 Principles
 
-### 1.1 Hard Prohibitions  
+### 1.1 Hard Prohibitions
+- **NEVER** deviate from §6.1 Handling a Prompt
 - **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
 - Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
-- **NEVER** deviate from §6.1 Handling a Prompt
 
 ---
 
@@ -71,7 +71,7 @@ In `docs` directory, one file per feature:
 ### 4.3 Continuous Integration (`.github/workflows/test.yml`)
 
 ```yaml
-name: test-features
+name: test
 on: [push]
 
 jobs:
@@ -110,7 +110,7 @@ jobs:
 ### 5.1 Workflow (`.github/workflows/release.yml`)
 
 ```yaml
-name: release-image
+name: release
 
 on:
   release:
@@ -161,7 +161,7 @@ jobs:
 
 ### 6.1 Handling a Prompt
 
-Classify prompt as either Feature Work, Maintenance Work, or Unclear.
+Classify prompt as either Feature Work, Maintenance Work, or Unclear and proceed as the corresponding section says.
 
 #### 6.1.1 Feature Work
 
