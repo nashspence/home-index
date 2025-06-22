@@ -193,7 +193,7 @@ Create the PR as follows:
     6. Optimise a feature’s I/O for its “I want …” goal. (§3.1)
     7. Lean, up-to-date Docker & deps (§6.3).
     8. Apply strict typing (§6.2).
-    9. Remove clutter.
+    9. Remove unnecessary file and code. Refactor code to conform to community conventions.
     10. Reach full unit-test coverage. (§4.2)
     11. Improve performance; target the Pareto frontier.
   
