@@ -110,8 +110,8 @@ No inferrable target feature. For example, "Do maintenance.", "Clean up the repo
   
 Create the PR as follows:
 
-  1. Check `Planned Maintenance`. If there is no planned maintanance, do a **deep scan** of the repo to locate and prioritize tasks based onf (§6.5). Skip straight to step 3.
-  2. Resolve one item from `Planned Maintenance`. (§6.5)
+  1. Check `Planned Maintenance`. 
+  2. Resolve one item from `Planned Maintenance`. If there is no planned maintanance items, do a **deep scan** of the repo to locate and prioritize tasks, and skip straight to step 4. (§6.5)
   3. Run `agents-check.sh`; fix issues. (§6.2)
   4. Update `Planned Maintenance`. (§6.5)
   5. **Push**.
