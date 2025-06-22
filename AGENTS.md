@@ -37,6 +37,7 @@ repo/
 ### 3.1 Canonical List
 * Listed under `Features` in README.md.
 * Each feature has an **Fx** designation - ex. F1 - and a title that is a concise *user goal* in the form **“I want …”** - ex. F1 "I want to preview my work before commit.". Together, goals should describe a *consistent, informed, domain-aware user*.
+* Each goals should represent a Minimum Viable Feature (MVF).
 * Links to static documentation (§3.2).
 
 ### 3.2 Feature Documentation
