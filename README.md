@@ -35,3 +35,8 @@ your files using a locally run language model backed by Meilisearch.
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Planned Maintenance
+
+- `check.sh` only runs Black and Ruff; it should also run type checking and unit tests.
+- Features F2–F12 lack accompanying documentation files under `docs/`.
