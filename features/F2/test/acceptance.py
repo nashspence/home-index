@@ -5,13 +5,14 @@ import time
 from pathlib import Path
 from typing import Any
 import urllib.request
+import sys
 
 from features.F2 import duplicate_finder
 
 
-def _search_meili(filter_expr: str) -> list[dict[str, Any]]:
+def _search_meili(filter_expr: str, timeout: int = 60) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
-    deadline = time.time() + 30
+    deadline = time.time() + timeout
     while True:
         try:
             data = json.dumps({"q": "", "filter": filter_expr}).encode()
@@ -89,9 +90,11 @@ def _run_once(
             check=False,
             cwd=workdir,
         )
+        sys.stdout.flush()
         if (output_dir / "files.log").exists():
             print("--- files.log ---")
             print((output_dir / "files.log").read_text())
+            sys.stdout.flush()
         raise
     finally:
         subprocess.run(
