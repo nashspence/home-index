@@ -3,35 +3,36 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 import urllib.request
 
 
-def _fetch_meili_docs() -> list[dict[str, Any]]:
+def _search_meili(copies: int) -> list[dict[str, Any]]:
+    """Return documents filtered by ``copies`` from Meilisearch."""
     deadline = time.time() + 30
     while True:
         try:
-            with urllib.request.urlopen(
-                "http://localhost:7700/indexes/files/documents"
-            ) as resp:
-                data = json.load(resp)
-            docs: Iterable[dict[str, Any]]
-            if isinstance(data, list):
-                docs = data
-            else:
-                docs = data.get("results", [])
+            data = json.dumps({"q": "", "filter": f"copies = {copies}"}).encode()
+            req = urllib.request.Request(
+                "http://localhost:7700/indexes/files/search",
+                data=data,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req) as resp:
+                payload = json.load(resp)
+            docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
         except Exception:
             pass
         if time.time() > deadline:
-            raise AssertionError("Timed out waiting for meilisearch documents")
+            raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
 
 
 def _run_once(
     compose_file: Path, workdir: Path, output_dir: Path
-) -> tuple[Path, list[dict[str, Any]]]:
+) -> tuple[Path, Path, list[dict[str, Any]], list[dict[str, Any]]]:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -67,8 +68,10 @@ def _run_once(
             check=True,
             cwd=workdir,
         )
-        docs = _fetch_meili_docs()
-        return by_id_dir, docs
+        by_path_dir = output_dir / "metadata" / "by-path"
+        dup_docs = _search_meili(2)
+        unique_docs = _search_meili(1)
+        return by_id_dir, by_path_dir, dup_docs, unique_docs
     finally:
         subprocess.run(
             [
@@ -88,7 +91,9 @@ def test_duplicates_detected(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
-    by_id_dir, meili_docs = _run_once(compose_file, workdir, output_dir)
+    by_id_dir, by_path_dir, dup_docs, unique_docs = _run_once(
+        compose_file, workdir, output_dir
+    )
     subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
     assert len(subdirs) == 2
     docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
@@ -97,7 +102,18 @@ def test_duplicates_detected(tmp_path: Path) -> None:
     assert docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
     assert docs_by_paths[("c.txt",)]["copies"] == 1
 
-    docs_by_paths = {tuple(sorted(doc["paths"].keys())): doc for doc in meili_docs}
-    assert set(docs_by_paths) == {("a.txt", "b.txt"), ("c.txt",)}
-    assert docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
-    assert docs_by_paths[("c.txt",)]["copies"] == 1
+    link_a = by_path_dir / "a.txt"
+    link_b = by_path_dir / "b.txt"
+    link_c = by_path_dir / "c.txt"
+    assert link_a.is_symlink() and link_b.is_symlink() and link_c.is_symlink()
+    assert link_a.resolve() == link_b.resolve()
+
+    dup_docs_by_paths = {tuple(sorted(doc["paths"].keys())): doc for doc in dup_docs}
+    assert dup_docs_by_paths.get(("a.txt", "b.txt"))
+    assert dup_docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
+
+    uniq_docs_by_paths = {
+        tuple(sorted(doc["paths"].keys())): doc for doc in unique_docs
+    }
+    assert uniq_docs_by_paths.get(("c.txt",))
+    assert uniq_docs_by_paths[("c.txt",)]["copies"] == 1
