@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 import urllib.request
 
+from features.F2 import duplicate_finder
+
 
 def _search_meili(filter_expr: str) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
@@ -124,6 +126,9 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     assert set(docs_by_paths) == {("a.txt", "b.txt"), ("c.txt",)}
     uniq_doc = docs_by_paths[("c.txt",)]
     file_id = uniq_doc["id"]
+    input_dir = workdir / "input"
+    expected_hash = duplicate_finder.compute_hash(input_dir / "c.txt")
+    assert file_id == expected_hash
     mtime_val = uniq_doc["mtime"]
 
     link_a = by_path_dir / "a.txt"
@@ -144,7 +149,11 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     assert uniq_docs_by_paths[("c.txt",)]["copies"] == 1
 
     assert any(doc["id"] == file_id for doc in _search_meili(f'id = "{file_id}"'))
-    assert any(doc["id"] == file_id for doc in _search_meili('paths = "c.txt"'))
+    assert any(doc["id"] == file_id for doc in _search_meili('"c.txt" IN paths'))
     assert any(doc["id"] == file_id for doc in _search_meili(f"mtime = {mtime_val}"))
     assert any(doc["id"] == file_id for doc in _search_meili('type = "text/plain"'))
     assert any(doc["id"] == file_id for doc in _search_meili("copies = 1"))
+
+    py_docs = _search_meili('type = "text/x-python"')
+    assert len(py_docs) == 1
+    assert "__init__.py" in py_docs[0]["paths"]
