@@ -16,6 +16,5 @@ ruff check .
 mypy --ignore-missing-imports --explicit-package-bases packages tests || true
 mypy --ignore-missing-imports --strict --explicit-package-bases features/F1
 mypy --ignore-missing-imports --strict --explicit-package-bases features/F2
-mypy --ignore-missing-imports --strict --explicit-package-bases features/F3
 mypy --ignore-missing-imports --strict --explicit-package-bases features/F4
 pytest -q

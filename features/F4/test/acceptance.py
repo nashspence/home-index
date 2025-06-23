@@ -7,12 +7,12 @@ from typing import Any
 import urllib.request
 
 
-def _search_meili(copies: int) -> list[dict[str, Any]]:
-    """Return documents filtered by ``copies`` from Meilisearch."""
+def _search_meili(filter_expr: str) -> list[dict[str, Any]]:
+    """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + 30
     while True:
         try:
-            data = json.dumps({"q": "", "filter": f"copies = {copies}"}).encode()
+            data = json.dumps({"q": "", "filter": filter_expr}).encode()
             req = urllib.request.Request(
                 "http://localhost:7700/indexes/files/search",
                 data=data,
@@ -58,8 +58,8 @@ def _run_once(
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for metadata")
         by_path_dir = output_dir / "metadata" / "by-path"
-        dup_docs = _search_meili(2)
-        unique_docs = _search_meili(1)
+        dup_docs = _search_meili("copies = 2")
+        unique_docs = _search_meili("copies = 1")
         subprocess.run(
             [
                 "docker",

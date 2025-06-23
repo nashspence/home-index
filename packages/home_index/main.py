@@ -85,8 +85,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from features.F1 import scheduler
-from features.F2 import metadata_store
-from features.F3 import path_links
+from features.F2 import metadata_store, path_links
 from features.F4 import duplicate_finder
 
 magic_mime = magic.Magic(mime=True)

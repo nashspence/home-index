@@ -3,9 +3,36 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
+import urllib.request
 
 
-def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
+def _search_meili(filter_expr: str) -> list[dict[str, Any]]:
+    """Return documents matching ``filter_expr`` from Meilisearch."""
+    deadline = time.time() + 30
+    while True:
+        try:
+            data = json.dumps({"q": "", "filter": filter_expr}).encode()
+            req = urllib.request.Request(
+                "http://localhost:7700/indexes/files/search",
+                data=data,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req) as resp:
+                payload = json.load(resp)
+            docs = payload.get("hits") or payload.get("results") or []
+            if docs:
+                return list(docs)
+        except Exception:
+            pass
+        if time.time() > deadline:
+            raise AssertionError("Timed out waiting for search results")
+        time.sleep(0.5)
+
+
+def _run_once(
+    compose_file: Path, workdir: Path, output_dir: Path
+) -> tuple[Path, Path, list[dict[str, Any]]]:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -30,6 +57,8 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
                 break
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for metadata")
+        by_path_dir = output_dir / "metadata" / "by-path"
+        unique_docs = _search_meili("copies = 1")
         subprocess.run(
             [
                 "docker",
@@ -41,7 +70,7 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
             check=True,
             cwd=workdir,
         )
-        return by_id_dir
+        return by_id_dir, by_path_dir, unique_docs
     except Exception:
         subprocess.run(
             [
@@ -74,14 +103,29 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
         )
 
 
-def test_metadata_saved_by_id(tmp_path: Path) -> None:
+def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
-    by_id_dir = _run_once(compose_file, workdir, output_dir)
+    by_id_dir, by_path_dir, unique_docs = _run_once(compose_file, workdir, output_dir)
+
     subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
-    assert len(subdirs) >= 2
     docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
-    paths = {p for doc in docs for p in doc["paths"].keys()}
-    assert "hello.txt" in paths
-    assert "goodbye.txt" in paths
+    docs_by_paths = {
+        tuple(sorted(doc["paths"].keys())): doc
+        for doc in docs
+        if tuple(sorted(doc["paths"].keys())) != ("__init__.py",)
+    }
+    uniq_doc = docs_by_paths[("c.txt",)]
+    file_id = uniq_doc["id"]
+    mtime_val = uniq_doc["mtime"]
+
+    link_c = by_path_dir / "c.txt"
+    assert link_c.is_symlink()
+    assert link_c.resolve().name == file_id
+
+    assert any(doc["id"] == file_id for doc in _search_meili(f'id = "{file_id}"'))
+    assert any(doc["id"] == file_id for doc in _search_meili('paths = "c.txt"'))
+    assert any(doc["id"] == file_id for doc in _search_meili(f"mtime = {mtime_val}"))
+    assert any(doc["id"] == file_id for doc in _search_meili('type = "text/plain"'))
+    assert any(doc["id"] == file_id for doc in _search_meili("copies = 1"))
