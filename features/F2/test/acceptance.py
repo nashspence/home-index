@@ -53,6 +53,7 @@ def _search_meili(
         except Exception:
             pass
         if time.time() > deadline:
+            _dump_logs(compose_file, workdir, output_dir)
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
 
