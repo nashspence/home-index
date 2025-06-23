@@ -91,6 +91,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from features.F1 import scheduler
 from features.F2 import metadata_store
+from features.F3 import path_links
 
 # endregion
 # region "config"
@@ -160,10 +161,7 @@ _safe_mkdir(INDEX_DIRECTORY)
 METADATA_DIRECTORY = metadata_store.metadata_directory()
 BY_ID_DIRECTORY = metadata_store.by_id_directory()
 metadata_store.ensure_directories()
-BY_PATH_DIRECTORY = Path(
-    os.environ.get("BY_PATH_DIRECTORY", str(METADATA_DIRECTORY / "by-path"))
-)
-_safe_mkdir(BY_PATH_DIRECTORY)
+path_links.ensure_directories()
 
 ARCHIVE_DIRECTORY = Path(
     os.environ.get("ARCHIVE_DIRECTORY", (INDEX_DIRECTORY / "archive").as_posix())
@@ -865,30 +863,14 @@ def update_metadata(
     def handle_deleted_relpath(relpath):
         metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
         by_id_path = BY_ID_DIRECTORY / metadata_doc["id"]
-        by_path_path = BY_PATH_DIRECTORY / relpath
         if metadata_doc["id"] not in files_docs_by_hash and by_id_path.exists():
             shutil.rmtree(by_id_path)
-        if by_path_path.is_symlink():
-            by_path_path.unlink()
-        if (
-            by_path_path.parent
-            and by_path_path.parent != BY_PATH_DIRECTORY
-            and by_path_path.parent.exists()
-        ):
-            total_count = len(list(by_path_path.parent.iterdir()))
-            if total_count == 0:
-                shutil.rmtree(by_path_path.parent)
+        path_links.unlink_path(relpath)
 
     def handle_upserted_doc(doc):
-        by_id_path = BY_ID_DIRECTORY / doc["id"]
         write_doc_json(doc)
         for relpath in doc["paths"].keys():
-            by_path_path = BY_PATH_DIRECTORY / relpath
-            by_path_path.parent.mkdir(parents=True, exist_ok=True)
-            if by_path_path.is_symlink():
-                by_path_path.unlink()
-            relative_target = os.path.relpath(by_id_path, by_path_path.parent)
-            by_path_path.symlink_to(relative_target, target_is_directory=True)
+            path_links.link_path(relpath, doc["id"])
 
     if deleted_relpaths:
         files_logger.info(f" * delete {len(deleted_relpaths)} metadata paths")

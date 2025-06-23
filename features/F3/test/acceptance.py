@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 
-def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
+def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[Path, Path]:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -41,7 +41,8 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
             check=True,
             cwd=workdir,
         )
-        return by_id_dir
+        by_path_dir = output_dir / "metadata" / "by-path"
+        return by_id_dir, by_path_dir
     finally:
         subprocess.run(
             [
@@ -57,14 +58,14 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> Path:
         )
 
 
-def test_metadata_saved_by_id(tmp_path: Path) -> None:
+def test_paths_linked_to_metadata(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
-    by_id_dir = _run_once(compose_file, workdir, output_dir)
-    subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
-    assert len(subdirs) >= 2
-    docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
-    paths = {p for doc in docs for p in doc["paths"].keys()}
-    assert "hello.txt" in paths
-    assert "goodbye.txt" in paths
+    by_id_dir, by_path_dir = _run_once(compose_file, workdir, output_dir)
+    for doc_dir in [d for d in by_id_dir.iterdir() if d.is_dir()]:
+        doc = json.loads((doc_dir / "document.json").read_text())
+        for relpath in doc["paths"].keys():
+            link = by_path_dir / relpath
+            assert link.is_symlink()
+            assert link.resolve() == doc_dir.resolve()
