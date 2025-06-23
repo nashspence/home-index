@@ -1,16 +1,45 @@
 import json
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 import urllib.request
-import sys
 
 from features.F2 import duplicate_finder
 
 
-def _search_meili(filter_expr: str, timeout: int = 60) -> list[dict[str, Any]]:
+def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
+    """Print container logs and the files.log helper."""
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "logs",
+            "--no-color",
+        ],
+        cwd=workdir,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    print(result.stdout)
+    if (output_dir / "files.log").exists():
+        print("--- files.log ---")
+        print((output_dir / "files.log").read_text())
+    sys.stdout.flush()
+
+
+def _search_meili(
+    filter_expr: str,
+    compose_file: Path,
+    workdir: Path,
+    output_dir: Path,
+    timeout: int = 60,
+) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + timeout
     while True:
@@ -29,6 +58,7 @@ def _search_meili(filter_expr: str, timeout: int = 60) -> list[dict[str, Any]]:
         except Exception:
             pass
         if time.time() > deadline:
+            _dump_logs(compose_file, workdir, output_dir)
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
 
@@ -61,8 +91,8 @@ def _run_once(
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for metadata")
         by_path_dir = output_dir / "metadata" / "by-path"
-        dup_docs = _search_meili("copies = 2")
-        unique_docs = _search_meili("copies = 1")
+        dup_docs = _search_meili("copies = 2", compose_file, workdir, output_dir)
+        unique_docs = _search_meili("copies = 1", compose_file, workdir, output_dir)
         assert len(dup_docs) == 1
         assert len(unique_docs) == 1
         subprocess.run(
@@ -78,22 +108,7 @@ def _run_once(
         )
         return by_id_dir, by_path_dir, dup_docs, unique_docs
     except Exception:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(compose_file),
-                "logs",
-                "--no-color",
-            ],
-            check=False,
-            cwd=workdir,
-        )
-        if (output_dir / "files.log").exists():
-            print("--- files.log ---")
-            print((output_dir / "files.log").read_text())
-            sys.stdout.flush()
+        _dump_logs(compose_file, workdir, output_dir)
         raise
     finally:
         subprocess.run(
@@ -150,8 +165,27 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     assert uniq_docs_by_paths.get(("c.txt",))
     assert uniq_docs_by_paths[("c.txt",)]["copies"] == 1
 
-    assert any(doc["id"] == file_id for doc in _search_meili(f'id = "{file_id}"'))
-    assert any(doc["id"] == file_id for doc in _search_meili('"c.txt" IN paths'))
-    assert any(doc["id"] == file_id for doc in _search_meili(f"mtime = {mtime_val}"))
-    assert any(doc["id"] == file_id for doc in _search_meili('type = "text/plain"'))
-    assert any(doc["id"] == file_id for doc in _search_meili("copies = 1"))
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili(f'id = "{file_id}"', compose_file, workdir, output_dir)
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili('"c.txt" IN paths', compose_file, workdir, output_dir)
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili(
+            f"mtime = {mtime_val}", compose_file, workdir, output_dir
+        )
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili(
+            'type = "text/plain"', compose_file, workdir, output_dir
+        )
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili("copies = 1", compose_file, workdir, output_dir)
+    )
