@@ -43,6 +43,23 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[Path
         )
         by_path_dir = output_dir / "metadata" / "by-path"
         return by_id_dir, by_path_dir
+    except Exception:
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "logs",
+                "--no-color",
+            ],
+            check=False,
+            cwd=workdir,
+        )
+        if (output_dir / "files.log").exists():
+            print("--- files.log ---")
+            print((output_dir / "files.log").read_text())
+        raise
     finally:
         subprocess.run(
             [

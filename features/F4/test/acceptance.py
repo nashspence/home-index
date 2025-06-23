@@ -57,6 +57,9 @@ def _run_once(
                 break
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for metadata")
+        by_path_dir = output_dir / "metadata" / "by-path"
+        dup_docs = _search_meili(2)
+        unique_docs = _search_meili(1)
         subprocess.run(
             [
                 "docker",
@@ -68,10 +71,24 @@ def _run_once(
             check=True,
             cwd=workdir,
         )
-        by_path_dir = output_dir / "metadata" / "by-path"
-        dup_docs = _search_meili(2)
-        unique_docs = _search_meili(1)
         return by_id_dir, by_path_dir, dup_docs, unique_docs
+    except Exception:
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "logs",
+                "--no-color",
+            ],
+            check=False,
+            cwd=workdir,
+        )
+        if (output_dir / "files.log").exists():
+            print("--- files.log ---")
+            print((output_dir / "files.log").read_text())
+        raise
     finally:
         subprocess.run(
             [
