@@ -10,7 +10,7 @@ import sys
 from features.F2 import duplicate_finder
 
 
-def _search_meili(filter_expr: str, timeout: int = 120) -> list[dict[str, Any]]:
+def _search_meili(filter_expr: str, timeout: int = 60) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + timeout
     while True:
@@ -78,7 +78,7 @@ def _run_once(
         )
         return by_id_dir, by_path_dir, dup_docs, unique_docs
     except Exception:
-        result = subprocess.run(
+        subprocess.run(
             [
                 "docker",
                 "compose",
@@ -89,12 +89,7 @@ def _run_once(
             ],
             check=False,
             cwd=workdir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
         )
-        print(result.stdout)
-        sys.stdout.flush()
         if (output_dir / "files.log").exists():
             print("--- files.log ---")
             print((output_dir / "files.log").read_text())
