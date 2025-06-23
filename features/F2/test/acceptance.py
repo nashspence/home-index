@@ -60,6 +60,8 @@ def _run_once(
         by_path_dir = output_dir / "metadata" / "by-path"
         dup_docs = _search_meili("copies = 2")
         unique_docs = _search_meili("copies = 1")
+        assert len(dup_docs) == 1
+        assert len(unique_docs) == 1
         subprocess.run(
             [
                 "docker",
