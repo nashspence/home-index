@@ -391,6 +391,7 @@ async def init_meili():
         "size",
         "next",
         "type",
+        "copies",
     ] + list(chain(*[hello["filterable_attributes"] for hello in hellos]))
 
     try:
@@ -403,6 +404,7 @@ async def init_meili():
                 "size",
                 "next",
                 "type",
+                "copies",
             ]
             + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
         )
