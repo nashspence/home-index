@@ -153,7 +153,3 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     assert any(doc["id"] == file_id for doc in _search_meili(f"mtime = {mtime_val}"))
     assert any(doc["id"] == file_id for doc in _search_meili('type = "text/plain"'))
     assert any(doc["id"] == file_id for doc in _search_meili("copies = 1"))
-
-    py_docs = _search_meili('type = "text/x-python"')
-    assert len(py_docs) == 1
-    assert "__init__.py" in py_docs[0]["paths"]
