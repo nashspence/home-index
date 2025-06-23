@@ -11,7 +11,12 @@ from features.F2 import duplicate_finder
 
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Print compose logs and ``files.log`` if available."""
+    """Stop containers and print compose logs and ``files.log`` if available."""
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "stop"],
+        cwd=workdir,
+        check=False,
+    )
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
         cwd=workdir,
