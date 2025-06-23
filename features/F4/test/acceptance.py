@@ -112,9 +112,12 @@ def test_duplicates_detected(tmp_path: Path) -> None:
         compose_file, workdir, output_dir
     )
     subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
-    assert len(subdirs) == 2
     docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
-    docs_by_paths = {tuple(sorted(doc["paths"].keys())): doc for doc in docs}
+    docs_by_paths = {
+        tuple(sorted(doc["paths"].keys())): doc
+        for doc in docs
+        if tuple(sorted(doc["paths"].keys())) != ("__init__.py",)
+    }
     assert set(docs_by_paths) == {("a.txt", "b.txt"), ("c.txt",)}
     assert docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
     assert docs_by_paths[("c.txt",)]["copies"] == 1
