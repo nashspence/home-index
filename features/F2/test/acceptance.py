@@ -32,7 +32,7 @@ def _search_meili(filter_expr: str) -> list[dict[str, Any]]:
 
 def _run_once(
     compose_file: Path, workdir: Path, output_dir: Path
-) -> tuple[Path, Path, list[dict[str, Any]]]:
+) -> tuple[Path, Path, list[dict[str, Any]], list[dict[str, Any]]]:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -58,6 +58,7 @@ def _run_once(
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for metadata")
         by_path_dir = output_dir / "metadata" / "by-path"
+        dup_docs = _search_meili("copies = 2")
         unique_docs = _search_meili("copies = 1")
         subprocess.run(
             [
@@ -70,7 +71,7 @@ def _run_once(
             check=True,
             cwd=workdir,
         )
-        return by_id_dir, by_path_dir, unique_docs
+        return by_id_dir, by_path_dir, dup_docs, unique_docs
     except Exception:
         subprocess.run(
             [
@@ -107,7 +108,9 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
-    by_id_dir, by_path_dir, unique_docs = _run_once(compose_file, workdir, output_dir)
+    by_id_dir, by_path_dir, dup_docs, unique_docs = _run_once(
+        compose_file, workdir, output_dir
+    )
 
     subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
     docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
@@ -116,13 +119,27 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         for doc in docs
         if tuple(sorted(doc["paths"].keys())) != ("__init__.py",)
     }
+    assert set(docs_by_paths) == {("a.txt", "b.txt"), ("c.txt",)}
     uniq_doc = docs_by_paths[("c.txt",)]
     file_id = uniq_doc["id"]
     mtime_val = uniq_doc["mtime"]
 
+    link_a = by_path_dir / "a.txt"
+    link_b = by_path_dir / "b.txt"
     link_c = by_path_dir / "c.txt"
-    assert link_c.is_symlink()
+    assert link_a.is_symlink() and link_b.is_symlink() and link_c.is_symlink()
+    assert link_a.resolve() == link_b.resolve()
     assert link_c.resolve().name == file_id
+
+    dup_docs_by_paths = {tuple(sorted(doc["paths"].keys())): doc for doc in dup_docs}
+    assert dup_docs_by_paths.get(("a.txt", "b.txt"))
+    assert dup_docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
+
+    uniq_docs_by_paths = {
+        tuple(sorted(doc["paths"].keys())): doc for doc in unique_docs
+    }
+    assert uniq_docs_by_paths.get(("c.txt",))
+    assert uniq_docs_by_paths[("c.txt",)]["copies"] == 1
 
     assert any(doc["id"] == file_id for doc in _search_meili(f'id = "{file_id}"'))
     assert any(doc["id"] == file_id for doc in _search_meili('paths = "c.txt"'))
