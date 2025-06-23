@@ -11,22 +11,42 @@ from features.F2 import duplicate_finder
 
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Print container logs and the files.log helper."""
-    result = subprocess.run(
+    """Print logs for all compose services and ``files.log``."""
+    ps = subprocess.run(
         [
             "docker",
             "compose",
             "-f",
             str(compose_file),
-            "logs",
-            "--no-color",
+            "ps",
+            "--services",
         ],
         cwd=workdir,
         text=True,
         capture_output=True,
         check=False,
     )
-    print(result.stdout)
+    services = [s for s in ps.stdout.split() if s]
+    for service in services:
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "logs",
+                "--no-color",
+                service,
+            ],
+            cwd=workdir,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        print(f"--- logs for {service} ---")
+        print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
     if (output_dir / "files.log").exists():
         print("--- files.log ---")
         print((output_dir / "files.log").read_text())
