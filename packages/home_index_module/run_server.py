@@ -1,9 +1,11 @@
+import json
 import logging
 import os
-import json
-from xmlrpc.server import SimpleXMLRPCServer
 from contextlib import contextmanager
 from pathlib import Path
+from xmlrpc.server import SimpleXMLRPCServer
+
+from features.F2 import metadata_store
 
 
 def setup_debugger():
@@ -28,11 +30,10 @@ logging.basicConfig(
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
-METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
+METADATA_DIRECTORY = metadata_store.metadata_directory()
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
-BY_ID_DIRECTORY = Path(
-    os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
-)
+BY_ID_DIRECTORY = metadata_store.by_id_directory()
+metadata_store.ensure_directories()
 
 
 def file_path_from_meili_doc(document):
@@ -155,9 +156,9 @@ def split_chunk_docs(
 ):
     """Return ``chunk_docs`` split by tokens using ``langchain`` utilities."""
     try:
-        from transformers import AutoTokenizer
         from langchain_core.documents import Document
         from langchain_text_splitters import TokenTextSplitter
+        from transformers import AutoTokenizer
     except Exception as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("langchain is required for split_chunk_docs") from exc
 

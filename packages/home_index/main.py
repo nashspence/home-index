@@ -61,26 +61,26 @@ files_logger.addHandler(file_handler)
 
 import asyncio
 import json
+import mimetypes
 import shutil
 import time
-import mimetypes
-import xxhash
 
 import magic
+import xxhash
 
 # Initialize a single magic.Magic instance for MIME type detection
 magic_mime = magic.Magic(mime=True)
 import copy
 import math
-from xmlrpc.client import ServerProxy, Fault
-from apscheduler.schedulers.background import BackgroundScheduler
-from multiprocessing import Process
-from itertools import chain
-from meilisearch_python_sdk import AsyncClient
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from multiprocessing import Manager
 import sys
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from itertools import chain
+from multiprocessing import Manager, Process
+from pathlib import Path
+from xmlrpc.client import Fault, ServerProxy
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from meilisearch_python_sdk import AsyncClient
 
 # Ensure the 'features' package is importable regardless of install location.
 PROJECT_ROOT = Path(__file__).resolve()
@@ -89,8 +89,8 @@ while not (PROJECT_ROOT / "features").exists() and PROJECT_ROOT.parent != PROJEC
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from features.F1 import scheduler as F1_scheduler
-
+from features.F1 import scheduler
+from features.F2 import metadata_store
 
 # endregion
 # region "config"
@@ -157,12 +157,9 @@ def _safe_mkdir(path: Path) -> None:
 
 _safe_mkdir(INDEX_DIRECTORY)
 
-METADATA_DIRECTORY = Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
-_safe_mkdir(METADATA_DIRECTORY)
-BY_ID_DIRECTORY = Path(
-    os.environ.get("BY_ID_DIRECTORY", str(METADATA_DIRECTORY / "by-id"))
-)
-_safe_mkdir(BY_ID_DIRECTORY)
+METADATA_DIRECTORY = metadata_store.metadata_directory()
+BY_ID_DIRECTORY = metadata_store.by_id_directory()
+metadata_store.ensure_directories()
 BY_PATH_DIRECTORY = Path(
     os.environ.get("BY_PATH_DIRECTORY", str(METADATA_DIRECTORY / "by-path"))
 )
@@ -323,7 +320,7 @@ def parse_cron_env(
     env_var: str = "CRON_EXPRESSION", default: str = "0 3 * * *"
 ) -> dict:
     """Return CronTrigger kwargs for the configured cron expression."""
-    return F1_scheduler.parse_cron_env(env_var=env_var, default=default)
+    return scheduler.parse_cron_env(env_var=env_var, default=default)
 
 
 # endregion
@@ -615,11 +612,8 @@ def is_in_archive_dir(path):
 
 
 def write_doc_json(doc):
-    path = BY_ID_DIRECTORY / doc["id"]
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    with (path / "document.json").open("w") as file:
-        json.dump(doc, file, indent=4, separators=(", ", ": "))
+    """Write ``doc`` via Feature F2 utilities."""
+    metadata_store.write_doc_json(doc)
 
 
 def truncate_mtime(st_mtime):
@@ -1137,10 +1131,10 @@ async def init_meili_and_sync():
 async def main():
 
     await init_meili()
-    scheduler = BackgroundScheduler()
+    sched = BackgroundScheduler()
 
-    F1_scheduler.attach_sync_job(
-        scheduler,
+    scheduler.attach_sync_job(
+        sched,
         DEBUG,
         lambda: run_in_process(init_meili_and_sync),
     )
@@ -1150,7 +1144,7 @@ async def main():
         await init_meili_and_sync()
         save_modules_state()
 
-    scheduler.start()
+    sched.start()
     await run_modules()
 
 
