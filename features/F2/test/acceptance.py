@@ -11,22 +11,17 @@ from features.F2 import duplicate_finder
 
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Stop containers and print all compose logs and ``files.log`` if present."""
+    """Stop containers and print compose and ``files.log`` output."""
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "stop"],
         cwd=workdir,
         check=False,
     )
-    proc = subprocess.run(
+    subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
         cwd=workdir,
         check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
     )
-    if proc.stdout:
-        print(proc.stdout)
     if (output_dir / "files.log").exists():
         print("--- files.log ---")
         print((output_dir / "files.log").read_text())
@@ -58,7 +53,6 @@ def _search_meili(
         except Exception:
             pass
         if time.time() > deadline:
-            _dump_logs(compose_file, workdir, output_dir)
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
 
@@ -129,73 +123,63 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
-    try:
-        by_id_dir, by_path_dir, dup_docs, unique_docs = _run_once(
-            compose_file, workdir, output_dir
-        )
+    by_id_dir, by_path_dir, dup_docs, unique_docs = _run_once(
+        compose_file, workdir, output_dir
+    )
 
-        subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
-        docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
-        docs_by_paths = {
-            tuple(sorted(doc["paths"].keys())): doc
-            for doc in docs
-            if tuple(sorted(doc["paths"].keys())) != ("__init__.py",)
-        }
-        assert set(docs_by_paths) == {("a.txt", "b.txt"), ("c.txt",)}
-        uniq_doc = docs_by_paths[("c.txt",)]
-        file_id = uniq_doc["id"]
-        input_dir = workdir / "input"
-        expected_hash = duplicate_finder.compute_hash(input_dir / "c.txt")
-        assert file_id == expected_hash
-        mtime_val = uniq_doc["mtime"]
+    subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
+    docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
+    docs_by_paths = {
+        tuple(sorted(doc["paths"].keys())): doc
+        for doc in docs
+        if tuple(sorted(doc["paths"].keys())) != ("__init__.py",)
+    }
+    assert set(docs_by_paths) == {("a.txt", "b.txt"), ("c.txt",)}
+    uniq_doc = docs_by_paths[("c.txt",)]
+    file_id = uniq_doc["id"]
+    input_dir = workdir / "input"
+    expected_hash = duplicate_finder.compute_hash(input_dir / "c.txt")
+    assert file_id == expected_hash
+    mtime_val = uniq_doc["mtime"]
 
-        link_a = by_path_dir / "a.txt"
-        link_b = by_path_dir / "b.txt"
-        link_c = by_path_dir / "c.txt"
-        assert link_a.is_symlink() and link_b.is_symlink() and link_c.is_symlink()
-        assert link_a.resolve() == link_b.resolve()
-        assert link_c.resolve().name == file_id
+    link_a = by_path_dir / "a.txt"
+    link_b = by_path_dir / "b.txt"
+    link_c = by_path_dir / "c.txt"
+    assert link_a.is_symlink() and link_b.is_symlink() and link_c.is_symlink()
+    assert link_a.resolve() == link_b.resolve()
+    assert link_c.resolve().name == file_id
 
-        dup_docs_by_paths = {
-            tuple(sorted(doc["paths"].keys())): doc for doc in dup_docs
-        }
-        assert dup_docs_by_paths.get(("a.txt", "b.txt"))
-        assert dup_docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
+    dup_docs_by_paths = {tuple(sorted(doc["paths"].keys())): doc for doc in dup_docs}
+    assert dup_docs_by_paths.get(("a.txt", "b.txt"))
+    assert dup_docs_by_paths[("a.txt", "b.txt")]["copies"] == 2
 
-        uniq_docs_by_paths = {
-            tuple(sorted(doc["paths"].keys())): doc for doc in unique_docs
-        }
-        assert uniq_docs_by_paths.get(("c.txt",))
-        assert uniq_docs_by_paths[("c.txt",)]["copies"] == 1
+    uniq_docs_by_paths = {
+        tuple(sorted(doc["paths"].keys())): doc for doc in unique_docs
+    }
+    assert uniq_docs_by_paths.get(("c.txt",))
+    assert uniq_docs_by_paths[("c.txt",)]["copies"] == 1
 
-        assert any(
-            doc["id"] == file_id
-            for doc in _search_meili(
-                f'id = "{file_id}"', compose_file, workdir, output_dir
-            )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili(f'id = "{file_id}"', compose_file, workdir, output_dir)
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili('"c.txt" IN paths', compose_file, workdir, output_dir)
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili(
+            f"mtime = {mtime_val}", compose_file, workdir, output_dir
         )
-        assert any(
-            doc["id"] == file_id
-            for doc in _search_meili(
-                '"c.txt" IN paths', compose_file, workdir, output_dir
-            )
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili(
+            'type = "text/plain"', compose_file, workdir, output_dir
         )
-        assert any(
-            doc["id"] == file_id
-            for doc in _search_meili(
-                f"mtime = {mtime_val}", compose_file, workdir, output_dir
-            )
-        )
-        assert any(
-            doc["id"] == file_id
-            for doc in _search_meili(
-                'type = "text/plain"', compose_file, workdir, output_dir
-            )
-        )
-        assert any(
-            doc["id"] == file_id
-            for doc in _search_meili("copies = 1", compose_file, workdir, output_dir)
-        )
-    except Exception:
-        _dump_logs(compose_file, workdir, output_dir)
-        raise
+    )
+    assert any(
+        doc["id"] == file_id
+        for doc in _search_meili("copies = 1", compose_file, workdir, output_dir)
+    )
