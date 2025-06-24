@@ -25,7 +25,7 @@ def _search_meili(
     compose_file: Path,
     workdir: Path,
     output_dir: Path,
-    timeout: int = 60,
+    timeout: int = 120,
 ) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + timeout
@@ -70,7 +70,7 @@ def _run_once(
     )
     try:
         by_id_dir = output_dir / "metadata" / "by-id"
-        deadline = time.time() + 90
+        deadline = time.time() + 120
         while True:
             time.sleep(0.5)
             if by_id_dir.exists() and any(by_id_dir.iterdir()):
