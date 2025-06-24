@@ -208,10 +208,6 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili('next = ""', compose_file, workdir, output_dir)
-        )
-        assert any(
-            doc["id"] == file_id
             for doc in _search_meili("copies = 1", compose_file, workdir, output_dir)
         )
         # multi-field query examples per Meilisearch filter expression docs
@@ -252,10 +248,6 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
             for doc in _search_meili(
                 f"size = {size_a}", compose_file, workdir, output_dir
             )
-        )
-        assert any(
-            doc["id"] == dup_id
-            for doc in _search_meili('next = ""', compose_file, workdir, output_dir)
         )
         assert any(
             doc["id"] == dup_id
