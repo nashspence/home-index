@@ -2,7 +2,6 @@ services:
   home-index:
     image: ${IMAGE}
     environment:
-      - CRON_EXPRESSION=* * * * * *
       - METADATA_DIRECTORY=/home-index/metadata
     volumes:
       - ./input:/files:ro
