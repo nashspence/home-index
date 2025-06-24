@@ -5,7 +5,13 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Mapping, Any
+from typing import MutableMapping, Any
+
+
+def _add_paths_list(doc: MutableMapping[str, Any]) -> None:
+    """Populate ``paths_list`` and update the schema version."""
+    doc["paths_list"] = sorted(doc.get("paths", {}).keys())
+    doc["version"] = 1
 
 
 def metadata_directory() -> Path:
@@ -24,8 +30,11 @@ def ensure_directories() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
-def write_doc_json(doc: Mapping[str, Any]) -> None:
+def write_doc_json(doc: MutableMapping[str, Any]) -> None:
     """Write ``doc`` as JSON under ``BY_ID_DIRECTORY``."""
+    from home_index import main as hi
+
+    hi.migrate_doc(doc)
     ensure_directories()
     target_dir = by_id_directory() / str(doc["id"])
     target_dir.mkdir(parents=True, exist_ok=True)

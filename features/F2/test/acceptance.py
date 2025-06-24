@@ -8,6 +8,7 @@ from typing import Any
 import urllib.request
 
 from features.F2 import duplicate_finder
+from features.F2.test.migration_helper import simulate_v0_and_rerun
 
 
 def _stat_info(path: Path) -> tuple[int, float, str]:
@@ -36,12 +37,13 @@ def _search_meili(
     workdir: Path,
     output_dir: Path,
     timeout: int = 120,
+    q: str = "",
 ) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + timeout
     while True:
         try:
-            data = json.dumps({"q": "", "filter": filter_expr}).encode()
+            data = json.dumps({"q": q, "filter": filter_expr}).encode()
             req = urllib.request.Request(
                 "http://localhost:7700/indexes/files/search",
                 data=data,
@@ -106,6 +108,36 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[
         raise
 
 
+def _run_again(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[
+    Path,
+    Path,
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        check=True,
+        cwd=workdir,
+    )
+    try:
+        by_id_dir = output_dir / "metadata" / "by-id"
+        deadline = time.time() + 120
+        while True:
+            time.sleep(0.5)
+            if by_id_dir.exists() and any(by_id_dir.iterdir()):
+                break
+            if time.time() > deadline:
+                raise AssertionError("Timed out waiting for metadata")
+        by_path_dir = output_dir / "metadata" / "by-path"
+        dup_docs = _search_meili("copies = 2", compose_file, workdir, output_dir)
+        unique_docs = _search_meili("copies = 1", compose_file, workdir, output_dir)
+        assert len(dup_docs) == 1
+        assert len(unique_docs) == 1
+        return by_id_dir, by_path_dir, dup_docs, unique_docs
+    except Exception:
+        raise
+
+
 def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
@@ -140,6 +172,7 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         size_c, mtime_c, hash_c = info["c.txt"]
         assert uniq_doc["size"] == size_c
         assert uniq_doc["paths"] == {"c.txt": mtime_c}
+        assert uniq_doc["paths_list"] == ["c.txt"]
         assert uniq_doc["copies"] == 1
         assert uniq_doc["mtime"] == mtime_c
 
@@ -149,6 +182,7 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert dup_doc["id"] == hash_a
         assert dup_doc["size"] == size_a
         assert dup_doc["paths"] == {"a.txt": mtime_a, "b.txt": mtime_b}
+        assert sorted(dup_doc["paths_list"]) == ["a.txt", "b.txt"]
         assert dup_doc["copies"] == 2
         assert dup_doc["mtime"] == max(mtime_a, mtime_b)
 
@@ -180,10 +214,20 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert any(
             doc["id"] == file_id
             for doc in _search_meili(
-                "paths.c.txt EXISTS",
+                'paths_list = "c.txt"',
                 compose_file,
                 workdir,
                 output_dir,
+            )
+        )
+        assert any(
+            doc["id"] == file_id
+            for doc in _search_meili(
+                "",
+                compose_file,
+                workdir,
+                output_dir,
+                q="c.txt",
             )
         )
         assert any(
@@ -221,7 +265,7 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert any(
             doc["id"] == file_id
             for doc in _search_meili(
-                'type = "text/plain" AND paths.c.txt EXISTS',
+                'type = "text/plain" AND paths_list = "c.txt"',
                 compose_file,
                 workdir,
                 output_dir,
@@ -238,7 +282,10 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert any(
             doc["id"] == dup_id
             for doc in _search_meili(
-                "paths.a.txt EXISTS", compose_file, workdir, output_dir
+                'paths_list = "a.txt"',
+                compose_file,
+                workdir,
+                output_dir,
             )
         )
         assert any(
@@ -255,6 +302,18 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
                 workdir,
                 output_dir,
             )
+        )
+
+        (
+            by_id_dir,
+            by_path_dir,
+            dup_docs,
+            unique_docs,
+        ) = simulate_v0_and_rerun(
+            compose_file,
+            workdir,
+            output_dir,
+            _run_again,
         )
     except Exception:
         _dump_logs(compose_file, workdir, output_dir)
