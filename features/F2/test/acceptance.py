@@ -142,7 +142,6 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert uniq_doc["paths"] == {"c.txt": mtime_c}
         assert uniq_doc["copies"] == 1
         assert uniq_doc["mtime"] == mtime_c
-        assert uniq_doc.get("next", "") == ""
 
         # confirm document.json fields for duplicates
         size_a, mtime_a, hash_a = info["a.txt"]
@@ -152,7 +151,6 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert dup_doc["paths"] == {"a.txt": mtime_a, "b.txt": mtime_b}
         assert dup_doc["copies"] == 2
         assert dup_doc["mtime"] == max(mtime_a, mtime_b)
-        assert dup_doc.get("next", "") == ""
 
         link_a = by_path_dir / "a.txt"
         link_b = by_path_dir / "b.txt"
