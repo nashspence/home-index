@@ -50,6 +50,7 @@ def _run_once(
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
+    (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
     env_file.write_text(f"CRON_EXPRESSION={cron}\n")
 
     subprocess.run(
@@ -116,9 +117,6 @@ def _run_once(
             check=False,
             cwd=workdir,
         )
-        if (output_dir / "files.log").exists():
-            print("--- files.log ---")
-            print((output_dir / "files.log").read_text())
         raise
     finally:
         subprocess.run(

@@ -311,7 +311,7 @@ def save_modules_state():
 
 
 def parse_cron_env(
-    env_var: str = "CRON_EXPRESSION", default: str = "0 3 * * *"
+    env_var: str = "CRON_EXPRESSION", default: str = "0 2 * * *"
 ) -> dict:
     """Return CronTrigger kwargs for the configured cron expression."""
     return scheduler.parse_cron_env(env_var=env_var, default=default)
@@ -384,6 +384,7 @@ async def init_meili():
         logging.exception("meili update chunk vector settings failed")
 
     filterable_attributes = [
+        "id",
         "mtime",
         "paths",
         "size",
@@ -406,6 +407,7 @@ async def init_meili():
             ]
             + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
         )
+        await wait_for_meili_idle()
     except Exception:
         logging.exception("meili update index attrs failed")
         raise
@@ -1089,7 +1091,7 @@ async def init_meili_and_sync():
 
 async def main():
 
-    await init_meili()
+    await init_meili_and_sync()
     sched = BackgroundScheduler()
 
     scheduler.attach_sync_job(

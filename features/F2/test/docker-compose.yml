@@ -2,7 +2,6 @@ services:
   home-index:
     image: ${IMAGE}
     environment:
-      - CRON_EXPRESSION=* * * * * *
       - METADATA_DIRECTORY=/home-index/metadata
     volumes:
       - ./input:/files:ro
@@ -13,6 +12,7 @@ services:
     image: getmeili/meilisearch:v1.15.2
     environment:
       - MEILI_NO_ANALYTICS=true
+      - MEILI_LOG_LEVEL=warn
     volumes:
       - ./output/meili:/meili_data
     ports:

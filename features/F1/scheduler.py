@@ -9,7 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 
 def parse_cron_env(
-    env_var: str = "CRON_EXPRESSION", default: str = "0 3 * * *"
+    env_var: str = "CRON_EXPRESSION", default: str = "0 2 * * *"
 ) -> Dict[str, str]:
     """Return CronTrigger kwargs from the CRON_EXPRESSION environment variable."""
     cron_expression = os.getenv(env_var, default)
