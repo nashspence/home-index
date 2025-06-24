@@ -11,7 +11,7 @@ from features.F2 import duplicate_finder
 
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Print container logs and ``files.log`` if it exists."""
+    """Print logs from all compose containers."""
     result = subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
         cwd=workdir,
@@ -23,9 +23,6 @@ def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
         print(result.stdout)
     if result.stderr:
         print(result.stderr)
-    if (output_dir / "files.log").exists():
-        print("--- files.log ---")
-        print((output_dir / "files.log").read_text())
     sys.stdout.flush()
 
 
