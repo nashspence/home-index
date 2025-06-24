@@ -407,6 +407,7 @@ async def init_meili():
             ]
             + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
         )
+        await wait_for_meili_idle()
     except Exception:
         logging.exception("meili update index attrs failed")
         raise
