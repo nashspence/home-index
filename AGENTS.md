@@ -1,169 +1,188 @@
-## 1 Principles
+## INDEX
 
-### 1.1 Hard Prohibitions
-- **NEVER** deviate from §6.1 Handling a Prompt.
-- **NEVER** build dev- or release-containers, run acceptance tests, or `pip install -r requirements.txt` *locally*.  
-- Work only with the libraries you need (run unit tests if present), then **push** and rely on CI.
+```
+S0_HARD_PROHIBITIONS
+S1_PROMPT_CLASSIFICATION_AND_FLOW
+S2_REPOSITORY_ARTIFACTS_REFERENCE
+S3_TESTING
+S4_DEVELOPMENT_ENVIRONMENT
+S5_MAINTENANCE_PASS
+S6_PUSH_CI_RELEASE
+S7_OPEN_PR
+```
 
 ---
 
-## 2 Repository Layout
+## S0\_HARD\_PROHIBITIONS
+
+* MUST\_NOT deviate from S1\_PROMPT\_CLASSIFICATION\_AND\_FLOW.
+* MUST\_NOT build dev‑ or release‑containers, run acceptance tests, or `pip install -r requirements.txt` locally.
+* Work only with required libraries, run unit tests if present, then PUSH and rely on CI.
+
+---
+
+## S1\_PROMPT\_CLASSIFICATION\_AND\_FLOW
+
+Input prompt MUST be classified into exactly ONE of the categories, then the matching workflow MUST be executed in order.
+
+```
+CATEGORIES:
+  GOAL_WORK
+  FEATURE_WORK
+  MAINTENANCE_WORK
+  UNCLEAR
+```
+
+### S1.1\_GOAL\_WORK  ("Add new user goal", "Change Features list")
+
+1. Deep‑scan repo → ensure every Fx is a minimal vertical slice covering 100 % of code and stated exactly "I want …" (see S2.1).
+2. Update Features list in README.md.
+3. Update Planned\_Maintenance in README.md (S5.2).
+4. PUSH, open PR.
+
+### S1.2\_FEATURE\_WORK  ("Fix bug on F1", "Implement F2")
+
+1. Edit / add acceptance tests (unit tests optional) S3.1.
+2. Implement / fix code.
+3. Run MAINTENANCE\_PASS S5.
+4. Run `agents-check.sh`; resolve all issues S4.1.
+5. Update docs `docs/Fx.md` S2.2.
+6. Refresh Planned\_Maintenance S5.2.
+7. PUSH, open PR.
+
+### S1.3\_MAINTENANCE\_WORK  ("Refactor repo", "Do maintenance")
+
+1. If Planned\_Maintenance not empty → pick & resolve ONE item; else deep‑scan repo, create tasks, resolve ONE.
+2. Run `agents-check.sh`; fix issues S4.1.
+3. Update Planned\_Maintenance S5.2.
+4. PUSH, open PR.
+
+### S1.4\_UNCLEAR
+
+Ask clarifying questions. DO\_NOT open PR.
+
+---
+
+## S2\_REPOSITORY\_ARTIFACTS\_REFERENCE
+
+### S2.1\_FEATURES\_LIST
+
+* Location: README.md → Features section.
+* Format: `Fx  "I want …"` (technology‑agnostic).
+* List MUST  describe a consistent, domain‑aware user.
+* Each entry links to `docs/Fx.md`.
+
+### S2.2\_FEATURE\_DOCUMENTATION
+
+* One markdown file per feature in `docs/`, named `Fx.md`.
+* Conform exactly to https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md.
+* Write only after an acceptance test exists (S3.1).
+
+### S2.3\_REPOSITORY\_LAYOUT
+
 ```text
 repo/
-├── features/                    # F1, F2, … (each with tests)
-│   └── F?/test/                 # acceptance tests
-│       └── docker-compose.yml
-├── shared/                      # cross-feature code
-├── tests/                       # unit tests (optional)
-├── .devcontainer/
-│   ├── Dockerfile.devcontainer
-│   ├── devcontainer.json
-│   ├── docker-compose.yml
-│   └── postStart.sh
-├── .github/workflows/
-│   ├── test.yml                 # CI
-│   └── release.yml              # Docker image release
-├── Dockerfile                   # release build
-├── docker-compose.yml           # release runtime
+├── features/ F1,F2,…
+│   └── F?/test/docker-compose.yml
+├── shared/
+├── tests/
+├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh)
+├── .github/workflows/(test.yml, release.yml)
+├── Dockerfile
+├── docker-compose.yml
 ├── agents-check.sh
-├── check.sh                     # lint / format **+ unit tests**
+├── check.sh
 └── README.md
-````
+```
 
 ---
 
-## 3 Features
+## S3\_TESTING
 
-### 3.1 Canonical List
-* Listed under `Features` in README.md.
-* Each feature has an **Fx** designation - ex. F1 - and a title that is a concise *user goal* in the form **“I want …”** - ex. F1 "I want to preview my work before commit.". Together, goals should describe a *consistent, informed, domain-aware user*.
-* **NEVER** encode implementation details in user goals - keep them highly abstract from underlying techology.
-* Each user goal must map to a thin vertical slice of application code - a Minimum Viable Feature (MVF).
-* Links to static documentation (§3.2).
+### S3.1\_ACCEPTANCE\_TESTS
 
-### 3.2 Feature Documentation
+* ONE `features/Fx/test/docker-compose.yml` per feature.
+* Vary scenarios via env vars + input files; keep all inputs/outputs in test dir.
+* Assert exact user‑facing output (logs, UI, API, exit codes).
+* Test script starts & stops `<repo>:ci` via compose.
+* On failure output test logs + relevant release‑env container logs.
 
-In `docs` directory, one file per feature. Conform **exactly** to the structure and content in this example [`docs/F1`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md). **Always** write these based off of an existing acceptance test. (§4.1)
+### S3.2\_UNIT\_TESTS (optional)
 
----
+* Location: tests/.
+* Executed by `check.sh` inside dev container (local & CI).
+* Mock / stub / dummy everything except (a) code under test (b) Python built‑ins.
 
-## 4 Testing
+### S3.3\_CONTINUOUS\_INTEGRATION
 
-### 4.1 Acceptance Tests
+* Workflow file: .github/workflows/test.yml.
+* Reference https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/test.yml.
 
-* One `features/Fx/test/docker-compose.yml` per feature.
-* Vary scenarios via **env vars** + **input files**; the test directory must contain **all inputs and capture all outputs**.
-* Assert **EXACT user-facing output** (UI state, API responses, CLI logs, exit codes).
-* Each test script **starts and stops** `<repo>:ci` via its compose file.
-* On failure, **MUST** output all relevant release env container logs in addition to test failure logs.
+### S3.4\_TEST\_ENVIRONMENT
 
-### 4.2 Unit Tests (optional)
-
-* Located in `tests/`.
-* Executed by **`check.sh` inside the dev container** (local & CI).
-* **Mock / stub / dummy everything** except (a) code under test and (b) Python built-ins.
-
-### 4.3 Continuous Integration
-
-Infer from this example [`.github/workflows/test.yml`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/test.yml).
-
-### 4.4 Test Environment
-
-See §6.4.
+* All tests run in dev‑container image S4.2.
 
 ---
 
-## 5 Release
+## S4\_DEVELOPMENT\_ENVIRONMENT
 
-### 5.1 Workflow
+### S4.1\_STYLE\_AND\_LINTING
 
-Infer from this example [`.github/workflows/release.yml`](https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/release.yml).
+* `check.sh` runs formatters, linters, type‑checkers + unit tests.
+* `agents-check.sh` installs deps then calls `check.sh`; MUST run before every push.
+* Strict toolchain: ruff, mypy, black, isort, TypeScript(strict)+ESLint+Prettier.
 
-### 5.2 Release Environment
+### S4.2\_DEV\_CONTAINER
 
-* Maintain root-level **Dockerfile** and **docker-compose.yml**.
-* Follow Docker best practices; keep images lean and secure.
+* Location: .devcontainer/; base image `cruizba/ubuntu-dind`.
+
+### S4.3\_DEPENDENCIES
+
+* Avoid manifest files.
+* Dev deps → install via venv in postStart.sh.
+* Runtime deps → install in root-level Dockerfile.
+* Remove unused deps; pin each dep to exact latest release.
+* Follow Docker best practices; keep images lean & secure.
 
 ---
 
-## 6 Development
+## S5\_MAINTENANCE\_PASS
 
-### 6.1 Handling a Prompt
+Priority order:
 
-Classify prompt as either Goal Work, Feature Work, Maintenance Work, or Unclear and proceed as the corresponding section says.
+```
+1 STRUCTURE      → repo layout (S2.3)
+2 ACCEPT_TESTS   → optimal I/O + tests (S3.1)
+3 DOCS           → update docs (S2.2)
+4 DOCKER_DEPS    → lean Docker & deps (S4.3)
+5 TYPING         → strict typing (S4.1)
+6 CLEANING       → remove dead code / files, refactor
+7 UNIT_COVERAGE  → full unit‑test coverage (S3.2)
+8 PERFORMANCE    → optimise
+```
 
-#### 6.1.1 Goal Work
+### S5.2\_PLANNED\_MAINTENANCE\_QUEUE
 
-Asks for specific adjustment of the Features list.
+* Location: README.md → Planned\_Maintenance section.
+* Update on every push.
 
-Create the PR as follows:
+---
 
-  1. Deep scan the repo to ensure features are minimal vertical slices that cover **100%** of existing code and are expressed **EXACTLY** according to specifications. (§3.1)
-  2. Update `Features`. (§3.1)
-  3. Update `Planned Maintenance` based off changes. (§6.5)
-  4. **Push**.
+## S6\_RELEASE
 
-#### 6.1.2 Feature Work
+### S6.1\_RELEASE\_WORKFLOW
 
-Has an inferrable target feature. For example, "Fix bug on F1", "Implement F2".
-  
-Create the PR as follows:
+* Automated by .github/workflows/release.yml.
+* Reference https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/release.yml.
 
-  1. Edit / add acceptance tests (unit tests optional). (§4)
-  2. Implement / fix code.
-  3. Run a full thorough maintenance pass on the feature. (§6.5)
-  4. Run `agents-check.sh`; fix issues. (§6.2)
-  5. Update docs. (§3.2)
-  6. Update `Planned Maintenance`. (§6.5)
-  7. **Push**.
-         
-#### 6.1.3 Maintenance Work
+### S6.2\_RELEASE\_ENVIRONMENT
 
-No inferrable target feature. For example, "Do maintenance.", "Clean up the repo.".
-  
-Create the PR as follows:
+* Maintain root Dockerfile & docker-compose.yml. Keep images lean, minimal, secure.
 
-  1. Check `Planned Maintenance`. 
-  2. Resolve one item from `Planned Maintenance`. If there is no planned maintanance items, do a **deep scan** of the repo to locate and prioritize tasks, and skip straight to step 4. (§6.5)
-  3. Run `agents-check.sh`; fix issues. (§6.2)
-  4. Update `Planned Maintenance`. (§6.5)
-  5. **Push**.
-         
-#### 6.1.4 Unclear
+---
 
-Do not create a PR. Clarify.
+## S7\_OPEN\_PR
 
-### 6.2 Style & Linting
-
-* `check.sh` runs formatters / linters / type checkers **and** unit tests.
-* Agents run `agents-check.sh` (installs deps, then `check.sh`) before every push.
-* Enforce strict tools: ruff, mypy, Black + isort, ts (strict) + ESLint + Prettier, …
-
-### 6.3 Dependencies
-
-* Avoid `requirements.txt`, `package.json`, etc.
-* Install dev deps via venv (or equivalent) in `postStart.sh`.
-* Install runtime deps in the Dockerfile.
-* Remove unused deps and **pin each dep to its exact latest release**.
-* Follow Docker best practices; keep images lean and secure.
-
-### 6.4 Development Environment (dev container)
-
-* Contained in `.devcontainer/`; base image **`cruizba/ubuntu-dind`**.
-* Maintain a clean conventional vscode dev-container.
-
-### 6.5 Incremental Adoption
-
-Progress repo incrementally towards 100% accordance with this document. `README.md` under the heading `Planned Maintenance`, update a prioritized list of tasks to fix with **everything** you know is **not** in accordance with `AGENTS.md` any time you push. Use the following ordered list as the priority heuristic:
-
-  1. Create / restructure / split files to match repo expectations. (§2)
-  2. Infer optimal I/O from “I want …” goal then write acceptance tests; update `test.yml`. (§3.1->§4)
-  4. Write static docs based off acceptance tests. (§3.2)
-  5. Lean, up-to-date Docker & deps (§6.3).
-  6. Apply strict typing (§6.2).
-  7. Remove unnecessary file and code. Refactor code to conform to community conventions.
-  8. Reach full unit-test coverage. (§4.2)
-  9. Improve performance; target the Pareto frontier.
-
-
-
+1. Confirm workflow for prompt category (S1) completed.
+2. Ensure Planned\_Maintenance is current.
+3. Open PR.
