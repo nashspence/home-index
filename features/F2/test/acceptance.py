@@ -11,14 +11,36 @@ from features.F2 import duplicate_finder
 
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Stop containers and print compose and ``files.log`` output."""
+    """Stop containers and print logs with a Meilisearch heading."""
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "stop"],
         cwd=workdir,
         check=False,
     )
+    print("--- meilisearch ---")
     subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "logs",
+            "--no-color",
+            "meilisearch",
+        ],
+        cwd=workdir,
+        check=False,
+    )
+    subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "logs",
+            "--no-color",
+            "home-index",
+        ],
         cwd=workdir,
         check=False,
     )
