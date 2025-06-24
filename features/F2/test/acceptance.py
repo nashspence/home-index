@@ -45,7 +45,6 @@ def _search_meili(
         except Exception:
             pass
         if time.time() > deadline:
-            _dump_logs(compose_file, workdir, output_dir)
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
 
@@ -84,7 +83,6 @@ def _run_once(
         assert len(unique_docs) == 1
         return by_id_dir, by_path_dir, dup_docs, unique_docs
     except Exception:
-        _dump_logs(compose_file, workdir, output_dir)
         raise
 
 
