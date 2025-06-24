@@ -384,6 +384,7 @@ async def init_meili():
         logging.exception("meili update chunk vector settings failed")
 
     filterable_attributes = [
+        "id",
         "mtime",
         "paths",
         "size",
