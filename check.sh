@@ -13,7 +13,7 @@ fi
 
 black --check .
 ruff check .
-mypy --ignore-missing-imports --explicit-package-bases packages tests || true
-mypy --ignore-missing-imports --strict --explicit-package-bases features/F1
-mypy --ignore-missing-imports --strict --explicit-package-bases features/F2
+mypy --python-version 3.11 --ignore-missing-imports --explicit-package-bases packages tests || true
+mypy --python-version 3.11 --ignore-missing-imports --strict --explicit-package-bases features/F1
+mypy --python-version 3.11 --ignore-missing-imports --strict --explicit-package-bases features/F2
 pytest -q

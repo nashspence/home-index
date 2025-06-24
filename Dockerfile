@@ -29,9 +29,11 @@ RUN set -eux; \
         rm -rf /var/lib/apt/lists/*; \
     fi
 
+ENV PIP_ROOT_USER_ACTION=ignore
+
 WORKDIR /app
 
-RUN pip install --no-cache-dir \
+RUN pip install --no-cache-dir --disable-pip-version-check \
     apscheduler==3.11.0 \
     debugpy==1.8.14 \
     meilisearch-python-sdk==4.7.1 \
