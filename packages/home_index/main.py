@@ -66,12 +66,7 @@ import shutil
 import time
 
 import magic
-import xxhash
-
-# Initialize a single magic.Magic instance for MIME type detection
-magic_mime = magic.Magic(mime=True)
 import copy
-import math
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from itertools import chain
@@ -90,8 +85,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from features.F1 import scheduler
-from features.F2 import metadata_store
-from features.F3 import path_links
+from features.F2 import duplicate_finder, metadata_store, path_links
+
+magic_mime = magic.Magic(mime=True)
 
 # endregion
 # region "config"
@@ -393,6 +389,7 @@ async def init_meili():
         "size",
         "next",
         "type",
+        "copies",
     ] + list(chain(*[hello["filterable_attributes"] for hello in hellos]))
 
     try:
@@ -405,6 +402,7 @@ async def init_meili():
                 "size",
                 "next",
                 "type",
+                "copies",
             ]
             + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
         )
@@ -614,48 +612,24 @@ def write_doc_json(doc):
     metadata_store.write_doc_json(doc)
 
 
-def truncate_mtime(st_mtime):
-    return math.floor(st_mtime * 10000) / 10000
-
-
-def is_apple_double(file_path):
+def is_apple_double(file_path: Path) -> bool:
+    """Return True if ``file_path`` is an AppleDouble header."""
     try:
-        with Path(file_path).open("rb") as file:
+        with file_path.open("rb") as file:
             return file.read(4) == b"\x00\x05\x16\x07"
     except Exception:
         return False
 
 
-def get_mime_type(file_path):
-    """Return the MIME type for a file path."""
-    mime_type = magic_mime.from_file(file_path)
+def get_mime_type(file_path: Path) -> str:
+    """Return the MIME type for ``file_path``."""
+    mime_type = magic_mime.from_file(str(file_path))
     if mime_type == "application/octet-stream":
         if is_apple_double(file_path):
             return "multipart/appledouble"
-        mime_type, _ = mimetypes.guess_type(file_path, strict=False)
-        if mime_type is None:
-            mime_type = "application/octet-stream"
+        guess, _ = mimetypes.guess_type(str(file_path), strict=False)
+        mime_type = guess or "application/octet-stream"
     return mime_type
-
-
-def determine_hash(path, metadata_docs_by_hash, metadata_hashes_by_relpath):
-    relpath = str(path.relative_to(INDEX_DIRECTORY).as_posix())
-    hash = None
-    stat = path.stat()
-    if relpath in metadata_hashes_by_relpath:
-        prev_hash = metadata_hashes_by_relpath[relpath]
-        prev_mtime = metadata_docs_by_hash[prev_hash]["paths"][relpath]
-        is_mtime_changed = truncate_mtime(stat.st_mtime) != prev_mtime
-        if not is_mtime_changed:
-            hash = prev_hash
-    if not hash:
-        hasher = xxhash.xxh64()
-        with path.open("rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                hasher.update(chunk)
-        hash = hasher.hexdigest()
-    mime_type = get_mime_type(path)
-    return path, hash, stat, mime_type
 
 
 def set_next_modules(files_docs_by_hash):
@@ -767,16 +741,15 @@ def index_files(
             file_paths.append(root_path / f)
 
     def handle_hash_at_path(args):
-        path, hash, stat, mime_type = args
+        path, hash_val, stat = args
         relpath = str(path.relative_to(INDEX_DIRECTORY))
 
         metadata_doc = files_doc = None
-        if hash in metadata_docs_by_hash:
-            metadata_doc = copy.deepcopy(metadata_docs_by_hash[hash])
-        if hash in files_docs_by_hash:
-            files_doc = files_docs_by_hash[hash]
+        if hash_val in metadata_docs_by_hash:
+            metadata_doc = copy.deepcopy(metadata_docs_by_hash[hash_val])
+        if hash_val in files_docs_by_hash:
+            files_doc = files_docs_by_hash[hash_val]
 
-        doc = {}
         if metadata_doc and not files_doc:
             metadata_doc["paths"] = {
                 relpath: mtime
@@ -789,42 +762,46 @@ def index_files(
             doc = files_doc
         else:
             doc = {
-                "id": hash,
+                "id": hash_val,
                 "paths": {},
-                "mtime": truncate_mtime(stat.st_mtime),
+                "mtime": duplicate_finder.truncate_mtime(stat.st_mtime),
                 "size": stat.st_size,
-                "type": mime_type,
+                "type": get_mime_type(path),
             }
 
-        doc["type"] = mime_type
-        doc["paths"][relpath] = truncate_mtime(stat.st_mtime)
+        doc["type"] = get_mime_type(path)
+        doc["paths"][relpath] = duplicate_finder.truncate_mtime(stat.st_mtime)
         doc["copies"] = len(doc["paths"])
         doc["mtime"] = max(doc["paths"].values())
 
-        files_docs_by_hash[hash] = doc
-        files_hashes_by_relpath[relpath] = hash
+        files_docs_by_hash[hash_val] = doc
+        files_hashes_by_relpath[relpath] = hash_val
 
     if file_paths:
         files_logger.info(f" * check {len(file_paths)} file hashes")
         if MAX_HASH_WORKERS < 2:
             for fp in file_paths:
                 handle_hash_at_path(
-                    determine_hash(
-                        fp, metadata_docs_by_hash, metadata_hashes_by_relpath
+                    duplicate_finder.determine_hash(
+                        fp,
+                        INDEX_DIRECTORY,
+                        metadata_docs_by_hash,
+                        metadata_hashes_by_relpath,
                     )
                 )
         else:
             manager = Manager()
-            shared_metadata_docs_by_hash = manager.dict(metadata_docs_by_hash)
-            shared_metadata_hashes_by_relpath = manager.dict(metadata_hashes_by_relpath)
+            shared_docs = manager.dict(metadata_docs_by_hash)
+            shared_paths = manager.dict(metadata_hashes_by_relpath)
 
             with ProcessPoolExecutor(max_workers=MAX_HASH_WORKERS) as executor:
                 for completed in as_completed(
                     executor.submit(
-                        determine_hash,
+                        duplicate_finder.determine_hash,
                         fp,
-                        shared_metadata_docs_by_hash,
-                        shared_metadata_hashes_by_relpath,
+                        INDEX_DIRECTORY,
+                        shared_docs,
+                        shared_paths,
                     )
                     for fp in file_paths
                 ):
