@@ -12,17 +12,11 @@ from features.F2 import duplicate_finder
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
     """Print logs from all compose containers."""
-    result = subprocess.run(
+    subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
         cwd=workdir,
         check=False,
-        capture_output=True,
-        text=True,
     )
-    if result.stdout:
-        print(result.stdout)
-    if result.stderr:
-        print(result.stderr)
     sys.stdout.flush()
 
 
