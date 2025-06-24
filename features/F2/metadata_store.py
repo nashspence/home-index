@@ -32,9 +32,6 @@ def ensure_directories() -> None:
 
 def write_doc_json(doc: MutableMapping[str, Any]) -> None:
     """Write ``doc`` as JSON under ``BY_ID_DIRECTORY``."""
-    from home_index import main as hi
-
-    hi.migrate_doc(doc)
     ensure_directories()
     target_dir = by_id_directory() / str(doc["id"])
     target_dir.mkdir(parents=True, exist_ok=True)
