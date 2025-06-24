@@ -45,7 +45,9 @@ def _search_meili(
         except Exception:
             pass
         if time.time() > deadline:
-            raise AssertionError("Timed out waiting for search results")
+            raise AssertionError(
+                f"Timed out waiting for search results for: {filter_expr}"
+            )
         time.sleep(0.5)
 
 
