@@ -141,7 +141,10 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         assert any(
             doc["id"] == file_id
             for doc in _search_meili(
-                'paths IN ["c.txt"]', compose_file, workdir, output_dir
+                "paths.c.txt EXISTS",
+                compose_file,
+                workdir,
+                output_dir,
             )
         )
         assert any(
