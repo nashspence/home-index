@@ -9,6 +9,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
+from features.F2 import duplicate_finder
+
 import pytest
 
 
@@ -60,7 +62,7 @@ def _run_once(
     output_dir: Path,
     doc_relpaths: list[str],
     setup_input: Callable[[Path], None] | None = None,
-) -> None:
+) -> list[str]:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -79,9 +81,16 @@ def _run_once(
     by_id.mkdir(parents=True)
     by_path.mkdir(parents=True)
 
+    doc_ids: list[str] = []
     for i, doc_relpath in enumerate(doc_relpaths, start=1):
+        doc_path = input_dir / doc_relpath
+        if doc_path.exists():
+            doc_id = duplicate_finder.compute_hash(doc_path)
+        else:
+            doc_id = f"hash{i}"
+        doc_ids.append(doc_id)
         doc = {
-            "id": f"hash{i}",
+            "id": doc_id,
             "paths": {doc_relpath: 1.0},
             "paths_list": [doc_relpath],
             "mtime": 1.0,
@@ -112,6 +121,8 @@ def _run_once(
             raise AssertionError("Timed out waiting for metadata")
         time.sleep(0.5)
 
+    return doc_ids
+
 
 def test_offline_archive_workflow(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
@@ -127,44 +138,47 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         (drive / "bar.txt").write_text("persist")
 
     try:
-        _run_once(
+        ids = _run_once(
             compose_file,
             workdir,
             output_dir,
             ["archive/drive1/foo.txt"],
             offline_setup,
         )
-
-        doc_dir = output_dir / "metadata" / "by-id" / "hash1"
+        offline_id = ids[0]
+        doc_dir = output_dir / "metadata" / "by-id" / offline_id
         assert (doc_dir / "document.json").exists()
         assert (
             output_dir / "metadata" / "by-path" / "archive" / "drive1" / "foo.txt"
         ).is_symlink()
-        docs = _search_meili('id = "hash1"', compose_file, workdir, output_dir)
-        assert any(doc["id"] == "hash1" for doc in docs)
+        docs = _search_meili(f'id = "{offline_id}"', compose_file, workdir, output_dir)
+        assert any(doc["id"] == offline_id for doc in docs)
 
-        _run_once(
+        ids = _run_once(
             compose_file,
             workdir,
             output_dir,
-            ["archive/drive2/foo.txt", "archive/drive2/bar.txt"],
+            ["archive/drive2/bar.txt"],
             removed_setup,
         )
+        online_id = ids[0]
 
-        docs = _search_meili('id = "hash2"', compose_file, workdir, output_dir)
-        assert any(doc["id"] == "hash2" for doc in docs)
+        docs = _search_meili(f'id = "{online_id}"', compose_file, workdir, output_dir)
+        assert any(doc["id"] == online_id for doc in docs)
 
-        doc_dir = output_dir / "metadata" / "by-id" / "hash1"
+        doc_dir = output_dir / "metadata" / "by-id" / offline_id
         assert not doc_dir.exists()
         assert not (
             output_dir / "metadata" / "by-path" / "archive" / "drive2" / "foo.txt"
         ).exists()
-        assert (output_dir / "metadata" / "by-id" / "hash2" / "document.json").exists()
+        assert (
+            output_dir / "metadata" / "by-id" / online_id / "document.json"
+        ).exists()
         assert (
             output_dir / "metadata" / "by-path" / "archive" / "drive2" / "bar.txt"
         ).is_symlink()
         with pytest.raises(AssertionError):
-            _search_meili('id = "hash1"', compose_file, workdir, output_dir)
+            _search_meili(f'id = "{offline_id}"', compose_file, workdir, output_dir)
     except Exception:
         _dump_logs(compose_file, workdir, output_dir)
         raise
