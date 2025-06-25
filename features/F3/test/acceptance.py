@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -105,7 +106,8 @@ def _run_once(
         (doc_dir / "document.json").write_text(json.dumps(doc))
         link = by_path / Path(doc_relpath)
         link.parent.mkdir(parents=True, exist_ok=True)
-        link.symlink_to(Path("../../by-id") / str(doc["id"]), target_is_directory=True)
+        relative_target = os.path.relpath(by_id / str(doc["id"]), link.parent)
+        link.symlink_to(relative_target, target_is_directory=True)
 
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "up", "-d"],
