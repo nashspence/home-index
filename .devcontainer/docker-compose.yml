@@ -1,5 +1,6 @@
 services:
   devcontainer:
+    image: home-index-devcontainer
     build:
       context: .
       dockerfile: Dockerfile.devcontainer
