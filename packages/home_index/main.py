@@ -67,7 +67,6 @@ import time
 
 import magic
 import copy
-from typing import MutableMapping, Any
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from itertools import chain
@@ -86,21 +85,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from features.F1 import scheduler
-from features.F2 import duplicate_finder, metadata_store, path_links
+from features.F2 import duplicate_finder, metadata_store, path_links, migrations
 
-MIGRATIONS = [metadata_store._add_paths_list]
-CURRENT_VERSION = len(MIGRATIONS)
-
-
-def migrate_doc(doc: MutableMapping[str, Any]) -> bool:
-    """Apply pending migrations to ``doc`` in-place."""
-    version = doc.get("version", 0)
-    migrated = False
-    while version < CURRENT_VERSION:
-        MIGRATIONS[version](doc)
-        migrated = True
-        version = doc.get("version", version + 1)
-    return migrated
+# Expose F2 migration helpers for external use and unit tests.
+migrate_doc = migrations.migrate_doc
+CURRENT_VERSION = migrations.CURRENT_VERSION
 
 
 magic_mime = magic.Magic(mime=True)
