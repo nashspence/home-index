@@ -44,22 +44,31 @@ def simulate_v0_and_rerun(
 
     deadline = time.time() + 120
     while True:
-        all_migrated = True
-        for doc_dir in by_id_dir.iterdir():
-            if not doc_dir.is_dir():
-                continue
-            try:
-                doc = json.loads((doc_dir / "document.json").read_text())
-            except json.JSONDecodeError:
-                all_migrated = False
-                break
-            if "paths_list" not in doc or "version" not in doc:
-                all_migrated = False
-                break
-        if all_migrated:
+        logs = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "logs",
+                "--no-color",
+                "home-index",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=workdir,
+        ).stdout
+        if "commit changes to meilisearch" in logs:
             break
         if time.time() > deadline:
-            raise AssertionError("Timed out waiting for migrated documents")
+            raise AssertionError("Timed out waiting for sync logs")
         time.sleep(0.5)
+
+    for doc_dir in by_id_dir.iterdir():
+        if not doc_dir.is_dir():
+            continue
+        doc = json.loads((doc_dir / "document.json").read_text())
+        assert "paths_list" in doc and "version" in doc
 
     return by_id_dir, by_path_dir, dup_docs, unique_docs
