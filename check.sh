@@ -9,6 +9,9 @@ cd "$(dirname "$0")"
 # tools installed by `.devcontainer/postStart.sh` are on PATH.
 if [ -f "venv/bin/activate" ]; then
   source "venv/bin/activate"
+elif [ -f "../venv/bin/activate" ]; then
+  # When running inside the dev container the venv lives one directory up
+  source "../venv/bin/activate"
 fi
 
 black --check .
