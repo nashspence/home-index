@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-def _dump_logs(compose_file: Path, workdir: Path) -> None:
+def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
     """Print logs from all compose containers."""
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
@@ -24,6 +24,7 @@ def _search_meili(
     filter_expr: str,
     compose_file: Path,
     workdir: Path,
+    output_dir: Path,
     timeout: int = 120,
     q: str = "",
 ) -> list[dict[str, Any]]:
@@ -100,26 +101,14 @@ def _run_once(
         check=True,
         cwd=workdir,
     )
-    try:
-        by_id_dir = output_dir / "metadata" / "by-id"
-        deadline = time.time() + 120
-        while True:
-            if by_id_dir.exists() and any(by_id_dir.iterdir()):
-                break
-            if time.time() > deadline:
-                raise AssertionError("Timed out waiting for metadata")
-            time.sleep(0.5)
-    finally:
-        subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "stop"],
-            check=False,
-            cwd=workdir,
-        )
-        subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
-            check=False,
-            cwd=workdir,
-        )
+    by_id_dir = output_dir / "metadata" / "by-id"
+    deadline = time.time() + 120
+    while True:
+        if by_id_dir.exists() and any(by_id_dir.iterdir()):
+            break
+        if time.time() > deadline:
+            raise AssertionError("Timed out waiting for metadata")
+        time.sleep(0.5)
 
 
 def test_offline_archive_workflow(tmp_path: Path) -> None:
@@ -149,7 +138,7 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         assert (
             output_dir / "metadata" / "by-path" / "archive" / "drive1" / "foo.txt"
         ).is_symlink()
-        docs = _search_meili('id = "hash1"', compose_file, workdir)
+        docs = _search_meili('id = "hash1"', compose_file, workdir, output_dir)
         assert any(doc["id"] == "hash1" for doc in docs)
 
         _run_once(
@@ -169,10 +158,21 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         assert (
             output_dir / "metadata" / "by-path" / "archive" / "drive2" / "bar.txt"
         ).is_symlink()
-        docs = _search_meili('id = "hash1"', compose_file, workdir)
+        docs = _search_meili('id = "hash1"', compose_file, workdir, output_dir)
         assert not docs
-        docs = _search_meili('id = "hash2"', compose_file, workdir)
+        docs = _search_meili('id = "hash2"', compose_file, workdir, output_dir)
         assert any(doc["id"] == "hash2" for doc in docs)
     except Exception:
-        _dump_logs(compose_file, workdir)
+        _dump_logs(compose_file, workdir, output_dir)
         raise
+    finally:
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_file), "stop"],
+            check=False,
+            cwd=workdir,
+        )
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
+            check=False,
+            cwd=workdir,
+        )
