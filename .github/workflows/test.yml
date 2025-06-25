@@ -28,12 +28,12 @@ jobs:
           export DC="docker compose -f .devcontainer/docker-compose.yml"
 
           docker buildx build \
-            --file .devcontainer/Dockerfile.devcontainer \
+            --file Dockerfile.devcontainer \
             --tag home-index-devcontainer \
             --cache-from type=local,src=${{ runner.temp }}/buildx-cache \
             --cache-to   type=local,dest=${{ runner.temp }}/buildx-cache,mode=max \
             --load \
-            .
+            .devcontainer
 
           $DC up -d --no-build
           $DC exec devcontainer postStart.sh
