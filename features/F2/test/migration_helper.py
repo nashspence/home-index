@@ -68,7 +68,14 @@ def simulate_v0_and_rerun(
     for doc_dir in by_id_dir.iterdir():
         if not doc_dir.is_dir():
             continue
-        doc = json.loads((doc_dir / "document.json").read_text())
-        assert "paths_list" in doc and "version" in doc
+        doc_path = doc_dir / "document.json"
+        deadline = time.time() + 30
+        while True:
+            doc = json.loads(doc_path.read_text())
+            if "paths_list" in doc and "version" in doc:
+                break
+            if time.time() > deadline:
+                raise AssertionError(f"Timed out waiting for migration: {doc_path}")
+            time.sleep(0.5)
 
     return by_id_dir, by_path_dir, dup_docs, unique_docs
