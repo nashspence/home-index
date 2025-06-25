@@ -67,6 +67,7 @@ import time
 
 import magic
 import copy
+from typing import MutableMapping, Any
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from itertools import chain
@@ -87,13 +88,27 @@ if str(PROJECT_ROOT) not in sys.path:
 from features.F1 import scheduler
 from features.F2 import duplicate_finder, metadata_store, path_links
 
+MIGRATIONS = [metadata_store._add_paths_list]
+CURRENT_VERSION = len(MIGRATIONS)
+
+
+def migrate_doc(doc: MutableMapping[str, Any]) -> bool:
+    """Apply pending migrations to ``doc`` in-place."""
+    version = doc.get("version", 0)
+    migrated = False
+    while version < CURRENT_VERSION:
+        MIGRATIONS[version](doc)
+        migrated = True
+        version = doc.get("version", version + 1)
+    return migrated
+
+
 magic_mime = magic.Magic(mime=True)
 
 # endregion
 # region "config"
 
 
-VERSION = 1
 DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
 
 MODULES_MAX_SECONDS = int(
@@ -387,6 +402,7 @@ async def init_meili():
         "id",
         "mtime",
         "paths",
+        "paths_list",
         "size",
         "next",
         "type",
@@ -662,6 +678,7 @@ def index_metadata():
     metadata_hashes_by_relpath = {}
     unmounted_archive_docs_by_hash = {}
     unmounted_archive_hashes_by_relpath = {}
+    migrated_docs_by_hash = {}
 
     files_logger.info(" * iterate metadata by-id")
     file_paths = [dir / "document.json" for dir in (BY_ID_DIRECTORY).iterdir()]
@@ -676,6 +693,9 @@ def index_metadata():
     def handle_doc(doc):
         if not doc:
             return
+        if migrate_doc(doc):
+            metadata_store.write_doc_json(doc)
+            migrated_docs_by_hash[doc["id"]] = doc
         hash = doc["id"]
         if hash in metadata_docs_by_hash:
             return
@@ -719,6 +739,7 @@ def index_metadata():
         metadata_hashes_by_relpath,
         unmounted_archive_docs_by_hash,
         unmounted_archive_hashes_by_relpath,
+        migrated_docs_by_hash,
     )
 
 
@@ -775,6 +796,8 @@ def index_files(
         doc["paths"][relpath] = duplicate_finder.truncate_mtime(stat.st_mtime)
         doc["copies"] = len(doc["paths"])
         doc["mtime"] = max(doc["paths"].values())
+        doc["paths_list"] = sorted(doc["paths"].keys())
+        doc["version"] = CURRENT_VERSION
 
         files_docs_by_hash[hash_val] = doc
         files_hashes_by_relpath[relpath] = hash_val
@@ -832,6 +855,11 @@ def update_metadata(
             metadata_docs_by_hash[hash].get("next")
             != files_docs_by_hash[hash].get("next")
         )
+        or (
+            metadata_docs_by_hash[hash].get("paths_list")
+            != files_docs_by_hash[hash].get("paths_list")
+        )
+        or (metadata_docs_by_hash[hash].get("version", 0) != CURRENT_VERSION)
     }
 
     files_logger.info(" * check for deleted file path")
@@ -919,6 +947,7 @@ async def sync_documents():
             metadata_hashes_by_relpath,
             unmounted_archive_docs_by_hash,
             unmounted_archive_hashes_by_relpath,
+            migrated_docs_by_hash,
         ) = index_metadata()
 
         files_logger.info("index all files")
@@ -936,6 +965,8 @@ async def sync_documents():
             files_docs_by_hash,
             files_hashes_by_relpath,
         )
+
+        upserted_docs_by_hash.update(migrated_docs_by_hash)
 
         files_logger.info("commit changes to meilisearch")
         await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
@@ -1090,7 +1121,6 @@ async def init_meili_and_sync():
 
 
 async def main():
-
     await init_meili_and_sync()
     sched = BackgroundScheduler()
 

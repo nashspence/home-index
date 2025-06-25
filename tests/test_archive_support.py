@@ -39,7 +39,7 @@ def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(
 
     importlib.reload(hi)
 
-    md, mhr, ua_docs, ua_hashes = hi.index_metadata()
+    md, mhr, ua_docs, ua_hashes, _ = hi.index_metadata()
     assert doc["id"] in ua_docs
 
     files_docs, hashes = hi.index_files(md, mhr, ua_docs, ua_hashes)
