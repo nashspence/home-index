@@ -1,32 +1,59 @@
 name: test
-
-on: [push]
+on: push
 
 jobs:
   test:
     runs-on: ubuntu-latest
     env:
       REPO: ${{ github.event.repository.name }}
+      DOCKER_BUILDKIT: 1
+      COMPOSE_DOCKER_CLI_BUILD: 1
+      DC: docker compose -f .devcontainer/docker-compose.yml
+
     steps:
+      - uses: docker/setup-buildx-action@v3.5.1
       - uses: actions/checkout@v4
 
-      - name: Install docker-compose
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ github.ref }}
+
+      - name: Build & start devcontainer with cache
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
+          export DC="docker compose -f .devcontainer/docker-compose.yml"
 
-      - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer postStart.sh
-      - run: docker exec ${REPO}-devcontainer ./check.sh
+          $DC build --progress=plain \
+            --cache-from type=local,src=${{ runner.temp }}/buildx-cache \
+            --cache-to   type=local,dest=${{ runner.temp }}/buildx-cache,mode=max
 
-      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci .
+          $DC up -d
+          $DC exec devcontainer postStart.sh
+          $DC exec devcontainer ./check.sh
 
-      - run: |
-          set -euo pipefail
-          FEATURES=$(ls features | grep '^F')
-          for f in $FEATURES; do
-            docker exec -e IMAGE=${REPO}:ci ${REPO}-devcontainer \
-              bash -lc "source venv/bin/activate && pytest -q features/${f}/test/acceptance.py"
+      - name: Build CI image with cache
+        uses: docker/build-push-action@v3.3.0
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: ${{ env.REPO }}:ci
+          cache-from: type=local,src=${{ runner.temp }}/buildx-cache
+          cache-to:   type=local,dest=${{ runner.temp }}/buildx-cache,mode=max
+
+      - name: Run acceptance tests
+        shell: bash
+        run: |
+          export DC="docker compose -f .devcontainer/docker-compose.yml"
+          for f in features/F*; do
+            $DC exec -e IMAGE=${{ env.REPO }}:ci devcontainer \
+              bash -lc "source venv/bin/activate && pytest -q $f/test/acceptance.py" || status=$?
           done
+          exit $status
 
-      - run: docker-compose -f .devcontainer/docker-compose.yml down -v
+      - name: Tear down devcontainer
+        run: docker compose -f .devcontainer/docker-compose.yml down -v

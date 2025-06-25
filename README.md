@@ -35,4 +35,3 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 - Expand acceptance tests to cover all features.
 - Rewrite remaining feature docs to conform to AGENTS.md.
 - Add missing documentation for features F3–F6 and corresponding tests.
-- Audit Dockerfiles for any remaining unused dependencies.
