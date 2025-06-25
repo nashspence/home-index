@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import shutil
 import subprocess
@@ -5,7 +7,7 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def _dump_logs(compose_file: Path, workdir: Path) -> None:
@@ -54,7 +56,7 @@ def _run_once(
     workdir: Path,
     output_dir: Path,
     doc_relpaths: list[str],
-    setup_input: callable | None = None,
+    setup_input: Callable[[Path], None] | None = None,
 ) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
@@ -86,12 +88,12 @@ def _run_once(
             "version": 1,
             "next": "",
         }
-        doc_dir = by_id / doc["id"]
+        doc_dir = by_id / str(doc["id"])
         doc_dir.mkdir()
         (doc_dir / "document.json").write_text(json.dumps(doc))
         link = by_path / Path(doc_relpath)
         link.parent.mkdir(parents=True)
-        link.symlink_to(Path("../../by-id") / doc["id"], target_is_directory=True)
+        link.symlink_to(Path("../../by-id") / str(doc["id"]), target_is_directory=True)
 
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "up", "-d"],

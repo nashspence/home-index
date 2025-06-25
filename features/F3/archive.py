@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 __all__ = [
     "archive_directory",
@@ -27,7 +28,7 @@ def is_in_archive_dir(path: Path) -> bool:
     return archive_directory() in path.parents
 
 
-def doc_is_online(doc: dict) -> bool:
+def doc_is_online(doc: dict[str, Any]) -> bool:
     """Return True if ``doc`` has at least one path accessible on disk."""
     for relpath in doc.get("paths", {}).keys():
         path = path_from_relpath(relpath)
