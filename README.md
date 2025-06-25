@@ -32,7 +32,7 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Planned Maintenance
 
-- Expand acceptance tests to cover all features.
+- Expand acceptance tests to cover all features (F3 workflow improved).
 - Rewrite remaining feature docs to conform to AGENTS.md.
-- Add missing documentation for features F3–F6 and corresponding tests.
+- Add missing documentation for features F4–F6 and corresponding tests.
 - Audit Dockerfiles for any remaining unused dependencies.
