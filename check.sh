@@ -9,11 +9,14 @@ cd "$(dirname "$0")"
 # tools installed by `.devcontainer/postStart.sh` are on PATH.
 if [ -f "venv/bin/activate" ]; then
   source "venv/bin/activate"
+elif [ -f "../venv/bin/activate" ]; then
+  # In the dev container the virtual environment is /workspace/venv
+  source "../venv/bin/activate"
 fi
 
 black --check .
 ruff check .
-mypy --python-version 3.11 --ignore-missing-imports --explicit-package-bases packages tests || true
-mypy --python-version 3.11 --ignore-missing-imports --strict --explicit-package-bases features/F1
-mypy --python-version 3.11 --ignore-missing-imports --strict --explicit-package-bases features/F2
+mypy --ignore-missing-imports --explicit-package-bases --no-site-packages packages tests || true
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F1
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F2
 pytest -q

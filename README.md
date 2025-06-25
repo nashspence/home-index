@@ -36,4 +36,3 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 - Rewrite remaining feature docs to conform to AGENTS.md.
 - Add missing documentation for features F5–F9 and corresponding tests.
 - Audit Dockerfiles for any remaining unused dependencies.
-- Apply strict typing across the remaining codebase.
