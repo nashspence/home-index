@@ -48,7 +48,11 @@ def simulate_v0_and_rerun(
         for doc_dir in by_id_dir.iterdir():
             if not doc_dir.is_dir():
                 continue
-            doc = json.loads((doc_dir / "document.json").read_text())
+            try:
+                doc = json.loads((doc_dir / "document.json").read_text())
+            except json.JSONDecodeError:
+                all_migrated = False
+                break
             if "paths_list" not in doc or "version" not in doc:
                 all_migrated = False
                 break
