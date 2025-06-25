@@ -6,10 +6,10 @@ Home Index is a personal file search engine that syncs and enriches metadata.
 
 - [F1 "I want scheduled file sync"](docs/F1.md)
 - [F2 "I want to search for unique files by metadata"](docs/F2.md)
-- [F5 "I want metadata for files on offline media"](docs/F5.md)
-- [F7 "I want modules to enrich files"](docs/F7.md)
-- [F8 "I want those modules to run on other machines"](docs/F8.md)
-- [F9 "I want to search file chunks by concept"](docs/F9.md)
+- [F3 "I want metadata for files on offline media"](docs/F3.md)
+- [F4 "I want modules to enrich files"](docs/F4.md)
+- [F5 "I want those modules to run on other machines"](docs/F5.md)
+- [F6 "I want to search file chunks by concept"](docs/F6.md)
 
 ### Well-known modules
 
@@ -34,5 +34,5 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 - Expand acceptance tests to cover all features.
 - Rewrite remaining feature docs to conform to AGENTS.md.
-- Add missing documentation for features F5–F9 and corresponding tests.
+- Add missing documentation for features F3–F6 and corresponding tests.
 - Audit Dockerfiles for any remaining unused dependencies.
