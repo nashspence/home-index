@@ -11,7 +11,7 @@ jobs:
       DC: docker compose -f .devcontainer/docker-compose.yml
 
     steps:
-      - uses: docker/setup-buildx-action@v3.5.1
+      - uses: docker/setup-buildx-action@v3.11.1
       - uses: actions/checkout@v4
 
       - name: Cache Docker layers
