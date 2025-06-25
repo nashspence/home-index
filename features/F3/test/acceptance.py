@@ -93,7 +93,7 @@ def _run_once(
         doc_dir.mkdir()
         (doc_dir / "document.json").write_text(json.dumps(doc))
         link = by_path / Path(doc_relpath)
-        link.parent.mkdir(parents=True)
+        link.parent.mkdir(parents=True, exist_ok=True)
         link.symlink_to(Path("../../by-id") / str(doc["id"]), target_is_directory=True)
 
     subprocess.run(
