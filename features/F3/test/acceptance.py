@@ -9,6 +9,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
+import pytest
+
 
 def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
     """Print logs from all compose containers."""
@@ -149,6 +151,9 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
             removed_setup,
         )
 
+        docs = _search_meili('id = "hash2"', compose_file, workdir, output_dir)
+        assert any(doc["id"] == "hash2" for doc in docs)
+
         doc_dir = output_dir / "metadata" / "by-id" / "hash1"
         assert not doc_dir.exists()
         assert not (
@@ -158,10 +163,8 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         assert (
             output_dir / "metadata" / "by-path" / "archive" / "drive2" / "bar.txt"
         ).is_symlink()
-        docs = _search_meili('id = "hash1"', compose_file, workdir, output_dir)
-        assert not docs
-        docs = _search_meili('id = "hash2"', compose_file, workdir, output_dir)
-        assert any(doc["id"] == "hash2" for doc in docs)
+        with pytest.raises(AssertionError):
+            _search_meili('id = "hash1"', compose_file, workdir, output_dir)
     except Exception:
         _dump_logs(compose_file, workdir, output_dir)
         raise
