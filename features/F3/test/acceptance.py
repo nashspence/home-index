@@ -123,6 +123,9 @@ def _run_once(
             raise AssertionError("Timed out waiting for metadata")
         time.sleep(0.5)
 
+    for doc_id in doc_ids:
+        _search_meili(f'id = "{doc_id}"', compose_file, workdir, output_dir)
+
     return doc_ids
 
 
