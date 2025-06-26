@@ -5,5 +5,7 @@
   "paths": {"file.txt": 1700000000},
   "copies": 1,
   "mtime": 1700000000,
+  "has_archive_paths": false,
+  "offline": false,
   "next": ""
 }

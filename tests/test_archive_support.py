@@ -44,6 +44,13 @@ def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(
 
     files_docs, hashes = hi.index_files(md, mhr, ua_docs, ua_hashes)
     assert doc["id"] in files_docs
+    assert files_docs[doc["id"]]["has_archive_paths"]
+    assert files_docs[doc["id"]]["offline"]
+
+    hi.update_metadata(md, mhr, files_docs, hashes)
+    persisted = json.loads((by_id / doc["id"] / "document.json").read_text())
+    assert persisted["has_archive_paths"]
+    assert persisted["offline"]
 
 
 def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(
