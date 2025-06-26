@@ -158,6 +158,8 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         ).is_symlink()
         docs = _search_meili(f'id = "{offline_id}"', compose_file, workdir, output_dir)
         assert any(doc["id"] == offline_id for doc in docs)
+        assert all(doc["offline"] for doc in docs)
+        assert all(doc["has_archive_paths"] for doc in docs)
 
         subprocess.run(
             ["docker", "compose", "-f", str(compose_file), "stop"],
@@ -181,6 +183,8 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
 
         docs = _search_meili(f'id = "{online_id}"', compose_file, workdir, output_dir)
         assert any(doc["id"] == online_id for doc in docs)
+        assert all(not doc["offline"] for doc in docs)
+        assert all(doc["has_archive_paths"] for doc in docs)
 
         doc_dir = output_dir / "metadata" / "by-id" / offline_id
         assert not doc_dir.exists()

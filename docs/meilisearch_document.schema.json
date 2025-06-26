@@ -32,12 +32,29 @@
       "type": "number",
       "description": "Most recent modification time across all copies (epoch seconds truncated to 4 decimals)"
     },
+    "has_archive_paths": {
+      "type": "boolean",
+      "description": "True when any path for the document is inside ARCHIVE_DIRECTORY"
+    },
+    "offline": {
+      "type": "boolean",
+      "description": "True when all archive paths are currently unavailable"
+    },
     "next": {
       "type": "string",
       "description": "Name of the next module to process this document or empty string when none",
       "default": ""
     }
   },
-  "required": ["id", "type", "size", "paths", "copies", "mtime"],
+  "required": [
+    "id",
+    "type",
+    "size",
+    "paths",
+    "copies",
+    "mtime",
+    "has_archive_paths",
+    "offline"
+  ],
   "additionalProperties": true
 }

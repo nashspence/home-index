@@ -91,6 +91,7 @@ from features.F3 import archive
 path_from_relpath = archive.path_from_relpath
 is_in_archive_dir = archive.is_in_archive_dir
 doc_is_online = archive.doc_is_online
+update_archive_flags = archive.update_archive_flags
 
 # Expose F2 migration helpers for external use and unit tests.
 migrate_doc = migrations.migrate_doc
@@ -685,6 +686,16 @@ def index_metadata():
         hash = doc["id"]
         if hash in metadata_docs_by_hash:
             return
+
+        original_has_archive = doc.get("has_archive_paths")
+        original_offline = doc.get("offline")
+        update_archive_flags(doc)
+        if (
+            doc.get("has_archive_paths") != original_has_archive
+            or doc.get("offline") != original_offline
+        ):
+            metadata_store.write_doc_json(doc)
+            migrated_docs_by_hash[hash] = doc
         metadata_docs_by_hash[hash] = doc
 
         if all(
@@ -693,6 +704,7 @@ def index_metadata():
             for relpath in doc["paths"].keys()
         ):
             doc_copy = copy.deepcopy(doc)
+            update_archive_flags(doc_copy)
             unmounted_archive_docs_by_hash[hash] = doc_copy
 
         unmounted_archive_hashes_by_relpath.update(
@@ -784,6 +796,7 @@ def index_files(
         doc["mtime"] = max(doc["paths"].values())
         doc["paths_list"] = sorted(doc["paths"].keys())
         doc["version"] = CURRENT_VERSION
+        update_archive_flags(doc)
 
         files_docs_by_hash[hash_val] = doc
         files_hashes_by_relpath[relpath] = hash_val
@@ -846,6 +859,14 @@ def update_metadata(
             != files_docs_by_hash[hash].get("paths_list")
         )
         or (metadata_docs_by_hash[hash].get("version", 0) != CURRENT_VERSION)
+        or (
+            metadata_docs_by_hash[hash].get("has_archive_paths")
+            != files_docs_by_hash[hash].get("has_archive_paths")
+        )
+        or (
+            metadata_docs_by_hash[hash].get("offline")
+            != files_docs_by_hash[hash].get("offline")
+        )
     }
 
     files_logger.info(" * check for deleted file path")
@@ -998,6 +1019,7 @@ async def update_doc_from_module(document):
             next_module_name = module["name"]
             break
     document["next"] = next_module_name
+    update_archive_flags(document)
     write_doc_json(document)
     await add_or_update_document(document)
     return document
