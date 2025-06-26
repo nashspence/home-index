@@ -1,6 +1,7 @@
 FROM python:3.11.13-alpine
 ENV PYTHONUNBUFFERED=1
 RUN apk add --no-cache \
+    git \
     tzdata
 WORKDIR /app
 RUN pip install --no-cache-dir \
