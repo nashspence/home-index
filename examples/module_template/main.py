@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from home_index_module import run_server
+from features.F4.home_index_module import run_server
 
 VERSION = 1
 NAME = os.environ.get("NAME", "example_module")

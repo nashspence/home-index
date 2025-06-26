@@ -1,9 +1,14 @@
 FROM python:3.11.13-alpine
 ENV PYTHONUNBUFFERED=1
-RUN apk add --no-cache \
-    tzdata
+RUN apk add --no-cache tzdata
 WORKDIR /app
-RUN pip install --no-cache-dir \
-    git+https://github.com/nashspence/home-index.git@1e5a67cb90465abf1c8e0885c7614c9e28314660
-COPY main.py .
+
+# Install Home Index from the local source tree so the example module
+# always matches the version under test.
+COPY . /src
+RUN pip install --no-cache-dir /src
+
+# Copy the module entrypoint
+COPY examples/module_template/main.py ./main.py
+
 ENTRYPOINT ["python3", "/app/main.py"]

@@ -35,16 +35,6 @@ logging.basicConfig(
 LOGGING_DIRECTORY = os.environ.get("LOGGING_DIRECTORY", "/home-index")
 os.makedirs(LOGGING_DIRECTORY, exist_ok=True)
 
-modules_logger = logging.getLogger("home-index-modules")
-modules_logger.setLevel(LOGGING_LEVEL)
-file_handler = logging.handlers.RotatingFileHandler(
-    os.path.join(LOGGING_DIRECTORY, "modules.log"),
-    maxBytes=LOGGING_MAX_BYTES,
-    backupCount=LOGGING_BACKUP_COUNT,
-)
-file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-modules_logger.addHandler(file_handler)
-
 files_logger = logging.getLogger("home-index-files")
 files_logger.setLevel(LOGGING_LEVEL)
 file_handler = logging.handlers.RotatingFileHandler(
@@ -60,20 +50,17 @@ files_logger.addHandler(file_handler)
 
 
 import asyncio
+import copy
 import json
 import mimetypes
 import shutil
-import time
-
-import magic
-import copy
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from itertools import chain
 from multiprocessing import Manager, Process
 from pathlib import Path
-from xmlrpc.client import Fault, ServerProxy
 
+import magic
 from apscheduler.schedulers.background import BackgroundScheduler
 from meilisearch_python_sdk import AsyncClient
 
@@ -85,8 +72,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from features.F1 import scheduler
-from features.F2 import duplicate_finder, metadata_store, path_links, migrations
+from features.F2 import duplicate_finder, metadata_store, migrations, path_links
 from features.F3 import archive
+from features.F4 import modules as modules_f4
 
 path_from_relpath = archive.path_from_relpath
 is_in_archive_dir = archive.is_in_archive_dir
@@ -100,27 +88,26 @@ CURRENT_VERSION = migrations.CURRENT_VERSION
 
 magic_mime = magic.Magic(mime=True)
 
+# expose F4 module helpers
+modules_logger = modules_f4.modules_logger
+module_values = modules_f4.module_values
+modules = modules_f4.modules
+hellos = modules_f4.hellos
+hello_versions = modules_f4.hello_versions
+is_modules_changed = modules_f4.is_modules_changed
+save_modules_state = modules_f4.save_modules_state
+run_module = modules_f4.run_module
+run_modules = modules_f4.run_modules
+file_relpath_from_meili_doc = modules_f4.file_relpath_from_meili_doc
+metadata_dir_relpath_from_doc = modules_f4.metadata_dir_relpath_from_doc
+update_doc_from_module = modules_f4.update_doc_from_module
+set_next_modules = modules_f4.set_next_modules
+
 # endregion
 # region "config"
 
 
 DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
-
-MODULES_MAX_SECONDS = int(
-    os.environ.get(
-        "MODULES_MAX_SECONDS",
-        5 if DEBUG else 300,
-    )
-)
-MODULES_SLEEP_SECONDS = int(
-    os.environ.get(
-        "MODULES_SLEEP_SECONDS",
-        os.environ.get(
-            "MODULES_MAX_SECONDS",
-            1 if DEBUG else 1800,
-        ),
-    )
-)
 
 MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://meilisearch:7700")
@@ -175,24 +162,6 @@ _safe_mkdir(ARCHIVE_DIRECTORY)
 RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
 
-MODULES = os.environ.get("MODULES", "")
-
-# Default number of seconds to retry operations before failing.
-# Can be overridden via the RETRY_UNTIL_READY_SECONDS environment variable.
-RETRY_UNTIL_READY_SECONDS = int(os.environ.get("RETRY_UNTIL_READY_SECONDS", "60"))
-
-# Configure specific retry timeouts for the various retry_until_ready usages.
-HELLO_RETRY_SECONDS = int(
-    os.environ.get("MODULES_HELLO_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
-)
-CHECK_RETRY_SECONDS = int(
-    os.environ.get("MODULES_CHECK_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
-)
-POST_RUN_RETRY_SECONDS = int(
-    os.environ.get("MODULES_POST_RUN_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
-)
-
-
 # embedding model setup
 embedding_model = None
 
@@ -212,110 +181,6 @@ def embed_texts(texts):
         init_embedder()
     vectors = embedding_model.encode(texts, convert_to_numpy=True)
     return [vec.tolist() for vec in vectors]
-
-
-def retry_until_ready(fn, msg, seconds=RETRY_UNTIL_READY_SECONDS):
-    for attempt in range(seconds):
-        try:
-            return fn()
-        except Exception as e:
-            if attempt < seconds - 1:
-                time.sleep(1)
-            else:
-                raise RuntimeError(msg) from e
-
-
-def setup_modules():
-    hellos = []
-    module_values = []
-    modules = {}
-    hello_versions = []
-
-    if MODULES:
-        for module_host in MODULES.split(","):
-            module_host = module_host.strip()
-            proxy = ServerProxy(module_host)
-
-            hello = retry_until_ready(
-                lambda: json.loads(proxy.hello()),
-                f"Failed to get 'hello' from {module_host} many retries",
-                seconds=HELLO_RETRY_SECONDS,
-            )
-
-            try:
-                name = hello["name"]
-            except KeyError:
-                raise ValueError(f'{module_host} did not return "name" on hello')
-
-            if name in modules:
-                raise ValueError(
-                    f"multiple modules found with name {name}, this must be unique"
-                )
-
-            try:
-                version = hello["version"]
-            except KeyError:
-                raise ValueError(f'{module_host} did not return "version" on hello')
-
-            hellos.append(hello)
-            hello_versions.append([name, version])
-
-            modules[name] = {"name": name, "proxy": proxy, "host": module_host}
-            module_values.append(modules[name])
-
-    return modules, module_values, hellos, hello_versions
-
-
-hellos = []
-module_values = []
-modules = {}
-hello_versions = []
-
-
-def set_global_modules():
-    global hellos, module_values, modules, hello_versions
-    m, mv, h, hv = setup_modules()
-    modules = m
-    module_values = mv
-    hellos = h
-    hello_versions = hv
-
-
-set_global_modules()
-
-
-hello_versions_changed = False
-hello_versions_file_path = Path(
-    os.environ.get("HELLO_VERSIONS_FILE_PATH", "/home-index/hello_versions.json")
-)
-
-hello_versions_json = {}
-if hello_versions_file_path.exists():
-    with hello_versions_file_path.open("r") as file:
-        hello_versions_json = json.load(file)
-
-known_hello_versions = hello_versions_json.get("hello_versions", "")
-hello_versions_changed = hello_versions != known_hello_versions
-
-
-def get_is_modules_changed():
-    if not hello_versions_file_path.exists():
-        return True
-    with hello_versions_file_path.open("r") as file:
-        hello_versions_json = json.load(file)
-    known_hello_versions = hello_versions_json.get("hello_versions", "")
-    return hello_versions != known_hello_versions
-
-
-is_modules_changed = get_is_modules_changed()
-
-
-def save_modules_state():
-    global is_modules_changed
-    hello_versions_file_path.parent.mkdir(parents=True, exist_ok=True)
-    with hello_versions_file_path.open("w") as file:
-        json.dump({"hello_versions": hello_versions}, file)
-    is_modules_changed = False
 
 
 def parse_cron_env(
@@ -633,31 +498,6 @@ def get_mime_type(file_path: Path) -> str:
         guess, _ = mimetypes.guess_type(str(file_path), strict=False)
         mime_type = guess or "application/octet-stream"
     return mime_type
-
-
-def set_next_modules(files_docs_by_hash):
-    needs_update = {
-        id: doc for id, doc in files_docs_by_hash.items() if doc_is_online(doc)
-    }
-    for module in module_values:
-        claimed = set(
-            json.loads(
-                retry_until_ready(
-                    lambda: module["proxy"].check(
-                        json.dumps(list(needs_update.values()))
-                    ),
-                    f"failed to contact {module['host']} during sync",
-                    seconds=CHECK_RETRY_SECONDS,
-                )
-            )
-        )
-        for id in claimed:
-            doc = needs_update.pop(id)
-            doc["next"] = module["name"]
-        if not needs_update:
-            break
-    for id, doc in needs_update.items():
-        doc["next"] = ""
 
 
 def index_metadata():
@@ -980,133 +820,6 @@ async def sync_documents():
     except:
         files_logger.exception("sync failed")
         raise
-
-
-# endregion
-# region "run modules"
-
-
-def file_relpath_from_meili_doc(document):
-    return next(iter(document["paths"].keys()))
-
-
-def metadata_dir_relpath_from_doc(name, document):
-    path = Path(BY_ID_DIRECTORY / document["id"] / name)
-    path.mkdir(parents=True, exist_ok=True)
-    return path.relative_to(METADATA_DIRECTORY)
-
-
-async def update_doc_from_module(document):
-    next_module_name = ""
-    found_previous_next = False
-    for module in module_values:
-        if not found_previous_next:
-            if module["name"] == document["next"]:
-                found_previous_next = True
-            continue
-
-        claimed = set(
-            json.loads(
-                retry_until_ready(
-                    lambda: module["proxy"].check(json.dumps([document])),
-                    f"failed to contact {module['host']} after module run",
-                    seconds=POST_RUN_RETRY_SECONDS,
-                )
-            )
-        )
-
-        if document["id"] in claimed:
-            next_module_name = module["name"]
-            break
-    document["next"] = next_module_name
-    update_archive_flags(document)
-    write_doc_json(document)
-    await add_or_update_document(document)
-    return document
-
-
-async def run_module(name, proxy):
-    try:
-        documents = await get_all_pending_jobs(name)
-        documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
-        if documents:
-            modules_logger.info("---------------------------------------------------")
-            modules_logger.info(f'start "{name}"')
-            count = len(documents)
-            modules_logger.info(" * call load")
-            proxy.load()
-            modules_logger.info(f" * run for {count}")
-            try:
-                start_time = time.monotonic()
-                for document in documents:
-                    relpath = file_relpath_from_meili_doc(document)
-                    try:
-                        elapsed_time = time.monotonic() - start_time
-                        if elapsed_time > MODULES_MAX_SECONDS:
-                            modules_logger.info(
-                                f"   * time up after {len(documents) - count} ({count} remain)"
-                            )
-                            return True
-                        result = json.loads(proxy.run(json.dumps(document)))
-                        if isinstance(result, dict) and "document" in result:
-                            chunk_docs = result.get("chunk_docs", [])
-                            delete_chunk_ids = result.get("delete_chunk_ids", [])
-                            document = result["document"]
-                        else:
-                            document = result
-                            chunk_docs = []
-                            delete_chunk_ids = []
-
-                        if chunk_docs:
-                            texts = []
-                            for chunk in chunk_docs:
-                                if "text" in chunk:
-                                    chunk["text"] = "passage: " + chunk["text"]
-                                    texts.append(chunk["text"])
-                                chunk.setdefault("module", name)
-                            vectors = embed_texts(texts)
-                            for chunk, vec in zip(chunk_docs, vectors):
-                                chunk["_vector"] = vec
-                            await add_or_update_chunk_documents(chunk_docs)
-                        if delete_chunk_ids:
-                            await delete_chunk_docs_by_id(delete_chunk_ids)
-
-                        await update_doc_from_module(document)
-                    except Fault as e:
-                        modules_logger.warning(f'   x "{relpath}": {str(e)}')
-                    except Exception as e:
-                        modules_logger.warning(f'   x "{relpath}"')
-                        raise e
-                    count = count - 1
-                modules_logger.info("   * done")
-                return False
-            except Exception as e:
-                modules_logger.warning(f" x failed: {str(e)}")
-                return True
-            finally:
-                modules_logger.info(" * call unload")
-                proxy.unload()
-                modules_logger.info(" * wait for meilisearch")
-                await wait_for_meili_idle()
-                modules_logger.info(" * done")
-    except Exception as e:
-        modules_logger.warning(f"failed: {str(e)}")
-        return True
-
-
-async def run_modules():
-    modules_logger.info("")
-    modules_logger.info("start modules processing")
-    for index, module in enumerate(module_values):
-        modules_logger.info(f" {index + 1}. {module['name']}")
-
-    while True:
-        run_again = False
-        for module in module_values:
-            module_did_not_finish = await run_module(module["name"], module["proxy"])
-            run_again = run_again or module_did_not_finish
-        if not run_again:
-            await asyncio.sleep(MODULES_SLEEP_SECONDS)
 
 
 # endregion
