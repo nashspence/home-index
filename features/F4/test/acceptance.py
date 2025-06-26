@@ -6,6 +6,7 @@ import time
 import urllib.request
 from pathlib import Path
 from typing import Any
+import os
 
 from features.F2 import duplicate_finder
 
@@ -52,14 +53,31 @@ def _search_meili(
         time.sleep(0.5)
 
 
-def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> None:
+def _run_once(
+    compose_file: Path,
+    workdir: Path,
+    output_dir: Path,
+    env_file: Path,
+    home_index_ref: str,
+) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
     (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
 
+    env_file.write_text(f"HOME_INDEX_REF={home_index_ref}\n")
+
     subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        [
+            "docker",
+            "compose",
+            "--env-file",
+            str(env_file),
+            "-f",
+            str(compose_file),
+            "up",
+            "-d",
+        ],
         check=True,
         cwd=workdir,
     )
@@ -85,12 +103,29 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> None:
         raise
     finally:
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "stop"],
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                str(env_file),
+                "-f",
+                str(compose_file),
+                "stop",
+            ],
             check=False,
             cwd=workdir,
         )
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                str(env_file),
+                "-f",
+                str(compose_file),
+                "rm",
+                "-fsv",
+            ],
             check=False,
             cwd=workdir,
         )
@@ -100,4 +135,6 @@ def test_modules_process_documents(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
-    _run_once(compose_file, workdir, output_dir)
+    env_file = tmp_path / ".env"
+    ref = os.environ.get("HOME_INDEX_REF", "main")
+    _run_once(compose_file, workdir, output_dir, env_file, ref)
