@@ -86,6 +86,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from features.F1 import scheduler
 from features.F2 import duplicate_finder, metadata_store, path_links, migrations
+from features.F3 import archive
+
+path_from_relpath = archive.path_from_relpath
+is_in_archive_dir = archive.is_in_archive_dir
+doc_is_online = archive.doc_is_online
 
 # Expose F2 migration helpers for external use and unit tests.
 migrate_doc = migrations.migrate_doc
@@ -163,9 +168,7 @@ BY_ID_DIRECTORY = metadata_store.by_id_directory()
 metadata_store.ensure_directories()
 path_links.ensure_directories()
 
-ARCHIVE_DIRECTORY = Path(
-    os.environ.get("ARCHIVE_DIRECTORY", (INDEX_DIRECTORY / "archive").as_posix())
-)
+ARCHIVE_DIRECTORY = archive.archive_directory()
 _safe_mkdir(ARCHIVE_DIRECTORY)
 
 RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
@@ -606,14 +609,6 @@ async def wait_for_meili_idle():
 # region "sync"
 
 
-def path_from_relpath(relpath):
-    return INDEX_DIRECTORY / relpath
-
-
-def is_in_archive_dir(path):
-    return ARCHIVE_DIRECTORY in path.parents
-
-
 def write_doc_json(doc):
     """Write ``doc`` via Feature F2 utilities."""
     metadata_store.write_doc_json(doc)
@@ -640,7 +635,9 @@ def get_mime_type(file_path: Path) -> str:
 
 
 def set_next_modules(files_docs_by_hash):
-    needs_update = {id: doc for id, doc in files_docs_by_hash.items()}
+    needs_update = {
+        id: doc for id, doc in files_docs_by_hash.items() if doc_is_online(doc)
+    }
     for module in module_values:
         claimed = set(
             json.loads(

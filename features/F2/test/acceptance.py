@@ -152,7 +152,20 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         ) = _run_once(compose_file, workdir, output_dir)
 
         subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
-        docs = [json.loads((d / "document.json").read_text()) for d in subdirs]
+
+        def read_doc(doc_dir: Path) -> dict[str, Any]:
+            deadline = time.time() + 30
+            while True:
+                try:
+                    data = json.loads((doc_dir / "document.json").read_text())
+                    assert isinstance(data, dict)
+                    return data
+                except Exception:
+                    if time.time() > deadline:
+                        raise
+                    time.sleep(0.5)
+
+        docs = [read_doc(d) for d in subdirs]
         docs_by_paths = {
             tuple(sorted(doc["paths"].keys())): doc
             for doc in docs
