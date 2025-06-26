@@ -4,7 +4,7 @@ import json
 def test_run_server_registers_handlers(monkeypatch):
     import importlib
 
-    rs = importlib.import_module("home_index_module.run_server")
+    rs = importlib.import_module("features.F4.home_index_module.run_server")
 
     recorded = {}
 

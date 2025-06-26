@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Callable, Iterable, Mapping, Sequence, Iterator
 from xmlrpc.server import SimpleXMLRPCServer
 
 from features.F2 import metadata_store
 
 
-def setup_debugger():
+def setup_debugger() -> None:
     """Enable debugpy debugging when DEBUG environment variable is true."""
     if str(os.environ.get("DEBUG", "False")) == "True":
         import debugpy
@@ -36,44 +39,46 @@ BY_ID_DIRECTORY = metadata_store.by_id_directory()
 metadata_store.ensure_directories()
 
 
-def file_path_from_meili_doc(document):
+def file_path_from_meili_doc(document: Mapping[str, Any]) -> Path:
     relpath = next(iter(document["paths"].keys()))
     return Path(FILES_DIRECTORY / relpath)
 
 
-def metadata_dir_path_from_doc(name, document):
+def metadata_dir_path_from_doc(name: str, document: Mapping[str, Any]) -> Path:
     dir_path = Path(BY_ID_DIRECTORY / document["id"] / name)
     dir_path.mkdir(parents=True, exist_ok=True)
     return dir_path
 
 
-def read_json(path):
+def read_json(path: str | Path) -> Any:
     path = Path(path)
     with open(path, "r") as file:
         return json.load(file)
 
 
-def write_json(path, data):
+def write_json(path: str | Path, data: Any) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as file:
         json.dump(data, file, indent=4)
 
 
-def load_version(metadata_dir_path):
+def load_version(metadata_dir_path: str | Path) -> Any | None:
     version_path = Path(metadata_dir_path) / "version.json"
     if version_path.exists():
         return read_json(version_path)
     return None
 
 
-def save_version(metadata_dir_path, data):
+def save_version(metadata_dir_path: str | Path, data: Any) -> None:
     write_json(Path(metadata_dir_path) / "version.json", data)
 
 
-def save_version_with_exceptions(metadata_dir_path, version, **exceptions):
+def save_version_with_exceptions(
+    metadata_dir_path: str | Path, version: int, **exceptions: Any
+) -> None:
     """Save ``version`` metadata alongside any exception details."""
-    data = {"version": version}
+    data: dict[str, Any] = {"version": version}
     for key, exc in exceptions.items():
         if exc is not None:
             data[key] = str(exc)
@@ -83,7 +88,12 @@ def save_version_with_exceptions(metadata_dir_path, version, **exceptions):
     save_version(metadata_dir_path, data)
 
 
-def apply_migrations(from_version, migrations, *args, target_version):
+def apply_migrations(
+    from_version: int,
+    migrations: Sequence[Callable[..., tuple[Any, list[dict[str, Any]]]]],
+    *args: Any,
+    target_version: int,
+) -> tuple[Any | None, list[dict[str, Any]], int]:
     """Run one migration step from ``from_version`` toward ``target_version``."""
     if from_version >= target_version:
         return None, [], from_version
@@ -97,7 +107,12 @@ def apply_migrations(from_version, migrations, *args, target_version):
     return segments, chunk_docs, from_version + 1
 
 
-def apply_migrations_if_needed(metadata_dir_path, migrations, *args, target_version):
+def apply_migrations_if_needed(
+    metadata_dir_path: str | Path,
+    migrations: Sequence[Callable[..., tuple[Any, list[dict[str, Any]]]]],
+    *args: Any,
+    target_version: int,
+) -> tuple[Any | None, list[dict[str, Any]], int]:
     """Load version info and apply pending migrations until up to date."""
     version_info = load_version(metadata_dir_path) or {}
     current = version_info.get("version", 0)
@@ -119,10 +134,10 @@ def apply_migrations_if_needed(metadata_dir_path, migrations, *args, target_vers
 
 
 def segments_to_chunk_docs(
-    segments,
-    file_id,
-    module_name="chunk",
-):
+    segments: Iterable[Mapping[str, Any]],
+    file_id: str,
+    module_name: str = "chunk",
+) -> list[dict[str, Any]]:
     """Convert raw segments to chunk documents with consistent IDs."""
 
     docs = []
@@ -149,11 +164,11 @@ def segments_to_chunk_docs(
 
 
 def split_chunk_docs(
-    chunk_docs,
-    model="intfloat/e5-small-v2",
-    tokens_per_chunk=450,
-    chunk_overlap=50,
-):
+    chunk_docs: Iterable[dict[str, Any]],
+    model: str = "intfloat/e5-small-v2",
+    tokens_per_chunk: int = 450,
+    chunk_overlap: int = 50,
+) -> list[dict[str, Any]]:
     """Return ``chunk_docs`` split by tokens using ``langchain`` utilities."""
     try:
         from langchain_core.documents import Document
@@ -177,7 +192,7 @@ def split_chunk_docs(
 
     split_docs = splitter.split_documents(docs)
 
-    counts = {}
+    counts: dict[str, int] = {}
     result = []
     for doc in split_docs:
         base_id = doc.metadata.get("id")
@@ -194,7 +209,7 @@ def split_chunk_docs(
 
 
 @contextmanager
-def log_to_file_and_stdout(file_path):
+def log_to_file_and_stdout(file_path: str | Path) -> Iterator[None]:
     file_handler = logging.FileHandler(file_path)
     file_handler.setLevel(LOGGING_LEVEL)
     file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
@@ -217,15 +232,22 @@ def log_to_file_and_stdout(file_path):
         root_logger.removeHandler(stream_handler)
 
 
-def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
+def run_server(
+    name: str,
+    hello_fn: Callable[[], Mapping[str, Any]],
+    check_fn: Callable[[Path, Mapping[str, Any], Path], bool],
+    run_fn: Callable[[Path, Mapping[str, Any], Path], Any],
+    load_fn: Callable[[], Any] | None = None,
+    unload_fn: Callable[[], Any] | None = None,
+) -> None:
     """Run an XML-RPC server exposing common module hooks."""
 
     class Handler:
-        def hello(self):
+        def hello(self) -> str:
             logging.info("hello")
             return json.dumps(hello_fn())
 
-        def check(self, docs):
+        def check(self, docs: str) -> str:
             response = set()
             for document in json.loads(docs):
                 file_path = file_path_from_meili_doc(document)
@@ -238,12 +260,12 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
                     logging.exception(f'failed to check "{file_path}"')
             return json.dumps(list(response))
 
-        def load(self):
+        def load(self) -> None:
             logging.info("load")
             if load_fn:
                 load_fn()
 
-        def run(self, document_json):
+        def run(self, document_json: str) -> str:
             document = json.loads(document_json)
             file_path = file_path_from_meili_doc(document)
             metadata_dir_path = metadata_dir_path_from_doc(name, document)
@@ -251,7 +273,7 @@ def run_server(name, hello_fn, check_fn, run_fn, load_fn=None, unload_fn=None):
                 result = run_fn(file_path, document, metadata_dir_path)
             return json.dumps(result)
 
-        def unload(self):
+        def unload(self) -> None:
             logging.info("unload")
             if unload_fn:
                 unload_fn()
