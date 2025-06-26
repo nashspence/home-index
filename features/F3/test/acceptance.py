@@ -159,6 +159,17 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         docs = _search_meili(f'id = "{offline_id}"', compose_file, workdir, output_dir)
         assert any(doc["id"] == offline_id for doc in docs)
 
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_file), "stop"],
+            check=True,
+            cwd=workdir,
+        )
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
+            check=True,
+            cwd=workdir,
+        )
+
         ids = _run_once(
             compose_file,
             workdir,
