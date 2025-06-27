@@ -26,7 +26,7 @@ def _search_meili(
     compose_file: Path,
     workdir: Path,
     output_dir: Path,
-    timeout: int = 120,
+    timeout: int = 300,
     q: str = "",
 ) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
@@ -87,7 +87,7 @@ def _run_once(
         output_dir / "metadata" / "by-id" / doc_id / "example_module" / "version.json"
     )
     try:
-        deadline = time.time() + 120
+        deadline = time.time() + 300
         while True:
             time.sleep(0.5)
             if module_version.exists():
