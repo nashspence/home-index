@@ -49,6 +49,5 @@ SentenceTransformer("intfloat/e5-small-v2")
 EOF
 
 COPY packages/home_index ./home_index
-COPY packages/home_index/main.py ./main.py
 COPY features ./features
-ENTRYPOINT ["python3", "/app/main.py"]
+ENTRYPOINT ["python3", "-m", "home_index.main"]
