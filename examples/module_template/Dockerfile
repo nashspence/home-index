@@ -1,8 +1,9 @@
-FROM python:3.11.13-alpine
+FROM python:3.11.13-slim
 ENV PYTHONUNBUFFERED=1
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
-    tzdata
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ARG HOME_INDEX_REF=main
 RUN pip install --no-cache-dir \
