@@ -1,7 +1,7 @@
 # RPC Module Specification
 
 Home Index modules are independent services that expose an XML‑RPC interface. The
-server can be started with `home_index_module.run_server` which takes functions
+server can be started with `features.F4.home_index_module.run_server` which takes functions
 implementing the calls described below.
 
 ## hello()

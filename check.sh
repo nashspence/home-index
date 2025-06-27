@@ -20,4 +20,5 @@ mypy --ignore-missing-imports --explicit-package-bases --no-site-packages packag
 mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F1
 mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F2
 mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F3
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F4
 pytest -q

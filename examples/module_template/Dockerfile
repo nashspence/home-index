@@ -1,9 +1,13 @@
-FROM python:3.11.13-alpine
+FROM python:3.11.13-slim
 ENV PYTHONUNBUFFERED=1
-RUN apk add --no-cache \
-    tzdata
+ENV METADATA_DIRECTORY=/home-index/metadata
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+ARG HOME_INDEX_REF=main
 RUN pip install --no-cache-dir \
-    git+https://github.com/nashspence/home-index.git@1e5a67cb90465abf1c8e0885c7614c9e28314660
+    git+https://github.com/nashspence/home-index.git@${HOME_INDEX_REF}
 COPY main.py .
 ENTRYPOINT ["python3", "/app/main.py"]

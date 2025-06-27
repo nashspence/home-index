@@ -2,7 +2,7 @@ import ast
 import pathlib
 import os
 import time
-from typing import List
+from typing import Callable, List, TypeVar
 
 import pytest
 
@@ -10,7 +10,7 @@ import pytest
 # main module during testing.
 
 # Extract retry_until_ready function without importing entire module
-SRC = pathlib.Path("packages/home_index/main.py").read_text()
+SRC = pathlib.Path("features/F4/modules.py").read_text()
 module = ast.parse(SRC)
 nodes: List[ast.AST] = []
 for node in module.body:
@@ -26,7 +26,13 @@ for node in module.body:
 assert len(nodes) == 2, "Definitions not found"
 retry_src = ast.Module(body=nodes, type_ignores=[])
 code = compile(retry_src, filename="<retry>", mode="exec")
-ns = {"time": time, "os": os}
+ns = {
+    "time": time,
+    "os": os,
+    "Callable": Callable,
+    "TypeVar": TypeVar,
+    "T": TypeVar("T"),
+}
 exec(code, ns)
 retry_until_ready = ns["retry_until_ready"]
 
