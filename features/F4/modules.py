@@ -7,7 +7,8 @@ import logging.handlers
 import os
 import time
 from pathlib import Path
-from typing import Any, Mapping, Callable, TypeVar, cast, TYPE_CHECKING
+import importlib
+from typing import Any, Mapping, Callable, TypeVar, cast
 from xmlrpc.client import Fault, ServerProxy
 
 from features.F2.metadata_store import (
@@ -16,13 +17,6 @@ from features.F2.metadata_store import (
     write_doc_json,
 )
 from features.F3.archive import doc_is_online, update_archive_flags
-
-if TYPE_CHECKING:  # pragma: no cover
-    from typing import Any
-
-    hi: Any
-else:
-    import main as hi
 
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 LOGGING_MAX_BYTES = int(os.environ.get("LOGGING_MAX_BYTES", 5_000_000))
@@ -158,6 +152,11 @@ def metadata_dir_relpath_from_doc(name: str, document: Mapping[str, Any]) -> Pat
 
 
 async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
+    try:
+        from home_index import main as hi
+    except Exception:  # pragma: no cover - compatibility
+        hi = importlib.import_module("main")
+    hi = cast(Any, hi)
 
     next_module_name = ""
     found_previous_next = False
@@ -211,6 +210,11 @@ def set_next_modules(files_docs_by_hash: dict[str, dict[str, Any]]) -> None:
 
 
 async def run_module(name: str, proxy: ServerProxy) -> bool:
+    try:
+        from home_index import main as hi
+    except Exception:  # pragma: no cover - compatibility
+        hi = importlib.import_module("main")
+    hi = cast(Any, hi)
 
     try:
         documents = await hi.get_all_pending_jobs(name)
