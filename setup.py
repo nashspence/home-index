@@ -13,5 +13,14 @@ setup(
         "": ".",
         "home_index": "packages/home_index",
     },
+    install_requires=[
+        "apscheduler==3.11.0",
+        "debugpy==1.8.14",
+        "meilisearch-python-sdk==4.7.1",
+        "python-magic==0.4.27",
+        "xxhash==3.5.0",
+        "sentence-transformers==4.1.0",
+        "transformers==4.52.4",
+    ],
     python_requires=">=3.8",
 )
