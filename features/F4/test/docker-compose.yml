@@ -23,6 +23,8 @@ services:
     build:
       context: ../../../examples/module_template/
       dockerfile: Dockerfile
+      args:
+        HOME_INDEX_REF: ${HOME_INDEX_REF:-main}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
