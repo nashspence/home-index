@@ -1,5 +1,6 @@
 FROM python:3.11.13-slim
 ENV PYTHONUNBUFFERED=1
+ENV METADATA_DIRECTORY=/home-index/metadata
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     tzdata \
