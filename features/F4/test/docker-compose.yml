@@ -22,7 +22,7 @@ services:
       - "7700:7700"
   example-module:
     build:
-      context: ../../../examples/module_template/
+      context: ../module_template/
       dockerfile: Dockerfile
       args:
         HOME_INDEX_REF: ${HOME_INDEX_REF}
