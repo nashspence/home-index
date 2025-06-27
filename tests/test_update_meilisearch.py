@@ -3,7 +3,7 @@ import asyncio
 
 def test_update_meilisearch_adds_and_deletes_documents(monkeypatch):
     import importlib
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 

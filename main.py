@@ -121,16 +121,16 @@ CPU_COUNT = os.cpu_count() or 1
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT // 2))
 MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT // 2))
 
-# embedding configuration
-EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL_NAME", "intfloat/e5-small-v2")
-try:
-    import torch
+from shared import EMBED_MODEL_NAME, EMBED_DEVICE, EMBED_DIM
+from shared.embedding import embed_texts, embedding_model
 
-    default_device = "cuda" if torch.cuda.is_available() else "cpu"
-except Exception:
-    default_device = "cpu"
-EMBED_DEVICE = os.environ.get("EMBED_DEVICE", default_device)
-EMBED_DIM = int(os.environ.get("EMBED_DIM", "384"))
+__all__ = [
+    "embed_texts",
+    "embedding_model",
+    "EMBED_MODEL_NAME",
+    "EMBED_DEVICE",
+    "EMBED_DIM",
+]
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
 
@@ -162,25 +162,8 @@ _safe_mkdir(ARCHIVE_DIRECTORY)
 RESERVED_FILES_DIRS = [METADATA_DIRECTORY]
 
 
-# embedding model setup
-embedding_model = None
-
-
-def init_embedder():
-    """Initialize the sentence transformer model on first use."""
-    global embedding_model
-    if embedding_model is None:
-        from sentence_transformers import SentenceTransformer
-
-        embedding_model = SentenceTransformer(EMBED_MODEL_NAME, device=EMBED_DEVICE)
-
-
-def embed_texts(texts):
-    """Return embeddings for a list of texts."""
-    if embedding_model is None:
-        init_embedder()
-    vectors = embedding_model.encode(texts, convert_to_numpy=True)
-    return [vec.tolist() for vec in vectors]
+# embedding helpers
+# functions imported from shared
 
 
 def parse_cron_env(

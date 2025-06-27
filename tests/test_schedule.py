@@ -10,7 +10,7 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
     index_dir.mkdir()
     monkeypatch.setenv("INDEX_DIRECTORY", str(index_dir))
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
-    import home_index.main as hi
+    import main as hi
     import importlib
 
     importlib.reload(hi)
@@ -30,7 +30,7 @@ def test_malformed_cron_expressions_raise_valueerror(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
-    import home_index.main as hi
+    import main as hi
     import importlib
 
     importlib.reload(hi)
@@ -62,7 +62,7 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
         def start(self):
             added["started"] = True
 
-    import home_index.main as hi
+    import main as hi
     import importlib
 
     importlib.reload(hi)
