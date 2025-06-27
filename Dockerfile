@@ -48,6 +48,7 @@ AutoTokenizer.from_pretrained("intfloat/e5-small-v2")
 SentenceTransformer("intfloat/e5-small-v2")
 EOF
 
-COPY packages/home_index ./
+COPY packages/home_index ./home_index
+COPY packages/home_index/main.py ./main.py
 COPY features ./features
 ENTRYPOINT ["python3", "/app/main.py"]
