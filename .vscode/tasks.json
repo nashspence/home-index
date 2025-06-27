@@ -19,6 +19,19 @@
             "presentation": {
                 "reveal": "always"
             }
+        },
+        {
+            "label": "Run Acceptance",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "DEBUG=True WAIT_FOR_DEBUGPY_CLIENT=True python run_acceptance.py"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always"
+            }
         }
     ]
 }

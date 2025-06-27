@@ -17,6 +17,39 @@
             ],
             "preLaunchTask": "Restart Docker Container",
             "postDebugTask": "Stop Docker Compose"
+        },
+        {
+            "name": "Run Acceptance Script",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_acceptance.py",
+            "console": "integratedTerminal",
+            "env": {
+                "DEBUG": "True",
+                "WAIT_FOR_DEBUGPY_CLIENT": "True"
+            }
+        },
+        {
+            "name": "Attach Release Container",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/app"
+                }
+            ]
+        }
+    ]
+    ,
+    "compounds": [
+        {
+            "name": "Run Acceptance",
+            "configurations": ["Run Acceptance Script", "Attach Release Container"]
         }
     ]
 }
