@@ -24,8 +24,12 @@ jobs:
       - run: |
           set -euo pipefail
           FEATURES=$(ls features | grep '^F')
+          SHA=$(git rev-parse HEAD)
           for f in $FEATURES; do
-            docker exec -e IMAGE=${REPO}:ci ${REPO}-devcontainer \
+            docker exec \
+              -e IMAGE=${REPO}:ci \
+              -e HOME_INDEX_REF=${SHA} \
+              ${REPO}-devcontainer \
               bash -lc "source venv/bin/activate && pytest -q features/${f}/test/acceptance.py"
           done
 
