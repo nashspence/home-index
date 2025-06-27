@@ -35,7 +35,7 @@ def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 
@@ -74,7 +74,7 @@ def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
-    import home_index.main as hi
+    import main as hi
     import importlib
 
     importlib.reload(hi)

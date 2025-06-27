@@ -1,6 +1,6 @@
 def test_embed_texts_uses_provided_model(monkeypatch):
     import importlib
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 
@@ -12,7 +12,9 @@ def test_embed_texts_uses_provided_model(monkeypatch):
         def encode(self, texts, convert_to_numpy=True):
             return [self.Vec([len(t)] * hi.EMBED_DIM) for t in texts]
 
-    hi.embedding_model = DummyModel()
+    import shared.embedding as emb
+
+    emb.embedding_model = DummyModel()
 
     result = hi.embed_texts(["a", "bb"])
 

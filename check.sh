@@ -16,7 +16,7 @@ fi
 
 black --check .
 ruff check .
-mypy --ignore-missing-imports --explicit-package-bases --no-site-packages packages tests || true
+mypy --ignore-missing-imports --explicit-package-bases --no-site-packages main.py shared tests || true
 mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F1
 mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F2
 mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F3

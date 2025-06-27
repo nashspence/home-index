@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
 
-# Ensure local packages are importable
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages"))
+# Ensure project root is importable
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import types
 import pytest

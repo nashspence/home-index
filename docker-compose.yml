@@ -6,16 +6,14 @@ services:
     container_name: home-index
     depends_on:
       - meilisearch
-      - home-index-example-module
     environment:
       - DEBUG=True
       - MEILISEARCH_HOST=http://meilisearch:7700
-      - MODULES=http://home-index-example-module:9000
       - TZ=America/Los_Angeles
     restart: unless-stopped
     volumes:
-      - ./bind-mounts/home-index:/home-index
-      - ./bind-mounts/files:/files
+      - ./docker-data/home-index:/home-index
+      - ./docker-data/files:/files
   meilisearch:
     container_name: meilisearch
     environment:
@@ -26,14 +24,4 @@ services:
     ports:
       - "7700:7700"
     volumes:
-      - ./bind-mounts/meilisearch:/meili_data
-  home-index-example-module:
-    build:
-      context: ./features/F4/module_template/
-      dockerfile: Dockerfile
-    container_name: home-index-example-module
-    environment:
-      - TZ=America/Los_Angeles
-    restart: unless-stopped
-    volumes:
-      - ./bind-mounts/files:/files
+      - ./docker-data/meilisearch:/meili_data

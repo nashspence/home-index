@@ -7,12 +7,11 @@ setup(
     author="Nash Spence",
     author_email="nashspence@gmail.com",
     url="https://github.com/nashspence/home-index",
-    packages=["home_index"]
-    + find_namespace_packages(where=".", include=["features*"], exclude=["*.test*"]),
-    package_dir={
-        "": ".",
-        "home_index": "packages/home_index",
-    },
+    py_modules=["main"],
+    packages=find_namespace_packages(
+        where=".", include=["features*"], exclude=["*.test*"]
+    ),
+    package_dir={"": "."},
     install_requires=[
         "apscheduler==3.11.0",
         "debugpy==1.8.14",

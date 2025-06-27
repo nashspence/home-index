@@ -7,6 +7,8 @@ import logging.handlers
 import os
 import time
 from pathlib import Path
+import importlib
+import sys
 from typing import Any, Mapping, Callable, TypeVar, cast
 from xmlrpc.client import Fault, ServerProxy
 
@@ -108,9 +110,18 @@ def setup_modules() -> tuple[
             version = hello["version"]
             hellos_local.append(hello)
             hello_versions_local.append([name, version])
-            modules_local[name] = {"name": name, "proxy": proxy, "host": module_host}
+            modules_local[name] = {
+                "name": name,
+                "proxy": proxy,
+                "host": module_host,
+            }
             module_values_local.append(modules_local[name])
-    return modules_local, module_values_local, hellos_local, hello_versions_local
+    return (
+        modules_local,
+        module_values_local,
+        hellos_local,
+        hello_versions_local,
+    )
 
 
 def set_global_modules() -> None:
@@ -151,7 +162,15 @@ def metadata_dir_relpath_from_doc(name: str, document: Mapping[str, Any]) -> Pat
 
 
 async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
-    from home_index import main as hi
+    try:
+        from home_index import main as hi
+    except Exception:  # pragma: no cover - compatibility
+        hi = sys.modules.get("main")
+        if hi is None:
+            hi = sys.modules.get("__main__")
+        if hi is None:
+            hi = importlib.import_module("main")
+    hi = cast(Any, hi)
 
     next_module_name = ""
     found_previous_next = False
@@ -205,7 +224,15 @@ def set_next_modules(files_docs_by_hash: dict[str, dict[str, Any]]) -> None:
 
 
 async def run_module(name: str, proxy: ServerProxy) -> bool:
-    from home_index import main as hi
+    try:
+        from home_index import main as hi
+    except Exception:  # pragma: no cover - compatibility
+        hi = sys.modules.get("main")
+        if hi is None:
+            hi = sys.modules.get("__main__")
+        if hi is None:
+            hi = importlib.import_module("main")
+    hi = cast(Any, hi)
 
     try:
         documents = await hi.get_all_pending_jobs(name)

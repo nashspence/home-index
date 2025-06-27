@@ -2,7 +2,7 @@ import importlib
 
 
 def test_migrate_doc_adds_paths_list():
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 

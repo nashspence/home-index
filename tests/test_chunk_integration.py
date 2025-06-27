@@ -4,7 +4,7 @@ import json
 
 def test_run_module_processes_chunk_docs(monkeypatch):
     import importlib
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 
@@ -56,7 +56,7 @@ def test_run_module_processes_chunk_docs(monkeypatch):
 
 def test_run_module_handles_update_only(monkeypatch):
     import importlib
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 

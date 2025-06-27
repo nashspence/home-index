@@ -66,7 +66,7 @@ def test_update_doc_from_module_updates_and_saves(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     modules = _reload_modules(monkeypatch, tmp_path)
-    import home_index.main as hi
+    import main as hi
 
     importlib.reload(hi)
 
