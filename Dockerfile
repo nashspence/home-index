@@ -50,4 +50,4 @@ EOF
 
 COPY packages/home_index ./home_index
 COPY features ./features
-ENTRYPOINT ["python3", "-m", "home_index.main"]
+ENTRYPOINT ["python3", "-m", "home_index"]
