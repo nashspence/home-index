@@ -7,7 +7,7 @@ setup(
     author="Nash Spence",
     author_email="nashspence@gmail.com",
     url="https://github.com/nashspence/home-index",
-    packages=find_namespace_packages(where="packages")
+    packages=["home_index"]
     + find_namespace_packages(where=".", include=["features*"], exclude=["*.test*"]),
     package_dir={
         "": ".",
