@@ -29,7 +29,7 @@ services:
       - ./bind-mounts/meilisearch:/meili_data
   home-index-example-module:
     build:
-      context: ./examples/module_template/
+      context: ./features/F4/module_template/
       dockerfile: Dockerfile
     container_name: home-index-example-module
     environment:
