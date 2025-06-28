@@ -242,9 +242,7 @@ async def init_meili():
         )
 
         await chunk_index.update_embedders(
-            Embedders(
-                embedders={"userProvided": UserProvidedEmbedder(dimensions=EMBED_DIM)}
-            )
+            Embedders(embedders={"default": UserProvidedEmbedder(dimensions=EMBED_DIM)})
         )
     except Exception:
         logging.exception("meili update chunk index settings failed")

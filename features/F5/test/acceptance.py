@@ -33,7 +33,7 @@ def _search_chunks(
         try:
             data = {
                 "vector": vector,
-                "hybrid": {"embedder": "userProvided"},
+                "hybrid": {"embedder": "default"},
             }
             if filter_expr:
                 data["filter"] = filter_expr
