@@ -121,7 +121,7 @@ CPU_COUNT = os.cpu_count() or 1
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT // 2))
 MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT // 2))
 
-from shared import EMBED_MODEL_NAME, EMBED_DEVICE, EMBED_DIM
+from shared import EMBED_DEVICE, EMBED_DIM, EMBED_MODEL_NAME
 from shared.embedding import embed_texts, embedding_model
 
 __all__ = [
@@ -186,13 +186,6 @@ async def init_meili():
     global client, index, chunk_index
     logging.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
-
-    try:
-        await client.http_client.patch(
-            "/experimental-features", json={"vectorStore": True}
-        )
-    except Exception:
-        logging.exception("enable meili vector store failed")
 
     for attempt in range(30):
         try:
