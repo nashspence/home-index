@@ -230,25 +230,24 @@ async def init_meili():
             raise
 
     try:
-        await chunk_index.update_settings(
+        task = await chunk_index.update_settings(
             {
                 "vector": {"size": EMBED_DIM, "distance": "Cosine"},
                 "filterableAttributes": ["file_id"],
             }
         )
-        await wait_for_meili_idle()
-        await client.http_client.patch(
-            f"/indexes/{MEILISEARCH_CHUNK_INDEX_NAME}/settings/embedders",
-            json={
+        await client.wait_for_task(task.task_uid)
+        task = await chunk_index.update_embedders(
+            {
                 "e5-small": {
                     "source": "huggingFace",
                     "model": "intfloat/e5-small-v2",
                     "dimensions": EMBED_DIM,
                     "documentTemplate": "passage: {{doc.text}}",
                 }
-            },
+            }
         )
-        await wait_for_meili_idle()
+        await client.wait_for_task(task.task_uid)
     except Exception:
         logging.exception("meili update chunk index settings failed")
 
