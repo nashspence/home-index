@@ -236,8 +236,16 @@ async def init_meili():
                 "filterableAttributes": ["file_id"],
             }
         )
+        from meilisearch_python_sdk.models.settings import (
+            Embedders,
+            UserProvidedEmbedder,
+        )
+
+        await chunk_index.update_embedders(
+            Embedders(embedders={"default": UserProvidedEmbedder(dimensions=EMBED_DIM)})
+        )
     except Exception:
-        logging.exception("meili update chunk vector settings failed")
+        logging.exception("meili update chunk index settings failed")
 
     filterable_attributes = [
         "id",

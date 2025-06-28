@@ -9,10 +9,10 @@ from typing import Any
 import os
 
 from features.F2 import duplicate_finder
+from shared.embedding import embed_texts
 
 
 def _dump_logs(compose_file: Path, workdir: Path) -> None:
-    """Print logs from all compose containers."""
     subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
         cwd=workdir,
@@ -21,22 +21,25 @@ def _dump_logs(compose_file: Path, workdir: Path) -> None:
     sys.stdout.flush()
 
 
-def _search_meili(
-    filter_expr: str,
+def _search_chunks(
+    vector: list[float],
     compose_file: Path,
     workdir: Path,
-    output_dir: Path,
+    filter_expr: str = "",
     timeout: int = 300,
-    q: str = "",
 ) -> list[dict[str, Any]]:
-    """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + timeout
     while True:
         try:
-            data = json.dumps({"q": q, "filter": filter_expr}).encode()
+            data = {
+                "vector": vector,
+                "hybrid": {"embedder": "default"},
+            }
+            if filter_expr:
+                data["filter"] = filter_expr
             req = urllib.request.Request(
-                "http://localhost:7700/indexes/files/search",
-                data=data,
+                "http://localhost:7700/indexes/file_chunks/search",
+                data=json.dumps(data).encode(),
                 headers={"Content-Type": "application/json"},
             )
             with urllib.request.urlopen(req) as resp:
@@ -47,9 +50,7 @@ def _search_meili(
         except Exception:
             pass
         if time.time() > deadline:
-            raise AssertionError(
-                f"Timed out waiting for search results for: {filter_expr}"
-            )
+            raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
 
 
@@ -58,14 +59,14 @@ def _run_once(
     workdir: Path,
     output_dir: Path,
     env_file: Path,
-    home_index_ref: str,
+    ref: str,
 ) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
     (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
 
-    env_file.write_text(f"HOME_INDEX_REF={home_index_ref}\n")
+    env_file.write_text(f"HOME_INDEX_REF={ref}\n")
 
     subprocess.run(
         [
@@ -81,40 +82,32 @@ def _run_once(
         check=True,
         cwd=workdir,
     )
-    doc_path = workdir / "input" / "hello.txt"
+    doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
-    module_version = (
-        output_dir / "metadata" / "by-id" / doc_id / "example_module" / "version.json"
+    chunk_json = (
+        output_dir
+        / "metadata"
+        / "by-id"
+        / doc_id
+        / "chunk_module"
+        / f"chunk_module_{doc_id}_0.json"
     )
     try:
         deadline = time.time() + 300
         while True:
             time.sleep(0.5)
-            if module_version.exists():
+            if chunk_json.exists():
                 break
             if time.time() > deadline:
-                raise AssertionError("Timed out waiting for module output")
-        docs = _search_meili(f'id = "{doc_id}"', compose_file, workdir, output_dir)
-        assert any(doc["id"] == doc_id for doc in docs)
-        data = json.loads(module_version.read_text())
-        assert data.get("version") == 1
+                raise AssertionError("Timed out waiting for chunk metadata")
+
+        vector = embed_texts(["concept search works"])[0]
+        results = _search_chunks(vector, compose_file, workdir, f'file_id = "{doc_id}"')
+        assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
     except Exception:
         _dump_logs(compose_file, workdir)
         raise
     finally:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "stop",
-            ],
-            check=False,
-            cwd=workdir,
-        )
         subprocess.run(
             [
                 "docker",
@@ -133,7 +126,7 @@ def _run_once(
         )
 
 
-def test_modules_process_documents(tmp_path: Path) -> None:
+def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
     compose_file = Path(__file__).with_name("docker-compose.yml")
     workdir = compose_file.parent
     output_dir = workdir / "output"
