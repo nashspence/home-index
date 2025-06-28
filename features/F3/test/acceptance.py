@@ -204,12 +204,16 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         raise
     finally:
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "stop"],
-            check=False,
-            cwd=workdir,
-        )
-        subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "down",
+                "--volumes",
+                "--rmi",
+                "local",
+            ],
             check=False,
             cwd=workdir,
         )

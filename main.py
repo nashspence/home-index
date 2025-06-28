@@ -187,6 +187,13 @@ async def init_meili():
     logging.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
 
+    try:
+        await client.http_client.patch(
+            "/experimental-features", json={"vectorStore": True}
+        )
+    except Exception:
+        logging.exception("enable meili vector store failed")
+
     for attempt in range(30):
         try:
             index = await client.get_index(MEILISEARCH_INDEX_NAME)
@@ -236,8 +243,18 @@ async def init_meili():
                 "filterableAttributes": ["file_id"],
             }
         )
+        await wait_for_meili_idle()
+        from meilisearch_python_sdk.models.settings import (
+            Embedders,
+            UserProvidedEmbedder,
+        )
+
+        await chunk_index.update_embedders(
+            Embedders(embedders={"default": UserProvidedEmbedder(dimensions=EMBED_DIM)})
+        )
+        await wait_for_meili_idle()
     except Exception:
-        logging.exception("meili update chunk vector settings failed")
+        logging.exception("meili update chunk index settings failed")
 
     filterable_attributes = [
         "id",

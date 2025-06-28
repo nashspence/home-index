@@ -3,7 +3,7 @@ services:
     image: ${IMAGE}
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
-      - MODULES=http://example-module:9000
+      - MODULES=http://chunk-module:9000
       - RETRY_UNTIL_READY_SECONDS=180
       - DEBUG=${DEBUG:-False}
       - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
@@ -16,7 +16,7 @@ services:
       - "5678:5678"
     depends_on:
       - meilisearch
-      - example-module
+      - chunk-module
   meilisearch:
     image: getmeili/meilisearch:v1.15.2
     environment:
@@ -26,9 +26,9 @@ services:
       - ./output/meili:/meili_data
     ports:
       - "7700:7700"
-  example-module:
+  chunk-module:
     build:
-      context: ../module_template/
+      context: ../chunk_module
       dockerfile: Dockerfile
       args:
         BASE_IMAGE: ${MODULE_BASE_IMAGE}
