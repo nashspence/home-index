@@ -57,7 +57,7 @@ def _run_once(
     output_dir: Path,
     env_file: Path,
     ref: str,
-) -> tuple[str, str]:
+) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -97,7 +97,10 @@ def _run_once(
                 break
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for chunk metadata")
-        return doc_id, f"chunk_module_{doc_id}_0"
+
+        vector = embed_texts(["concept search works"])[0]
+        results = _search_chunks(vector, compose_file, workdir, f'file_id = "{doc_id}"')
+        assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
     except Exception:
         _dump_logs(compose_file, workdir)
         raise
@@ -126,7 +129,4 @@ def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
     ref = os.environ.get("HOME_INDEX_REF", "main")
-    file_id, chunk_id = _run_once(compose_file, workdir, output_dir, env_file, ref)
-    vector = embed_texts(["concept search works"])[0]
-    results = _search_chunks(vector, compose_file, workdir, f'file_id = "{file_id}"')
-    assert any(doc["id"] == chunk_id for doc in results)
+    _run_once(compose_file, workdir, output_dir, env_file, ref)
