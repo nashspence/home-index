@@ -30,6 +30,8 @@ services:
     build:
       context: ../chunk_module
       dockerfile: Dockerfile
+      args:
+        HOME_INDEX_IMAGE: ${IMAGE}
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
     volumes:
