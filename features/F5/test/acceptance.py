@@ -31,7 +31,10 @@ def _search_chunks(
     deadline = time.time() + timeout
     while True:
         try:
-            data = {"vector": vector}
+            data = {
+                "vector": vector,
+                "hybrid": {"embedder": "userProvided"},
+            }
             if filter_expr:
                 data["filter"] = filter_expr
             req = urllib.request.Request(
