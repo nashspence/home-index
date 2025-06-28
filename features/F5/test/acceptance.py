@@ -9,7 +9,6 @@ from typing import Any
 import os
 
 from features.F2 import duplicate_finder
-from shared.embedding import embed_texts
 
 
 def _dump_logs(compose_file: Path, workdir: Path) -> None:
@@ -22,7 +21,7 @@ def _dump_logs(compose_file: Path, workdir: Path) -> None:
 
 
 def _search_chunks(
-    vector: list[float],
+    query: str,
     compose_file: Path,
     workdir: Path,
     filter_expr: str = "",
@@ -32,8 +31,8 @@ def _search_chunks(
     while True:
         try:
             data = {
-                "vector": vector,
-                "hybrid": {"embedder": "default"},
+                "q": f"query: {query}",
+                "hybrid": {"semanticRatio": 1, "embedder": "e5-small"},
             }
             if filter_expr:
                 data["filter"] = filter_expr
@@ -101,8 +100,12 @@ def _run_once(
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for chunk metadata")
 
-        vector = embed_texts(["concept search works"])[0]
-        results = _search_chunks(vector, compose_file, workdir, f'file_id = "{doc_id}"')
+        results = _search_chunks(
+            "concept search works",
+            compose_file,
+            workdir,
+            f'file_id = "{doc_id}"',
+        )
         assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
     except Exception:
         _dump_logs(compose_file, workdir)

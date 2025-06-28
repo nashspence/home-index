@@ -246,7 +246,14 @@ async def init_meili():
         await wait_for_meili_idle()
         await client.http_client.patch(
             f"/indexes/{MEILISEARCH_CHUNK_INDEX_NAME}/settings/embedders",
-            json={"default": {"source": "userProvided", "dimensions": EMBED_DIM}},
+            json={
+                "e5-small": {
+                    "source": "huggingFace",
+                    "model": "intfloat/e5-small-v2",
+                    "dimensions": EMBED_DIM,
+                    "documentTemplate": "passage: {{doc.text}}",
+                }
+            },
         )
         await wait_for_meili_idle()
     except Exception:
