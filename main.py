@@ -234,12 +234,14 @@ async def init_meili():
             {
                 "vector": {"size": EMBED_DIM, "distance": "Cosine"},
                 "filterableAttributes": ["file_id"],
-                "embedders": {
-                    "userProvided": {
-                        "source": "userProvided",
-                        "dimensions": EMBED_DIM,
-                    }
-                },
+            }
+        )
+        await chunk_index.update_embedders(
+            {
+                "userProvided": {
+                    "source": "userProvided",
+                    "dimensions": EMBED_DIM,
+                }
             }
         )
     except Exception:
