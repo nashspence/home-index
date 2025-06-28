@@ -234,10 +234,16 @@ async def init_meili():
             {
                 "vector": {"size": EMBED_DIM, "distance": "Cosine"},
                 "filterableAttributes": ["file_id"],
+                "embedders": {
+                    "userProvided": {
+                        "source": "userProvided",
+                        "dimensions": EMBED_DIM,
+                    }
+                },
             }
         )
     except Exception:
-        logging.exception("meili update chunk vector settings failed")
+        logging.exception("meili update chunk index settings failed")
 
     filterable_attributes = [
         "id",
