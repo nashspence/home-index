@@ -5,9 +5,15 @@ services:
       - METADATA_DIRECTORY=/home-index/metadata
       - MODULES=http://example-module:9000
       - RETRY_UNTIL_READY_SECONDS=180
+      - DEBUG=${DEBUG:-False}
+      - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
+      - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
+      - WAIT_FOR_DEBUGPY_CLIENT=${WAIT_FOR_DEBUGPY_CLIENT:-False}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
+    ports:
+      - "5678:5678"
     depends_on:
       - meilisearch
       - example-module
