@@ -236,13 +236,15 @@ async def init_meili():
                 "filterableAttributes": ["file_id"],
             }
         )
+        from meilisearch_python_sdk.models.settings import (
+            Embedders,
+            UserProvidedEmbedder,
+        )
+
         await chunk_index.update_embedders(
-            {
-                "userProvided": {
-                    "source": "userProvided",
-                    "dimensions": EMBED_DIM,
-                }
-            }
+            Embedders(
+                embedders={"userProvided": UserProvidedEmbedder(dimensions=EMBED_DIM)}
+            )
         )
     except Exception:
         logging.exception("meili update chunk index settings failed")
