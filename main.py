@@ -244,13 +244,9 @@ async def init_meili():
             }
         )
         await wait_for_meili_idle()
-        from meilisearch_python_sdk.models.settings import (
-            Embedders,
-            UserProvidedEmbedder,
-        )
-
-        await chunk_index.update_embedders(
-            Embedders(embedders={"default": UserProvidedEmbedder(dimensions=EMBED_DIM)})
+        await client.http_client.patch(
+            f"/indexes/{MEILISEARCH_CHUNK_INDEX_NAME}/settings/embedders",
+            json={"default": {"source": "userProvided", "dimensions": EMBED_DIM}},
         )
         await wait_for_meili_idle()
     except Exception:
