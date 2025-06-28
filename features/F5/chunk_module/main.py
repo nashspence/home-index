@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, Mapping
+import json
 
 from features.F4.home_index_module import run_server
 
@@ -35,6 +36,7 @@ def run(
         "module": NAME,
         "text": text,
     }
+    (metadata_dir_path / f"{chunk['id']}.json").write_text(json.dumps(chunk, indent=4))
     logging.info("done")
     return {"document": document, "chunk_docs": [chunk]}
 
