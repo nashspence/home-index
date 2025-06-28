@@ -1,5 +1,13 @@
-ARG HOME_INDEX_IMAGE=ghcr.io/nashspence/home-index:latest
-FROM ${HOME_INDEX_IMAGE}
+FROM python:3.11.13-slim
+ENV PYTHONUNBUFFERED=1
+ENV METADATA_DIRECTORY=/home-index/metadata
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY main.py /app/chunk_module/main.py
-ENTRYPOINT ["python3", "/app/chunk_module/main.py"]
+ARG HOME_INDEX_REF=main
+RUN pip install --no-cache-dir \
+    git+https://github.com/nashspence/home-index.git@${HOME_INDEX_REF}
+COPY main.py .
+ENTRYPOINT ["python3", "/app/main.py"]

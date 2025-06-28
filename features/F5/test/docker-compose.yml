@@ -31,7 +31,7 @@ services:
       context: ../chunk_module
       dockerfile: Dockerfile
       args:
-        HOME_INDEX_IMAGE: ${IMAGE}
+        HOME_INDEX_REF: ${HOME_INDEX_REF}
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
     volumes:
