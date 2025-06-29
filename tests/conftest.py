@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import types
+
 import pytest
 
 
@@ -25,6 +26,17 @@ def stub_dependencies(monkeypatch):
         ),
         "apscheduler.triggers.cron": types.ModuleType("apscheduler.triggers.cron"),
         "meilisearch_python_sdk": types.ModuleType("meilisearch_python_sdk"),
+        "meilisearch_python_sdk.models": types.ModuleType(
+            "meilisearch_python_sdk.models"
+        ),
+        "meilisearch_python_sdk.models.settings": types.ModuleType(
+            "meilisearch_python_sdk.models.settings"
+        ),
+        "meilisearch": types.ModuleType("meilisearch"),
+        "meilisearch.models": types.ModuleType("meilisearch.models"),
+        "meilisearch.models.embedders": types.ModuleType(
+            "meilisearch.models.embedders"
+        ),
         "sentence_transformers": types.ModuleType("sentence_transformers"),
         "langchain_core.documents": types.ModuleType("langchain_core.documents"),
         "langchain_text_splitters": types.ModuleType("langchain_text_splitters"),
@@ -91,6 +103,33 @@ def stub_dependencies(monkeypatch):
 
     sdk_mod.AsyncClient = DummyAsyncClient
 
+    meili_emb_mod = modules["meilisearch_python_sdk.models.settings"]
+
+    class Embedders:
+        def __init__(self, embedders):
+            self.embedders = embedders
+
+    class HuggingFaceEmbedder:
+        def __init__(
+            self, model: str, document_template: str, dimensions: int | None = None
+        ):
+            self.model = model
+            self.document_template = document_template
+            self.dimensions = dimensions
+
+    meili_emb_mod.Embedders = Embedders
+    meili_emb_mod.HuggingFaceEmbedder = HuggingFaceEmbedder
+
+    class MeilisearchSettings:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+        def model_dump(self):
+            return self.__dict__
+
+    meili_emb_mod.MeilisearchSettings = MeilisearchSettings
+
     lc_doc_mod = modules["langchain_core.documents"]
 
     class DummyDocument:
@@ -141,6 +180,12 @@ def stub_dependencies(monkeypatch):
     modules["apscheduler.schedulers"].background = sched_bg
     modules["apscheduler.triggers"].interval = modules["apscheduler.triggers.interval"]
     modules["apscheduler.triggers"].cron = modules["apscheduler.triggers.cron"]
+    modules["meilisearch"].models = modules["meilisearch.models"]
+    modules["meilisearch.models"].embedders = modules["meilisearch.models.embedders"]
+    modules["meilisearch_python_sdk"].models = modules["meilisearch_python_sdk.models"]
+    modules["meilisearch_python_sdk.models"].settings = modules[
+        "meilisearch_python_sdk.models.settings"
+    ]
 
     for name, module in modules.items():
         sys.modules.setdefault(name, module)

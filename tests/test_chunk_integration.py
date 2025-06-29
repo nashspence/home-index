@@ -39,9 +39,6 @@ def test_run_module_processes_chunk_docs(monkeypatch):
     monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
     monkeypatch.setattr(hi, "add_or_update_chunk_documents", fake_add_chunks)
     monkeypatch.setattr(hi, "update_doc_from_module", fake_update_doc)
-    monkeypatch.setattr(
-        hi, "embed_texts", lambda texts: [[0.0] * hi.EMBED_DIM for _ in texts]
-    )
     monkeypatch.setattr(hi, "wait_for_meili_idle", fake_wait)
     hi.module_values = []
 
@@ -50,7 +47,7 @@ def test_run_module_processes_chunk_docs(monkeypatch):
     assert result is False
     assert recorded["load"]
     assert recorded["unload"]
-    assert recorded["chunks"][0]["_vector"] == [0.0] * hi.EMBED_DIM
+    assert "_vector" not in recorded["chunks"][0]
     assert recorded["updated"]["id"] == doc["id"]
 
 

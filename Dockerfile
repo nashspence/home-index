@@ -1,5 +1,8 @@
 FROM python:3.11.13-slim
 
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=${COMMIT_SHA}
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

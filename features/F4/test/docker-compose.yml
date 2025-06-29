@@ -18,7 +18,7 @@ services:
       - meilisearch
       - example-module
   meilisearch:
-    image: getmeili/meilisearch:v1.15.2
+    image: getmeili/meilisearch:v1.15
     environment:
       - MEILI_NO_ANALYTICS=true
       - MEILI_LOG_LEVEL=warn
@@ -31,7 +31,7 @@ services:
       context: ../module_template/
       dockerfile: Dockerfile
       args:
-        HOME_INDEX_REF: ${HOME_INDEX_REF}
+        BASE_IMAGE: ${MODULE_BASE_IMAGE}
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
     volumes:

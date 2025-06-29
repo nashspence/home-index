@@ -265,15 +265,8 @@ async def run_module(name: str, proxy: ServerProxy) -> bool:
                             chunk_docs = []
                             delete_chunk_ids = []
                         if chunk_docs:
-                            texts = []
                             for chunk in chunk_docs:
-                                if "text" in chunk:
-                                    chunk["text"] = "passage: " + chunk["text"]
-                                    texts.append(chunk["text"])
                                 chunk.setdefault("module", name)
-                            vectors = hi.embed_texts(texts)
-                            for chunk, vec in zip(chunk_docs, vectors):
-                                chunk["_vector"] = vec
                             await hi.add_or_update_chunk_documents(chunk_docs)
                         if delete_chunk_ids:
                             await hi.delete_chunk_docs_by_id(delete_chunk_ids)

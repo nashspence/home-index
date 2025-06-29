@@ -108,6 +108,7 @@ set_next_modules = modules_f4.set_next_modules
 
 
 DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
+COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
 
 MEILISEARCH_BATCH_SIZE = int(os.environ.get("MEILISEARCH_BATCH_SIZE", "10000"))
 MEILISEARCH_HOST = os.environ.get("MEILISEARCH_HOST", "http://meilisearch:7700")
@@ -121,7 +122,7 @@ CPU_COUNT = os.cpu_count() or 1
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT // 2))
 MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT // 2))
 
-from shared import EMBED_MODEL_NAME, EMBED_DEVICE, EMBED_DIM
+from shared import EMBED_DEVICE, EMBED_DIM, EMBED_MODEL_NAME
 from shared.embedding import embed_texts, embedding_model
 
 __all__ = [
@@ -184,7 +185,7 @@ chunk_index = None
 
 async def init_meili():
     global client, index, chunk_index
-    logging.debug("meili init")
+    files_logger.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
 
     for attempt in range(30):
@@ -193,22 +194,22 @@ async def init_meili():
             break
         except Exception as e:
             if getattr(e, "code", None) != "index_not_found" and attempt < 29:
-                logging.warning("meili unavailable, retrying in 1s")
+                files_logger.warning("meili unavailable, retrying in 1s")
                 await asyncio.sleep(1)
                 continue
             if getattr(e, "code", None) == "index_not_found":
                 try:
-                    logging.info(f'meili create index "{MEILISEARCH_INDEX_NAME}"')
+                    files_logger.info(f'meili create index "{MEILISEARCH_INDEX_NAME}"')
                     index = await client.create_index(
                         MEILISEARCH_INDEX_NAME, primary_key="id"
                     )
                 except Exception:
-                    logging.exception(
+                    files_logger.exception(
                         f'meili create index failed "{MEILISEARCH_INDEX_NAME}"'
                     )
                     raise
             else:
-                logging.exception("meili init failed")
+                files_logger.exception("meili init failed")
                 raise
 
     try:
@@ -216,28 +217,61 @@ async def init_meili():
     except Exception as e:
         if getattr(e, "code", None) == "index_not_found":
             try:
-                logging.info(f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"')
+                files_logger.info(
+                    'meili create index "%s"', MEILISEARCH_CHUNK_INDEX_NAME
+                )
                 chunk_index = await client.create_index(
                     MEILISEARCH_CHUNK_INDEX_NAME, primary_key="id"
                 )
             except Exception:
-                logging.exception(
-                    f'meili create index failed "{MEILISEARCH_CHUNK_INDEX_NAME}"'
+                files_logger.exception(
+                    'meili create index failed "%s"',
+                    MEILISEARCH_CHUNK_INDEX_NAME,
                 )
                 raise
         else:
-            logging.exception("meili chunk init failed")
+            files_logger.exception("meili chunk init failed")
             raise
 
+    files_logger.info("chunk index uid: %s", chunk_index.uid)
+    if chunk_index.uid != MEILISEARCH_CHUNK_INDEX_NAME:
+        raise RuntimeError(f"Unexpected chunk index uid {chunk_index.uid}")
+
     try:
-        await chunk_index.update_settings(
-            {
-                "vector": {"size": EMBED_DIM, "distance": "Cosine"},
-                "filterableAttributes": ["file_id"],
-            }
+        from meilisearch_python_sdk.models.settings import (
+            Embedders,
+            HuggingFaceEmbedder,
+            MeilisearchSettings,
         )
+
+        # 1️⃣ register the embedder and wait for the model download
+        files_logger.info("create embedder e5-small")
+        task = await chunk_index.update_embedders(
+            Embedders(
+                embedders={
+                    "e5-small": HuggingFaceEmbedder(
+                        model="intfloat/e5-small-v2",
+                        document_template="passage: {{doc.text}}",
+                    )
+                }
+            )
+        )
+        await client.wait_for_task(task.task_uid)
+
+        # 2️⃣ ensure the embedder is stored
+        embedders = await chunk_index.get_embedders()
+        files_logger.info("embedders stored: %s", list(embedders.embedders.keys()))
+        if "e5-small" not in embedders.embedders:
+            raise RuntimeError("embedder not stored")
+
+        # 3️⃣ set filterable attributes
+        files_logger.info("update chunk index filterable attributes")
+        settings_body = MeilisearchSettings(filterable_attributes=["file_id"])
+        task = await chunk_index.update_settings(settings_body)
+        await client.wait_for_task(task.task_uid)
     except Exception:
-        logging.exception("meili update chunk vector settings failed")
+        files_logger.exception("meili update chunk index settings failed")
+        raise
 
     filterable_attributes = [
         "id",
@@ -251,7 +285,7 @@ async def init_meili():
     ] + list(chain(*[hello["filterable_attributes"] for hello in hellos]))
 
     try:
-        logging.debug("meili update index attrs")
+        files_logger.debug("meili update index attrs")
         await index.update_filterable_attributes(filterable_attributes)
         await index.update_sortable_attributes(
             [
@@ -266,7 +300,7 @@ async def init_meili():
         )
         await wait_for_meili_idle()
     except Exception:
-        logging.exception("meili update index attrs failed")
+        files_logger.exception("meili update index attrs failed")
         raise
 
 
@@ -278,7 +312,7 @@ async def get_document_count():
         stats = await index.get_stats()
         return stats.number_of_documents
     except Exception:
-        logging.exception("meili get stats failed")
+        files_logger.exception("meili get stats failed")
         raise
 
 
@@ -288,11 +322,15 @@ async def add_or_update_document(doc):
 
     if doc:
         try:
-            logging.debug(f'index.update_documents "{next(iter(doc["paths"]))}" start')
+            files_logger.debug(
+                f'index.update_documents "{next(iter(doc["paths"]))}" start'
+            )
             await index.update_documents([doc])
-            logging.debug(f'index.update_documents "{next(iter(doc["paths"]))}" done')
+            files_logger.debug(
+                f'index.update_documents "{next(iter(doc["paths"]))}" done'
+            )
         except Exception:
-            logging.exception(
+            files_logger.exception(
                 f'index.update_documents "{next(iter(doc["paths"]))}" failed: "{[doc]}"'
             )
             raise
@@ -308,7 +346,7 @@ async def add_or_update_documents(docs):
                 batch = docs[i : i + MEILISEARCH_BATCH_SIZE]
                 await index.update_documents(batch)
         except Exception:
-            logging.exception("meili update documents failed")
+            files_logger.exception("meili update documents failed")
             raise
 
 
@@ -322,7 +360,7 @@ async def add_or_update_chunk_documents(docs):
                 batch = docs[i : i + MEILISEARCH_BATCH_SIZE]
                 await chunk_index.update_documents(batch)
         except Exception:
-            logging.exception("meili update chunk documents failed")
+            files_logger.exception("meili update chunk documents failed")
             raise
 
 
@@ -336,7 +374,7 @@ async def delete_docs_by_id(ids):
                 batch = ids[i : i + MEILISEARCH_BATCH_SIZE]
                 await index.delete_documents(ids=batch)
     except Exception:
-        logging.exception("meili delete documents failed")
+        files_logger.exception("meili delete documents failed")
         raise
 
 
@@ -350,7 +388,7 @@ async def delete_chunk_docs_by_id(ids):
                 batch = ids[i : i + MEILISEARCH_BATCH_SIZE]
                 await chunk_index.delete_documents(ids=batch)
     except Exception:
-        logging.exception("meili delete chunk documents failed")
+        files_logger.exception("meili delete chunk documents failed")
         raise
 
 
@@ -372,7 +410,7 @@ async def delete_chunk_docs_by_file_ids(file_ids):
         ids_to_delete = [d["id"] for d in docs if d.get("file_id") in file_ids]
         await delete_chunk_docs_by_id(ids_to_delete)
     except Exception:
-        logging.exception("meili delete chunk documents by file id failed")
+        files_logger.exception("meili delete chunk documents by file id failed")
         raise
 
 
@@ -384,7 +422,7 @@ async def get_document(doc_id):
         doc = await index.get_document(doc_id)
         return doc
     except Exception:
-        logging.exception("meili get document failed")
+        files_logger.exception("meili get document failed")
         raise
 
 
@@ -404,7 +442,7 @@ async def get_all_documents():
             offset += limit
         return docs
     except Exception:
-        logging.exception("meili get documents failed")
+        files_logger.exception("meili get documents failed")
         raise
 
 
@@ -430,7 +468,7 @@ async def get_all_pending_jobs(name):
             offset += limit
         return docs
     except Exception as e:
-        logging.error(f"failed to get pending jobs from meilisearch: {e}")
+        files_logger.error(f"failed to get pending jobs from meilisearch: {e}")
         raise
 
 
@@ -450,7 +488,7 @@ async def wait_for_meili_idle():
                 break
             await asyncio.sleep(1)
     except Exception:
-        logging.exception("meili wait for idle failed")
+        files_logger.exception("meili wait for idle failed")
         raise
 
 
@@ -825,6 +863,7 @@ async def init_meili_and_sync():
 
 
 async def main():
+    files_logger.info("running commit %s", COMMIT_SHA)
     await init_meili_and_sync()
     sched = BackgroundScheduler()
 
