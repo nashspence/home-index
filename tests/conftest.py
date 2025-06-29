@@ -120,6 +120,16 @@ def stub_dependencies(monkeypatch):
     meili_emb_mod.Embedders = Embedders
     meili_emb_mod.HuggingFaceEmbedder = HuggingFaceEmbedder
 
+    class MeilisearchSettings:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+        def model_dump(self):
+            return self.__dict__
+
+    meili_emb_mod.MeilisearchSettings = MeilisearchSettings
+
     lc_doc_mod = modules["langchain_core.documents"]
 
     class DummyDocument:
