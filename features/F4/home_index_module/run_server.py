@@ -10,15 +10,27 @@ from typing import Any, Callable, Mapping, Sequence, Iterator
 import features.F5.chunk_utils as chunk_utils
 from xmlrpc.server import SimpleXMLRPCServer
 
-from features.F2.metadata_store import (
-    metadata_directory,
-    by_id_directory,
-    ensure_directories,
-)
 
 segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
 split_chunk_docs = chunk_utils.split_chunk_docs
+
 write_chunk_docs = chunk_utils.write_chunk_docs
+
+
+def metadata_directory() -> Path:
+    """Return the root metadata directory."""
+    return Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
+
+
+def by_id_directory() -> Path:
+    """Return the directory where metadata is stored by file ID."""
+    return Path(os.environ.get("BY_ID_DIRECTORY", str(metadata_directory() / "by-id")))
+
+
+def ensure_directories() -> None:
+    """Create required directories if they do not exist."""
+    for path in [metadata_directory(), by_id_directory()]:
+        path.mkdir(parents=True, exist_ok=True)
 
 
 def setup_debugger() -> None:

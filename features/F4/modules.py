@@ -12,12 +12,39 @@ import sys
 from typing import Any, Mapping, Callable, TypeVar, cast
 from xmlrpc.client import Fault, ServerProxy
 
-from features.F2.metadata_store import (
-    by_id_directory,
-    metadata_directory,
-    write_doc_json,
-)
+from typing import MutableMapping
 from features.F3.archive import doc_is_online, update_archive_flags
+
+
+def metadata_directory() -> Path:
+    """Return the root metadata directory."""
+    return Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
+
+
+def by_id_directory() -> Path:
+    """Return the directory where metadata is stored by file ID."""
+    return Path(os.environ.get("BY_ID_DIRECTORY", str(metadata_directory() / "by-id")))
+
+
+def ensure_directories() -> None:
+    for path in [metadata_directory(), by_id_directory()]:
+        path.mkdir(parents=True, exist_ok=True)
+
+
+def write_doc_json(doc: MutableMapping[str, Any]) -> None:
+    ensure_directories()
+    target_dir = by_id_directory() / str(doc["id"])
+    target_dir.mkdir(parents=True, exist_ok=True)
+    with (target_dir / "document.json").open("w") as f:
+        json.dump(doc, f, indent=4, separators=(", ", ": "))
+
+
+__all__ = [
+    "setup_modules",
+    "set_global_modules",
+    "is_modules_changed",
+    "save_modules_state",
+]
 
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 LOGGING_MAX_BYTES = int(os.environ.get("LOGGING_MAX_BYTES", 5_000_000))
