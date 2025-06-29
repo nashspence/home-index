@@ -82,6 +82,7 @@ CHECK_RETRY_SECONDS = int(
 POST_RUN_RETRY_SECONDS = int(
     os.environ.get("MODULES_POST_RUN_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
 )
+COMMIT_SHA = os.environ.get("COMMIT_SHA", "main")
 
 hellos: list[dict[str, Any]] = []
 module_values: list[dict[str, Any]] = []
@@ -130,6 +131,11 @@ def setup_modules() -> tuple[
                 seconds=HELLO_RETRY_SECONDS,
             )
             name = hello["name"]
+            target = hello.get("target", "main")
+            if target != COMMIT_SHA:
+                raise ValueError(
+                    f"module {name} targets {target} but running {COMMIT_SHA}"
+                )
             if name in modules_local:
                 raise ValueError(
                     f"multiple modules found with name {name}, this must be unique"

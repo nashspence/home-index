@@ -35,7 +35,7 @@ subprocess.run(
         "-t",
         module_image,
         "--build-arg",
-        f"HOME_INDEX_REF={sha}",
+        f"COMMIT_SHA={sha}",
         ".",
     ],
     check=True,
@@ -43,7 +43,6 @@ subprocess.run(
 
 env = os.environ.copy()
 env["IMAGE"] = image
-env["HOME_INDEX_REF"] = sha
 env["MODULE_BASE_IMAGE"] = module_image
 env["COMMIT_SHA"] = sha
 env.setdefault("DEBUG", "False")

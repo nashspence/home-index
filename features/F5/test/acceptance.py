@@ -67,7 +67,7 @@ def _run_once(
         '{"hello_versions": [["chunk_module", 1]]}'
     )
 
-    env_file.write_text(f"HOME_INDEX_REF={ref}\nCOMMIT_SHA={ref}\n")
+    env_file.write_text(f"COMMIT_SHA={ref}\n")
 
     subprocess.run(
         [
@@ -135,5 +135,5 @@ def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
     workdir = compose_file.parent
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
-    ref = os.environ.get("HOME_INDEX_REF", "main")
+    ref = os.environ.get("COMMIT_SHA", "main")
     _run_once(compose_file, workdir, output_dir, env_file, ref)

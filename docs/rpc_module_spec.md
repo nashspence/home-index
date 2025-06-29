@@ -10,12 +10,14 @@ Returns a JSON object describing the module. Example:
 {
   "name": "example",
   "version": 1,
+  "target": "abcdef123",
   "filterable_attributes": ["field"],
   "sortable_attributes": []
 }
 ```
 - `name` – unique identifier for the module.
 - `version` – increment when the module behaviour changes.
+- `target` – commit SHA or tag of Home Index the module expects.
 - `filterable_attributes` – optional list of additional fields that should be
   declared filterable in Meilisearch.
 - `sortable_attributes` – optional list of additional fields that should be
