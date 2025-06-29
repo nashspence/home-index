@@ -26,6 +26,12 @@ def stub_dependencies(monkeypatch):
         ),
         "apscheduler.triggers.cron": types.ModuleType("apscheduler.triggers.cron"),
         "meilisearch_python_sdk": types.ModuleType("meilisearch_python_sdk"),
+        "meilisearch_python_sdk.models": types.ModuleType(
+            "meilisearch_python_sdk.models"
+        ),
+        "meilisearch_python_sdk.models.settings": types.ModuleType(
+            "meilisearch_python_sdk.models.settings"
+        ),
         "meilisearch": types.ModuleType("meilisearch"),
         "meilisearch.models": types.ModuleType("meilisearch.models"),
         "meilisearch.models.embedders": types.ModuleType(
@@ -97,7 +103,7 @@ def stub_dependencies(monkeypatch):
 
     sdk_mod.AsyncClient = DummyAsyncClient
 
-    meili_emb_mod = modules["meilisearch.models.embedders"]
+    meili_emb_mod = modules["meilisearch_python_sdk.models.settings"]
 
     class Embedders:
         def __init__(self, embedders):
@@ -164,6 +170,10 @@ def stub_dependencies(monkeypatch):
     modules["apscheduler.triggers"].cron = modules["apscheduler.triggers.cron"]
     modules["meilisearch"].models = modules["meilisearch.models"]
     modules["meilisearch.models"].embedders = modules["meilisearch.models.embedders"]
+    modules["meilisearch_python_sdk"].models = modules["meilisearch_python_sdk.models"]
+    modules["meilisearch_python_sdk.models"].settings = modules[
+        "meilisearch_python_sdk.models.settings"
+    ]
 
     for name, module in modules.items():
         sys.modules.setdefault(name, module)
