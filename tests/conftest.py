@@ -110,10 +110,12 @@ def stub_dependencies(monkeypatch):
             self.embedders = embedders
 
     class HuggingFaceEmbedder:
-        def __init__(self, model: str, dimensions: int, document_template: str):
+        def __init__(
+            self, model: str, document_template: str, dimensions: int | None = None
+        ):
             self.model = model
-            self.dimensions = dimensions
             self.document_template = document_template
+            self.dimensions = dimensions
 
     meili_emb_mod.Embedders = Embedders
     meili_emb_mod.HuggingFaceEmbedder = HuggingFaceEmbedder

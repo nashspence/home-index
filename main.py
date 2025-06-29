@@ -249,7 +249,6 @@ async def init_meili():
                 embedders={
                     "e5-small": HuggingFaceEmbedder(
                         model="intfloat/e5-small-v2",
-                        dimensions=EMBED_DIM,
                         document_template="passage: {{doc.text}}",
                     )
                 }
