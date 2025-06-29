@@ -7,5 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ARG HOME_INDEX_REF=main
-RUN pip install --no-cache-dir git+https://github.com/nashspence/home-index.git@${HOME_INDEX_REF}
+RUN pip install --no-cache-dir \
+    langchain-core==0.1.48 \
+    langchain-text-splitters==0.0.1 \
+    transformers==4.52.4
+RUN pip install --no-deps --no-cache-dir \
+    git+https://github.com/nashspence/home-index.git@${HOME_INDEX_REF}
 
