@@ -10,7 +10,11 @@ from typing import Any, Callable, Mapping, Sequence, Iterator
 import features.F5.chunk_utils as chunk_utils
 from xmlrpc.server import SimpleXMLRPCServer
 
-from features.F2 import metadata_store
+from features.F2.metadata_store import (
+    metadata_directory,
+    by_id_directory,
+    ensure_directories,
+)
 
 segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
 split_chunk_docs = chunk_utils.split_chunk_docs
@@ -39,10 +43,10 @@ logging.basicConfig(
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
-METADATA_DIRECTORY = metadata_store.metadata_directory()
+METADATA_DIRECTORY = metadata_directory()
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
-BY_ID_DIRECTORY = metadata_store.by_id_directory()
-metadata_store.ensure_directories()
+BY_ID_DIRECTORY = by_id_directory()
+ensure_directories()
 
 
 def file_path_from_meili_doc(document: Mapping[str, Any]) -> Path:
