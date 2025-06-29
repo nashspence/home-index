@@ -281,8 +281,8 @@ async def init_meili():
 
         # 4️⃣ confirm vector settings
         settings = await chunk_index.get_settings()
-        files_logger.info("current vector settings: %s", settings.get("vector"))
-        if settings.get("vector", {}).get("embedder") != "e5-small":
+        files_logger.info("current vector settings: %s", settings.vector)
+        if settings.vector.get("embedder") != "e5-small":
             raise RuntimeError("vector embedder misconfigured")
     except Exception:
         files_logger.exception("meili update chunk index settings failed")
