@@ -261,8 +261,8 @@ async def init_meili():
         if t.status != "succeeded":
             raise RuntimeError("embedder update task failed")
         embedders = await chunk_index.get_embedders()
-        files_logger.info("embedders stored: %s", list(embedders.keys()))
-        if "e5-small" not in embedders:
+        files_logger.info("embedders stored: %s", list(embedders.embedders.keys()))
+        if "e5-small" not in embedders.embedders:
             raise RuntimeError("embedder not stored")
         dl_tasks = await client.get_tasks(
             {"types": ["embedderDownload"], "indexUids": [chunk_index.uid]}
