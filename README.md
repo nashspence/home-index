@@ -31,4 +31,3 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 - Expand acceptance tests to cover all features (F5 concept search improved).
 - Rewrite remaining feature docs to conform to AGENTS.md.
-- Audit Dockerfiles for any remaining unused dependencies.
