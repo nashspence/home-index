@@ -241,11 +241,13 @@ async def init_meili():
         files_logger.info("create embedder e5-small")
         task = await chunk_index.update_embedders(
             {
-                "e5-small": {
-                    "source": "huggingFace",
-                    "model": "intfloat/e5-small-v2",
-                    "dimensions": EMBED_DIM,
-                    "documentTemplate": "passage: {{doc.text}}",
+                "embedders": {
+                    "e5-small": {
+                        "source": "huggingFace",
+                        "model": "intfloat/e5-small-v2",
+                        "dimensions": EMBED_DIM,
+                        "documentTemplate": "passage: {{doc.text}}",
+                    }
                 }
             }
         )
@@ -292,6 +294,7 @@ async def init_meili():
             raise RuntimeError("vector embedder misconfigured")
     except Exception:
         files_logger.exception("meili update chunk index settings failed")
+        raise
 
     filterable_attributes = [
         "id",
