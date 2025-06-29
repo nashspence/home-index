@@ -232,19 +232,20 @@ async def init_meili():
     try:
         task = await chunk_index.update_settings(
             {
-                "vector": {"size": EMBED_DIM, "distance": "Cosine"},
+                "vector": {
+                    "size": EMBED_DIM,
+                    "distance": "Cosine",
+                    "embedder": "e5-small",
+                },
+                "embedders": {
+                    "e5-small": {
+                        "source": "huggingFace",
+                        "model": "intfloat/e5-small-v2",
+                        "dimensions": EMBED_DIM,
+                        "documentTemplate": "passage: {{doc.text}}",
+                    }
+                },
                 "filterableAttributes": ["file_id"],
-            }
-        )
-        await client.wait_for_task(task.task_uid)
-        task = await chunk_index.update_embedders(
-            {
-                "e5-small": {
-                    "source": "huggingFace",
-                    "model": "intfloat/e5-small-v2",
-                    "dimensions": EMBED_DIM,
-                    "documentTemplate": "passage: {{doc.text}}",
-                }
             }
         )
         await client.wait_for_task(task.task_uid)
