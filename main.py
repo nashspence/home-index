@@ -241,13 +241,11 @@ async def init_meili():
         files_logger.info("create embedder e5-small")
         task = await chunk_index.update_embedders(
             {
-                "embedders": {
-                    "e5-small": {
-                        "source": "huggingFace",
-                        "model": "intfloat/e5-small-v2",
-                        "dimensions": EMBED_DIM,
-                        "documentTemplate": "passage: {{doc.text}}",
-                    }
+                "e5-small": {
+                    "source": "huggingFace",
+                    "model": "intfloat/e5-small-v2",
+                    "dimensions": EMBED_DIM,
+                    "documentTemplate": "passage: {{doc.text}}",
                 }
             }
         )
