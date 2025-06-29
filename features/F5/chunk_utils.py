@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 
-__all__ = ["segments_to_chunk_docs", "split_chunk_docs"]
+__all__ = [
+    "segments_to_chunk_docs",
+    "split_chunk_docs",
+    "write_chunk_docs",
+]
 
 
 def segments_to_chunk_docs(
@@ -79,3 +85,16 @@ def split_chunk_docs(
         result.append(meta)
 
     return result
+
+
+def write_chunk_docs(
+    metadata_dir_path: Path,
+    chunk_docs: Iterable[Mapping[str, Any]],
+    filename: str = "chunks.json",
+) -> Path:
+    """Write ``chunk_docs`` to ``filename`` and return the path."""
+    path = Path(metadata_dir_path) / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as fh:
+        json.dump(list(chunk_docs), fh, indent=4)
+    return path

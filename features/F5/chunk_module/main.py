@@ -2,12 +2,12 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, Mapping
-import json
 
 from features.F4.home_index_module import (
     run_server,
     segments_to_chunk_docs,
     split_chunk_docs,
+    write_chunk_docs,
 )
 
 VERSION = 1
@@ -42,10 +42,8 @@ def run(
     # Split chunk documents by tokens to avoid oversize passages.
     chunk_docs = split_chunk_docs(chunk_docs)
 
-    for chunk in chunk_docs:
-        (metadata_dir_path / f"{chunk['id']}.json").write_text(
-            json.dumps(chunk, indent=4)
-        )
+    # Store all chunk metadata in one file for simpler downstream usage.
+    write_chunk_docs(metadata_dir_path, chunk_docs)
 
     logging.info("done")
     return {"document": document, "chunk_docs": chunk_docs}

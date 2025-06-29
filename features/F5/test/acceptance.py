@@ -86,12 +86,7 @@ def _run_once(
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     chunk_json = (
-        output_dir
-        / "metadata"
-        / "by-id"
-        / doc_id
-        / "chunk_module"
-        / f"chunk_module_{doc_id}_0.json"
+        output_dir / "metadata" / "by-id" / doc_id / "chunk_module" / "chunks.json"
     )
     try:
         deadline = time.time() + 300
@@ -102,6 +97,9 @@ def _run_once(
             if time.time() > deadline:
                 raise AssertionError("Timed out waiting for chunk metadata")
 
+        with open(chunk_json) as fh:
+            chunks = json.load(fh)
+
         results = _search_chunks(
             "algorithms that learn from data",
             compose_file,
@@ -109,6 +107,7 @@ def _run_once(
             f'file_id = "{doc_id}"',
         )
         assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
+        assert any(c["id"] == f"chunk_module_{doc_id}_0" for c in chunks)
     except Exception:
         _dump_logs(compose_file, workdir)
         raise

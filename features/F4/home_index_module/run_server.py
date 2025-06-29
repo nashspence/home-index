@@ -14,6 +14,7 @@ from features.F2 import metadata_store
 
 segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
 split_chunk_docs = chunk_utils.split_chunk_docs
+write_chunk_docs = chunk_utils.write_chunk_docs
 
 
 def setup_debugger() -> None:

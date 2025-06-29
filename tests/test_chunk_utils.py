@@ -22,3 +22,15 @@ def test_tokentextsplitter_divides_chunk_text_into_smaller_documents():
 
     assert [d["id"] for d in result] == ["c1", "c1_1"]
     assert [d["text"] for d in result] == ["a b", "c d"]
+
+
+def test_write_chunk_docs_creates_json_file(tmp_path):
+    import json
+
+    from features.F4.home_index_module import write_chunk_docs
+
+    chunks = [{"id": "x"}]
+    path = write_chunk_docs(tmp_path, chunks)
+    assert path.exists()
+    with open(path) as fh:
+        assert json.load(fh) == chunks
