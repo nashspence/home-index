@@ -5,10 +5,32 @@ import logging
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence, Iterator
+from typing import Any, Callable, Mapping, Sequence, Iterator
+
+import features.F5.chunk_utils as chunk_utils
 from xmlrpc.server import SimpleXMLRPCServer
 
-from features.F2 import metadata_store
+
+segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
+split_chunk_docs = chunk_utils.split_chunk_docs
+
+write_chunk_docs = chunk_utils.write_chunk_docs
+
+
+def metadata_directory() -> Path:
+    """Return the root metadata directory."""
+    return Path(os.environ.get("METADATA_DIRECTORY", "/files/metadata"))
+
+
+def by_id_directory() -> Path:
+    """Return the directory where metadata is stored by file ID."""
+    return Path(os.environ.get("BY_ID_DIRECTORY", str(metadata_directory() / "by-id")))
+
+
+def ensure_directories() -> None:
+    """Create required directories if they do not exist."""
+    for path in [metadata_directory(), by_id_directory()]:
+        path.mkdir(parents=True, exist_ok=True)
 
 
 def setup_debugger() -> None:
@@ -33,10 +55,10 @@ logging.basicConfig(
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
-METADATA_DIRECTORY = metadata_store.metadata_directory()
+METADATA_DIRECTORY = metadata_directory()
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
-BY_ID_DIRECTORY = metadata_store.by_id_directory()
-metadata_store.ensure_directories()
+BY_ID_DIRECTORY = by_id_directory()
+ensure_directories()
 
 
 def file_path_from_meili_doc(document: Mapping[str, Any]) -> Path:
@@ -131,81 +153,6 @@ def apply_migrations_if_needed(
     if current != version_info.get("version"):
         save_version(metadata_dir_path, {"version": current})
     return segments, all_chunk_docs, current
-
-
-def segments_to_chunk_docs(
-    segments: Iterable[Mapping[str, Any]],
-    file_id: str,
-    module_name: str = "chunk",
-) -> list[dict[str, Any]]:
-    """Convert raw segments to chunk documents with consistent IDs."""
-
-    docs = []
-
-    for idx, segment in enumerate(segments):
-        seg_doc = segment.get("doc", {})
-        text = seg_doc.get("text")
-        if not text:
-            continue
-
-        header = segment.get("header") or {}
-        header_parts = [f"{k}: {v}" for k, v in header.items()]
-        if header_parts:
-            text = "[" + "|".join(header_parts) + "]\n" + text
-
-        doc = seg_doc.copy()
-        doc.setdefault("id", f"{module_name}_{file_id}_{idx}")
-        doc.setdefault("file_id", file_id)
-        doc["text"] = text
-
-        docs.append(doc)
-
-    return docs
-
-
-def split_chunk_docs(
-    chunk_docs: Iterable[dict[str, Any]],
-    model: str = "intfloat/e5-small-v2",
-    tokens_per_chunk: int = 450,
-    chunk_overlap: int = 50,
-) -> list[dict[str, Any]]:
-    """Return ``chunk_docs`` split by tokens using ``langchain`` utilities."""
-    try:
-        from langchain_core.documents import Document
-        from langchain_text_splitters import TokenTextSplitter
-        from transformers import AutoTokenizer
-    except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError("langchain is required for split_chunk_docs") from exc
-
-    docs = []
-    for d in chunk_docs:
-        d = d.copy()
-        text = d.pop("text")
-        docs.append(Document(page_content=text, metadata=d))
-
-    hf_tok = AutoTokenizer.from_pretrained(model)
-    splitter = TokenTextSplitter.from_huggingface_tokenizer(
-        hf_tok,
-        chunk_size=tokens_per_chunk,
-        chunk_overlap=chunk_overlap,
-    )
-
-    split_docs = splitter.split_documents(docs)
-
-    counts: dict[str, int] = {}
-    result = []
-    for doc in split_docs:
-        base_id = doc.metadata.get("id")
-        n = counts.get(base_id, 0)
-        counts[base_id] = n + 1
-
-        meta = doc.metadata.copy()
-        meta["id"] = f"{base_id}_{n}" if n else base_id
-        meta["text"] = doc.page_content.lstrip()
-
-        result.append(meta)
-
-    return result
 
 
 @contextmanager
