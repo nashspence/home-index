@@ -103,7 +103,7 @@ def _run_once(
                 raise AssertionError("Timed out waiting for chunk metadata")
 
         results = _search_chunks(
-            "concept search works",
+            "algorithms that learn from data",
             compose_file,
             workdir,
             f'file_id = "{doc_id}"',
