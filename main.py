@@ -265,16 +265,18 @@ async def init_meili():
 
         # 3️⃣ enable vector search referencing the embedder
         files_logger.info("update vector settings with embedder e5-small")
-        task = await chunk_index.update_settings(
-            {
-                "vector": {
-                    "size": EMBED_DIM,
-                    "distance": "Cosine",
-                    "embedder": "e5-small",
-                },
-                "filterableAttributes": ["file_id"],
-            }
+        from meilisearch_python_sdk.models.index import Settings, Vector
+
+        settings_body = Settings(
+            vector=Vector(
+                size=EMBED_DIM,
+                distance="Cosine",
+                embedder="e5-small",
+            ),
+            filterable_attributes=["file_id"],
         )
+
+        task = await chunk_index.update_settings(settings_body)
         await client.wait_for_task(task.task_uid)
 
         # 4️⃣ confirm vector settings
