@@ -229,6 +229,9 @@ async def init_meili():
             logging.exception("meili chunk init failed")
             raise
 
+    if chunk_index.uid != MEILISEARCH_CHUNK_INDEX_NAME:
+        raise RuntimeError(f"Unexpected chunk index uid {chunk_index.uid}")
+
     try:
         task = await chunk_index.update_embedders(
             {
@@ -241,6 +244,16 @@ async def init_meili():
             }
         )
         await client.wait_for_task(task.task_uid)
+        t = await client.get_task(task.task_uid)
+        if t.status != "succeeded":
+            raise RuntimeError("embedder update task failed")
+        embedders = await chunk_index.get_embedders()
+        if "e5-small" not in embedders:
+            raise RuntimeError("embedder not stored")
+        dl_tasks = await client.get_tasks({"types": ["embedderDownload"]})
+        if not any(x.status == "succeeded" for x in dl_tasks.results):
+            raise RuntimeError("embedder download failed")
+
         task = await chunk_index.update_settings(
             {
                 "vector": {
@@ -252,6 +265,12 @@ async def init_meili():
             }
         )
         await client.wait_for_task(task.task_uid)
+        t = await client.get_task(task.task_uid)
+        if t.status != "succeeded":
+            raise RuntimeError("vector settings task failed")
+        settings = await chunk_index.get_settings()
+        if settings.get("vector", {}).get("embedder") != "e5-small":
+            raise RuntimeError("vector embedder misconfigured")
     except Exception:
         logging.exception("meili update chunk index settings failed")
 
