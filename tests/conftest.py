@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import types
+
 import pytest
 
 
@@ -25,6 +26,11 @@ def stub_dependencies(monkeypatch):
         ),
         "apscheduler.triggers.cron": types.ModuleType("apscheduler.triggers.cron"),
         "meilisearch_python_sdk": types.ModuleType("meilisearch_python_sdk"),
+        "meilisearch": types.ModuleType("meilisearch"),
+        "meilisearch.models": types.ModuleType("meilisearch.models"),
+        "meilisearch.models.embedders": types.ModuleType(
+            "meilisearch.models.embedders"
+        ),
         "sentence_transformers": types.ModuleType("sentence_transformers"),
         "langchain_core.documents": types.ModuleType("langchain_core.documents"),
         "langchain_text_splitters": types.ModuleType("langchain_text_splitters"),
@@ -91,6 +97,21 @@ def stub_dependencies(monkeypatch):
 
     sdk_mod.AsyncClient = DummyAsyncClient
 
+    meili_emb_mod = modules["meilisearch.models.embedders"]
+
+    class Embedders:
+        def __init__(self, embedders):
+            self.embedders = embedders
+
+    class HuggingFaceEmbedder:
+        def __init__(self, model: str, dimensions: int, document_template: str):
+            self.model = model
+            self.dimensions = dimensions
+            self.document_template = document_template
+
+    meili_emb_mod.Embedders = Embedders
+    meili_emb_mod.HuggingFaceEmbedder = HuggingFaceEmbedder
+
     lc_doc_mod = modules["langchain_core.documents"]
 
     class DummyDocument:
@@ -141,6 +162,8 @@ def stub_dependencies(monkeypatch):
     modules["apscheduler.schedulers"].background = sched_bg
     modules["apscheduler.triggers"].interval = modules["apscheduler.triggers.interval"]
     modules["apscheduler.triggers"].cron = modules["apscheduler.triggers.cron"]
+    modules["meilisearch"].models = modules["meilisearch.models"]
+    modules["meilisearch.models"].embedders = modules["meilisearch.models.embedders"]
 
     for name, module in modules.items():
         sys.modules.setdefault(name, module)
