@@ -5,6 +5,7 @@ services:
       - METADATA_DIRECTORY=/home-index/metadata
       - MODULES=http://chunk-module:9000
       - RETRY_UNTIL_READY_SECONDS=180
+      - COMMIT_SHA=${COMMIT_SHA}
       - DEBUG=${DEBUG:-False}
       - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
       - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}

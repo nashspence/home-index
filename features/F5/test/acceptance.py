@@ -63,9 +63,11 @@ def _run_once(
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
+    (output_dir / "hello_versions.json").write_text(
+        '{"hello_versions": [["chunk_module", 1]]}'
+    )
 
-    env_file.write_text(f"HOME_INDEX_REF={ref}\n")
+    env_file.write_text(f"HOME_INDEX_REF={ref}\nCOMMIT_SHA={ref}\n")
 
     subprocess.run(
         [
