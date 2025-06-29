@@ -238,18 +238,22 @@ async def init_meili():
         raise RuntimeError(f"Unexpected chunk index uid {chunk_index.uid}")
 
     try:
+        from meilisearch_python_sdk.models.embedders import (
+            Embedders,
+            HuggingFaceEmbedder,
+        )
+
         files_logger.info("create embedder e5-small")
         task = await chunk_index.update_embedders(
-            {
-                "embedders": {
-                    "e5-small": {
-                        "source": "huggingFace",
-                        "model": "intfloat/e5-small-v2",
-                        "dimensions": EMBED_DIM,
-                        "documentTemplate": "passage: {{doc.text}}",
-                    }
+            Embedders(
+                embedders={
+                    "e5-small": HuggingFaceEmbedder(
+                        model="intfloat/e5-small-v2",
+                        dimensions=EMBED_DIM,
+                        document_template="passage: {{doc.text}}",
+                    )
                 }
-            }
+            )
         )
         files_logger.info("waiting for embedder task %s", task.task_uid)
         await client.wait_for_task(task.task_uid)
