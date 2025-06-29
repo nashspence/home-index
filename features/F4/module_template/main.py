@@ -8,6 +8,7 @@ from features.F4.home_index_module import run_server
 
 VERSION = 1
 NAME = os.environ.get("NAME", "example_module")
+COMMIT_SHA = os.environ.get("COMMIT_SHA", "main")
 
 
 def hello() -> Dict[str, Any]:
@@ -15,6 +16,7 @@ def hello() -> Dict[str, Any]:
     return {
         "name": NAME,
         "version": VERSION,
+        "target": COMMIT_SHA,
         "filterable_attributes": [],
         "sortable_attributes": [],
     }

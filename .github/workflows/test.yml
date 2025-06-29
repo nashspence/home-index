@@ -20,7 +20,7 @@ jobs:
       - run: docker exec ${REPO}-devcontainer ./check.sh
 
       - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
-      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile.module -t ${REPO}-module:ci --build-arg HOME_INDEX_REF=$(git rev-parse HEAD) .
+      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile.module -t ${REPO}-module:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
 
       - run: |
           set -euo pipefail
@@ -29,9 +29,8 @@ jobs:
           for f in $FEATURES; do
             docker exec \
               -e IMAGE=${REPO}:ci \
-              -e HOME_INDEX_REF=${SHA} \
-              -e MODULE_BASE_IMAGE=${REPO}-module:ci \
               -e COMMIT_SHA=${SHA} \
+              -e MODULE_BASE_IMAGE=${REPO}-module:ci \
               ${REPO}-devcontainer \
               bash -lc "source venv/bin/activate && pytest -q features/${f}/test/acceptance.py"
           done

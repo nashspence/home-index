@@ -65,7 +65,7 @@ def _run_once(
     output_dir.mkdir(parents=True)
     (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
 
-    env_file.write_text(f"HOME_INDEX_REF={home_index_ref}\n")
+    env_file.write_text(f"COMMIT_SHA={home_index_ref}\n")
 
     subprocess.run(
         [
@@ -138,5 +138,5 @@ def test_modules_process_documents(tmp_path: Path) -> None:
     workdir = compose_file.parent
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
-    ref = os.environ.get("HOME_INDEX_REF", "main")
+    ref = os.environ.get("COMMIT_SHA", "main")
     _run_once(compose_file, workdir, output_dir, env_file, ref)
