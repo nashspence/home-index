@@ -243,6 +243,7 @@ async def init_meili():
             HuggingFaceEmbedder,
         )
 
+        # 1️⃣ register the embedder and wait for the model download
         files_logger.info("create embedder e5-small")
         task = await chunk_index.update_embedders(
             Embedders(
@@ -254,18 +255,17 @@ async def init_meili():
                 }
             )
         )
-        files_logger.info("waiting for embedder task %s", task.task_uid)
         await client.wait_for_task(task.task_uid)
-        t = await client.get_task(task.task_uid)
-        files_logger.info("embedder task status: %s", t.status)
-        if t.status != "succeeded":
-            raise RuntimeError("embedder update task failed")
+
+        # 2️⃣ ensure the embedder is stored
         embedders = await chunk_index.get_embedders()
         files_logger.info("embedders stored: %s", list(embedders.embedders.keys()))
         if "e5-small" not in embedders.embedders:
             raise RuntimeError("embedder not stored")
+
+        # 3️⃣ verify the download task succeeded
         dl_tasks = await client.get_tasks(
-            {"types": ["embedderDownload"], "indexUids": [chunk_index.uid]}
+            index_ids=[chunk_index.uid], types=["embedderDownload"]
         )
         files_logger.info(
             "embedder download task statuses: %s",
@@ -274,6 +274,7 @@ async def init_meili():
         if not any(x.status == "succeeded" for x in dl_tasks.results):
             raise RuntimeError("embedder download failed")
 
+        # 4️⃣ enable vector search referencing the embedder
         files_logger.info("update vector settings with embedder e5-small")
         task = await chunk_index.update_settings(
             {
@@ -285,12 +286,9 @@ async def init_meili():
                 "filterableAttributes": ["file_id"],
             }
         )
-        files_logger.info("waiting for vector settings task %s", task.task_uid)
         await client.wait_for_task(task.task_uid)
-        t = await client.get_task(task.task_uid)
-        files_logger.info("vector settings task status: %s", t.status)
-        if t.status != "succeeded":
-            raise RuntimeError("vector settings task failed")
+
+        # 5️⃣ confirm vector settings
         settings = await chunk_index.get_settings()
         files_logger.info("current vector settings: %s", settings.get("vector"))
         if settings.get("vector", {}).get("embedder") != "e5-small":
