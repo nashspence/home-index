@@ -216,23 +216,26 @@ async def init_meili():
     except Exception as e:
         if getattr(e, "code", None) == "index_not_found":
             try:
-                logging.info(f'meili create index "{MEILISEARCH_CHUNK_INDEX_NAME}"')
+                logging.info('meili create index "%s"', MEILISEARCH_CHUNK_INDEX_NAME)
                 chunk_index = await client.create_index(
                     MEILISEARCH_CHUNK_INDEX_NAME, primary_key="id"
                 )
             except Exception:
                 logging.exception(
-                    f'meili create index failed "{MEILISEARCH_CHUNK_INDEX_NAME}"'
+                    'meili create index failed "%s"',
+                    MEILISEARCH_CHUNK_INDEX_NAME,
                 )
                 raise
         else:
             logging.exception("meili chunk init failed")
             raise
 
+    logging.info("chunk index uid: %s", chunk_index.uid)
     if chunk_index.uid != MEILISEARCH_CHUNK_INDEX_NAME:
         raise RuntimeError(f"Unexpected chunk index uid {chunk_index.uid}")
 
     try:
+        logging.info("create embedder e5-small")
         task = await chunk_index.update_embedders(
             {
                 "e5-small": {
@@ -243,17 +246,27 @@ async def init_meili():
                 }
             }
         )
+        logging.info("waiting for embedder task %s", task.task_uid)
         await client.wait_for_task(task.task_uid)
         t = await client.get_task(task.task_uid)
+        logging.info("embedder task status: %s", t.status)
         if t.status != "succeeded":
             raise RuntimeError("embedder update task failed")
         embedders = await chunk_index.get_embedders()
+        logging.info("embedders stored: %s", list(embedders.keys()))
         if "e5-small" not in embedders:
             raise RuntimeError("embedder not stored")
-        dl_tasks = await client.get_tasks({"types": ["embedderDownload"]})
+        dl_tasks = await client.get_tasks(
+            {"types": ["embedderDownload"], "indexUids": [chunk_index.uid]}
+        )
+        logging.info(
+            "embedder download task statuses: %s",
+            [(d.uid, d.status) for d in dl_tasks.results],
+        )
         if not any(x.status == "succeeded" for x in dl_tasks.results):
             raise RuntimeError("embedder download failed")
 
+        logging.info("update vector settings with embedder e5-small")
         task = await chunk_index.update_settings(
             {
                 "vector": {
@@ -264,11 +277,14 @@ async def init_meili():
                 "filterableAttributes": ["file_id"],
             }
         )
+        logging.info("waiting for vector settings task %s", task.task_uid)
         await client.wait_for_task(task.task_uid)
         t = await client.get_task(task.task_uid)
+        logging.info("vector settings task status: %s", t.status)
         if t.status != "succeeded":
             raise RuntimeError("vector settings task failed")
         settings = await chunk_index.get_settings()
+        logging.info("current vector settings: %s", settings.get("vector"))
         if settings.get("vector", {}).get("embedder") != "e5-small":
             raise RuntimeError("vector embedder misconfigured")
     except Exception:
