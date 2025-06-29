@@ -1,5 +1,5 @@
 def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source_file():
-    from features.F4.home_index_module.run_server import segments_to_chunk_docs
+    from features.F4.home_index_module import segments_to_chunk_docs
 
     segments = [
         {"header": {"speaker": "A"}, "doc": {"text": "hello"}},
@@ -15,7 +15,7 @@ def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source
 
 
 def test_tokentextsplitter_divides_chunk_text_into_smaller_documents():
-    from features.F4.home_index_module.run_server import split_chunk_docs
+    from features.F4.home_index_module import split_chunk_docs
 
     chunks = [{"id": "c1", "file_id": "f", "module": "m", "text": "a b c d"}]
     result = split_chunk_docs(chunks, tokens_per_chunk=2, chunk_overlap=0)

@@ -4,7 +4,11 @@ from pathlib import Path
 from typing import Any, Dict, Mapping
 import json
 
-from features.F4.home_index_module import run_server
+from features.F4.home_index_module import (
+    run_server,
+    segments_to_chunk_docs,
+    split_chunk_docs,
+)
 
 VERSION = 1
 NAME = os.environ.get("NAME", "chunk_module")
@@ -29,16 +33,22 @@ def run(
     file_path: Path, document: Mapping[str, Any], metadata_dir_path: Path
 ) -> Mapping[str, Any]:
     logging.info("start %s", file_path)
-    text = Path(file_path).read_text()
-    chunk = {
-        "id": f"{NAME}_{document['id']}_0",
-        "file_id": document["id"],
-        "module": NAME,
-        "text": text,
-    }
-    (metadata_dir_path / f"{chunk['id']}.json").write_text(json.dumps(chunk, indent=4))
+    text = file_path.read_text()
+
+    # Build one segment from the entire file then convert to chunk documents.
+    segments = [{"doc": {"text": text}}]
+    chunk_docs = segments_to_chunk_docs(segments, document["id"], module_name=NAME)
+
+    # Split chunk documents by tokens to avoid oversize passages.
+    chunk_docs = split_chunk_docs(chunk_docs)
+
+    for chunk in chunk_docs:
+        (metadata_dir_path / f"{chunk['id']}.json").write_text(
+            json.dumps(chunk, indent=4)
+        )
+
     logging.info("done")
-    return {"document": document, "chunk_docs": [chunk]}
+    return {"document": document, "chunk_docs": chunk_docs}
 
 
 if __name__ == "__main__":
