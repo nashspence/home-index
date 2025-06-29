@@ -263,18 +263,7 @@ async def init_meili():
         if "e5-small" not in embedders.embedders:
             raise RuntimeError("embedder not stored")
 
-        # 3️⃣ verify the download task succeeded
-        dl_tasks = await client.get_tasks(
-            index_ids=[chunk_index.uid], types=["embedderDownload"]
-        )
-        files_logger.info(
-            "embedder download task statuses: %s",
-            [(d.uid, d.status) for d in dl_tasks.results],
-        )
-        if not any(x.status == "succeeded" for x in dl_tasks.results):
-            raise RuntimeError("embedder download failed")
-
-        # 4️⃣ enable vector search referencing the embedder
+        # 3️⃣ enable vector search referencing the embedder
         files_logger.info("update vector settings with embedder e5-small")
         task = await chunk_index.update_settings(
             {
@@ -288,7 +277,7 @@ async def init_meili():
         )
         await client.wait_for_task(task.task_uid)
 
-        # 5️⃣ confirm vector settings
+        # 4️⃣ confirm vector settings
         settings = await chunk_index.get_settings()
         files_logger.info("current vector settings: %s", settings.get("vector"))
         if settings.get("vector", {}).get("embedder") != "e5-small":
