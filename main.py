@@ -241,6 +241,7 @@ async def init_meili():
         from meilisearch_python_sdk.models.settings import (
             Embedders,
             HuggingFaceEmbedder,
+            MeilisearchSettings,
         )
 
         # 1️⃣ register the embedder and wait for the model download
@@ -263,29 +264,11 @@ async def init_meili():
         if "e5-small" not in embedders.embedders:
             raise RuntimeError("embedder not stored")
 
-        # 3️⃣ enable vector search referencing the embedder
-        files_logger.info("update vector settings with embedder e5-small")
-        from meilisearch_python_sdk.models.settings import MeilisearchSettings
-
-        settings_body = MeilisearchSettings(
-            vector={
-                "size": EMBED_DIM,
-                "distance": "Cosine",
-                "embedder": "e5-small",
-            },
-            filterable_attributes=["file_id"],
-        )
-
+        # 3️⃣ set filterable attributes
+        files_logger.info("update chunk index filterable attributes")
+        settings_body = MeilisearchSettings(filterable_attributes=["file_id"])
         task = await chunk_index.update_settings(settings_body)
         await client.wait_for_task(task.task_uid)
-
-        # 4️⃣ confirm vector settings
-        settings = await chunk_index.get_settings()
-        settings_dict = settings.model_dump(by_alias=True, exclude_none=True)
-        vector_cfg = settings_dict.get("vector")
-        files_logger.info("current vector settings: %s", vector_cfg)
-        if not vector_cfg or vector_cfg.get("embedder") != "e5-small":
-            raise RuntimeError("vector embedder misconfigured")
     except Exception:
         files_logger.exception("meili update chunk index settings failed")
         raise
