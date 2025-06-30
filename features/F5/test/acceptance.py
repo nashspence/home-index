@@ -39,12 +39,21 @@ def _run_once(
         with open(chunk_json) as fh:
             chunks = json.load(fh)
 
-        results = search_chunks(
+        chunk_ids = {c["id"] for c in chunks}
+        chunk = next(c for c in chunks if c["id"] == f"chunk_module_{doc_id}_0")
+        for field in ["id", "file_id", "module", "text"]:
+            assert field in chunk
+
+        queries = [
             "algorithms that learn from data",
-            filter_expr=f'file_id = "{doc_id}"',
-        )
-        assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
-        assert any(c["id"] == f"chunk_module_{doc_id}_0" for c in chunks)
+            "automatic learning from data",
+        ]
+        for query in queries:
+            results = search_chunks(query, filter_expr=f'file_id = "{doc_id}"')
+            assert any(r["id"] in chunk_ids for r in results)
+            doc = next(r for r in results if r["id"] == f"chunk_module_{doc_id}_0")
+            for field in ["id", "file_id", "module", "text"]:
+                assert field in doc
     except Exception:
         dump_logs(compose_file, workdir)
         raise
