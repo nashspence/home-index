@@ -114,14 +114,6 @@ def _run_once(
         check=True,
         cwd=workdir,
     )
-    by_id_dir = output_dir / "metadata" / "by-id"
-    deadline = time.time() + 120
-    while True:
-        if by_id_dir.exists() and any(by_id_dir.iterdir()):
-            break
-        if time.time() > deadline:
-            raise AssertionError("Timed out waiting for metadata")
-        time.sleep(0.5)
 
     for doc_id in doc_ids:
         _search_meili(f'id = "{doc_id}"', compose_file, workdir, output_dir)
@@ -138,6 +130,7 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         (input_dir / "archive").mkdir()
 
     def removed_setup(input_dir: Path) -> None:
+        (input_dir / "archive" / "drive1").mkdir(parents=True)
         drive = input_dir / "archive" / "drive2"
         drive.mkdir(parents=True)
         (drive / "bar.txt").write_text("persist")
@@ -162,12 +155,20 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         assert all(doc["has_archive_paths"] for doc in docs)
 
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "stop"],
+            ["docker", "compose", "-f", str(compose_file), "stop", "home-index"],
             check=True,
             cwd=workdir,
         )
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "rm",
+                "-fsv",
+                "home-index",
+            ],
             check=True,
             cwd=workdir,
         )
@@ -189,7 +190,7 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         doc_dir = output_dir / "metadata" / "by-id" / offline_id
         assert not doc_dir.exists()
         assert not (
-            output_dir / "metadata" / "by-path" / "archive" / "drive2" / "foo.txt"
+            output_dir / "metadata" / "by-path" / "archive" / "drive1" / "foo.txt"
         ).exists()
         assert (
             output_dir / "metadata" / "by-id" / online_id / "document.json"
