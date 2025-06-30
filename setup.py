@@ -19,7 +19,7 @@ setup(
         "python-magic==0.4.27",
         "xxhash==3.5.0",
         "sentence-transformers==4.1.0",
-        "transformers==4.52.4",
+        "transformers==4.53.0",
     ],
     python_requires=">=3.8",
 )
