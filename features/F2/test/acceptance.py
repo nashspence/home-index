@@ -1,11 +1,9 @@
 import json
 import shutil
-import subprocess
-import sys
-import time
 from pathlib import Path
 from typing import Any
-import urllib.request
+
+from shared import compose, dump_logs, search_meili, wait_for
 
 from features.F2 import duplicate_finder
 from features.F2.test.migration_helper import simulate_v0_and_rerun
@@ -19,48 +17,6 @@ def _stat_info(path: Path) -> tuple[int, float, str]:
         duplicate_finder.truncate_mtime(stat.st_mtime),
         duplicate_finder.compute_hash(path),
     )
-
-
-def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Print logs from all compose containers."""
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
-        cwd=workdir,
-        check=False,
-    )
-    sys.stdout.flush()
-
-
-def _search_meili(
-    filter_expr: str,
-    compose_file: Path,
-    workdir: Path,
-    output_dir: Path,
-    timeout: int = 120,
-    q: str = "",
-) -> list[dict[str, Any]]:
-    """Return documents matching ``filter_expr`` from Meilisearch."""
-    deadline = time.time() + timeout
-    while True:
-        try:
-            data = json.dumps({"q": q, "filter": filter_expr}).encode()
-            req = urllib.request.Request(
-                "http://localhost:7700/indexes/files/search",
-                data=data,
-                headers={"Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req) as resp:
-                payload = json.load(resp)
-            docs = payload.get("hits") or payload.get("results") or []
-            if docs:
-                return list(docs)
-        except Exception:
-            pass
-        if time.time() > deadline:
-            raise AssertionError(
-                f"Timed out waiting for search results for: {filter_expr}"
-            )
-        time.sleep(0.5)
 
 
 def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[
@@ -77,30 +33,16 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[
 
     input_dir = workdir / "input"
     info = {name: _stat_info(input_dir / name) for name in ["a.txt", "b.txt", "c.txt"]}
-    subprocess.run(
-        [
-            "docker",
-            "compose",
-            "-f",
-            str(compose_file),
-            "up",
-            "-d",
-        ],
-        check=True,
-        cwd=workdir,
-    )
+    compose(compose_file, workdir, "up", "-d")
     try:
         by_id_dir = output_dir / "metadata" / "by-id"
-        deadline = time.time() + 120
-        while True:
-            time.sleep(0.5)
-            if by_id_dir.exists() and any(by_id_dir.iterdir()):
-                break
-            if time.time() > deadline:
-                raise AssertionError("Timed out waiting for metadata")
+        wait_for(
+            lambda: by_id_dir.exists() and any(by_id_dir.iterdir()),
+            message="metadata",
+        )
         by_path_dir = output_dir / "metadata" / "by-path"
-        dup_docs = _search_meili("copies = 2", compose_file, workdir, output_dir)
-        unique_docs = _search_meili("copies = 1", compose_file, workdir, output_dir)
+        dup_docs = search_meili(compose_file, workdir, "copies = 2")
+        unique_docs = search_meili(compose_file, workdir, "copies = 1")
         assert len(dup_docs) == 1
         assert len(unique_docs) == 1
         return by_id_dir, by_path_dir, dup_docs, unique_docs, info
@@ -114,23 +56,16 @@ def _run_again(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
 ]:
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
-        check=True,
-        cwd=workdir,
-    )
+    compose(compose_file, workdir, "up", "-d")
     try:
         by_id_dir = output_dir / "metadata" / "by-id"
-        deadline = time.time() + 120
-        while True:
-            time.sleep(0.5)
-            if by_id_dir.exists() and any(by_id_dir.iterdir()):
-                break
-            if time.time() > deadline:
-                raise AssertionError("Timed out waiting for metadata")
+        wait_for(
+            lambda: by_id_dir.exists() and any(by_id_dir.iterdir()),
+            message="metadata",
+        )
         by_path_dir = output_dir / "metadata" / "by-path"
-        dup_docs = _search_meili("copies = 2", compose_file, workdir, output_dir)
-        unique_docs = _search_meili("copies = 1", compose_file, workdir, output_dir)
+        dup_docs = search_meili(compose_file, workdir, "copies = 2")
+        unique_docs = search_meili(compose_file, workdir, "copies = 1")
         assert len(dup_docs) == 1
         assert len(unique_docs) == 1
         return by_id_dir, by_path_dir, dup_docs, unique_docs
@@ -154,16 +89,14 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
         subdirs = [d for d in by_id_dir.iterdir() if d.is_dir()]
 
         def read_doc(doc_dir: Path) -> dict[str, Any]:
-            deadline = time.time() + 30
-            while True:
-                try:
-                    data = json.loads((doc_dir / "document.json").read_text())
-                    assert isinstance(data, dict)
-                    return data
-                except Exception:
-                    if time.time() > deadline:
-                        raise
-                    time.sleep(0.5)
+            wait_for(
+                lambda: (doc_dir / "document.json").exists(),
+                timeout=30,
+                message="document.json",
+            )
+            data = json.loads((doc_dir / "document.json").read_text())
+            assert isinstance(data, dict)
+            return data
 
         docs = [read_doc(d) for d in subdirs]
         docs_by_paths = {
@@ -220,100 +153,69 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
 
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                f'id = "{file_id}"', compose_file, workdir, output_dir
-            )
+            for doc in search_meili(compose_file, workdir, f'id = "{file_id}"')
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                'paths_list = "c.txt"',
-                compose_file,
-                workdir,
-                output_dir,
-            )
+            for doc in search_meili(compose_file, workdir, 'paths_list = "c.txt"')
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                "",
-                compose_file,
-                workdir,
-                output_dir,
-                q="c.txt",
-            )
+            for doc in search_meili(compose_file, workdir, "", q="c.txt")
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                f"mtime = {mtime_val}", compose_file, workdir, output_dir
-            )
+            for doc in search_meili(compose_file, workdir, f"mtime = {mtime_val}")
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                'type = "text/plain"', compose_file, workdir, output_dir
-            )
+            for doc in search_meili(compose_file, workdir, 'type = "text/plain"')
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                f"size = {size_c}", compose_file, workdir, output_dir
-            )
+            for doc in search_meili(compose_file, workdir, f"size = {size_c}")
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili("copies = 1", compose_file, workdir, output_dir)
+            for doc in search_meili(compose_file, workdir, "copies = 1")
         )
         # multi-field query examples per Meilisearch filter expression docs
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                f"size = {size_c} AND copies = 1",
+            for doc in search_meili(
                 compose_file,
                 workdir,
-                output_dir,
+                f"size = {size_c} AND copies = 1",
             )
         )
         assert any(
             doc["id"] == file_id
-            for doc in _search_meili(
-                'type = "text/plain" AND paths_list = "c.txt"',
+            for doc in search_meili(
                 compose_file,
                 workdir,
-                output_dir,
+                'type = "text/plain" AND paths_list = "c.txt"',
             )
         )
 
         dup_id = dup_doc["id"]
         assert any(
             doc["id"] == dup_id
-            for doc in _search_meili(
-                f'id = "{dup_id}"', compose_file, workdir, output_dir
-            )
+            for doc in search_meili(compose_file, workdir, f'id = "{dup_id}"')
         )
         assert any(
             doc["id"] == dup_id
-            for doc in _search_meili(
-                'paths_list = "a.txt"',
+            for doc in search_meili(compose_file, workdir, 'paths_list = "a.txt"')
+        )
+        assert any(
+            doc["id"] == dup_id
+            for doc in search_meili(compose_file, workdir, f"size = {size_a}")
+        )
+        assert any(
+            doc["id"] == dup_id
+            for doc in search_meili(
                 compose_file,
                 workdir,
-                output_dir,
-            )
-        )
-        assert any(
-            doc["id"] == dup_id
-            for doc in _search_meili(
-                f"size = {size_a}", compose_file, workdir, output_dir
-            )
-        )
-        assert any(
-            doc["id"] == dup_id
-            for doc in _search_meili(
                 'type = "text/plain" AND copies = 2',
-                compose_file,
-                workdir,
-                output_dir,
             )
         )
 
@@ -329,20 +231,15 @@ def test_search_unique_files_by_metadata(tmp_path: Path) -> None:
             _run_again,
         )
     except Exception:
-        _dump_logs(compose_file, workdir, output_dir)
+        dump_logs(compose_file, workdir)
         raise
     finally:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(compose_file),
-                "down",
-                "--volumes",
-                "--rmi",
-                "local",
-            ],
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
             check=False,
-            cwd=workdir,
         )

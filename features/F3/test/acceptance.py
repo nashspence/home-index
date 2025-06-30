@@ -3,58 +3,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
-import sys
-import time
-import urllib.request
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from features.F2 import duplicate_finder
+from shared import compose, dump_logs, search_meili, wait_for
 
 import pytest
-
-
-def _dump_logs(compose_file: Path, workdir: Path, output_dir: Path) -> None:
-    """Print logs from all compose containers."""
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
-        cwd=workdir,
-        check=False,
-    )
-    sys.stdout.flush()
-
-
-def _search_meili(
-    filter_expr: str,
-    compose_file: Path,
-    workdir: Path,
-    output_dir: Path,
-    timeout: int = 120,
-    q: str = "",
-) -> list[dict[str, Any]]:
-    """Return documents matching ``filter_expr`` from Meilisearch."""
-    deadline = time.time() + timeout
-    while True:
-        try:
-            data = json.dumps({"q": q, "filter": filter_expr}).encode()
-            req = urllib.request.Request(
-                "http://localhost:7700/indexes/files/search",
-                data=data,
-                headers={"Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req) as resp:
-                payload = json.load(resp)
-            docs = payload.get("hits") or payload.get("results") or []
-            if docs:
-                return list(docs)
-        except Exception:
-            pass
-        if time.time() > deadline:
-            raise AssertionError(
-                f"Timed out waiting for search results for: {filter_expr}"
-            )
-        time.sleep(0.5)
 
 
 def _run_once(
@@ -109,22 +64,15 @@ def _run_once(
         relative_target = os.path.relpath(by_id / str(doc["id"]), link.parent)
         link.symlink_to(relative_target, target_is_directory=True)
 
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
-        check=True,
-        cwd=workdir,
-    )
+    compose(compose_file, workdir, "up", "-d")
     by_id_dir = output_dir / "metadata" / "by-id"
-    deadline = time.time() + 120
-    while True:
-        if by_id_dir.exists() and any(by_id_dir.iterdir()):
-            break
-        if time.time() > deadline:
-            raise AssertionError("Timed out waiting for metadata")
-        time.sleep(0.5)
+    wait_for(
+        lambda: by_id_dir.exists() and any(by_id_dir.iterdir()),
+        message="metadata",
+    )
 
     for doc_id in doc_ids:
-        _search_meili(f'id = "{doc_id}"', compose_file, workdir, output_dir)
+        search_meili(compose_file, workdir, f'id = "{doc_id}"')
 
     return doc_ids
 
@@ -156,21 +104,13 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         assert (
             output_dir / "metadata" / "by-path" / "archive" / "drive1" / "foo.txt"
         ).is_symlink()
-        docs = _search_meili(f'id = "{offline_id}"', compose_file, workdir, output_dir)
+        docs = search_meili(compose_file, workdir, f'id = "{offline_id}"')
         assert any(doc["id"] == offline_id for doc in docs)
         assert all(doc["offline"] for doc in docs)
         assert all(doc["has_archive_paths"] for doc in docs)
 
-        subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "stop"],
-            check=True,
-            cwd=workdir,
-        )
-        subprocess.run(
-            ["docker", "compose", "-f", str(compose_file), "rm", "-fsv"],
-            check=True,
-            cwd=workdir,
-        )
+        compose(compose_file, workdir, "stop")
+        compose(compose_file, workdir, "rm", "-fsv")
 
         ids = _run_once(
             compose_file,
@@ -181,7 +121,7 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         )
         online_id = ids[0]
 
-        docs = _search_meili(f'id = "{online_id}"', compose_file, workdir, output_dir)
+        docs = search_meili(compose_file, workdir, f'id = "{online_id}"')
         assert any(doc["id"] == online_id for doc in docs)
         assert all(not doc["offline"] for doc in docs)
         assert all(doc["has_archive_paths"] for doc in docs)
@@ -198,22 +138,17 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
             output_dir / "metadata" / "by-path" / "archive" / "drive2" / "bar.txt"
         ).is_symlink()
         with pytest.raises(AssertionError):
-            _search_meili(f'id = "{offline_id}"', compose_file, workdir, output_dir)
+            search_meili(compose_file, workdir, f'id = "{offline_id}"')
     except Exception:
-        _dump_logs(compose_file, workdir, output_dir)
+        dump_logs(compose_file, workdir)
         raise
     finally:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(compose_file),
-                "down",
-                "--volumes",
-                "--rmi",
-                "local",
-            ],
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
             check=False,
-            cwd=workdir,
         )
