@@ -135,6 +135,7 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
         (input_dir / "archive").mkdir()
 
     def removed_setup(input_dir: Path) -> None:
+        (input_dir / "archive" / "drive1").mkdir(parents=True)
         drive = input_dir / "archive" / "drive2"
         drive.mkdir(parents=True)
         (drive / "bar.txt").write_text("persist")
