@@ -17,6 +17,6 @@ PATH="/workspace/venv/bin:$PATH"
     jsonschema==4.24.0 \
     xxhash==3.5.0 \
     sentence-transformers==4.1.0 \
-    transformers==4.52.4 \
+    transformers==4.53.0 \
     black==25.1.0 ruff==0.12.0 mypy==1.10.0 pytest==8.4.1
 source /workspace/venv/bin/activate
