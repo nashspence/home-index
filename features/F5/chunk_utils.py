@@ -35,6 +35,8 @@ def segments_to_chunk_docs(
         doc = seg_doc.copy()
         doc.setdefault("id", f"{module_name}_{file_id}_{idx}")
         doc.setdefault("file_id", file_id)
+        doc.setdefault("module", module_name)
+        doc["index"] = idx
         doc["text"] = text
 
         docs.append(doc)

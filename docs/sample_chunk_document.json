@@ -2,5 +2,6 @@
   "id": "example_chunk",
   "file_id": "example-file",
   "module": "pretend",
+  "index": 0,
   "text": "sample text"
 }

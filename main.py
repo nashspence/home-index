@@ -265,8 +265,11 @@ async def init_meili():
             raise RuntimeError("embedder not stored")
 
         # 3️⃣ set filterable attributes
-        files_logger.info("update chunk index filterable attributes")
-        settings_body = MeilisearchSettings(filterable_attributes=["file_id"])
+        files_logger.info("update chunk index settings")
+        settings_body = MeilisearchSettings(
+            filterable_attributes=["file_id", "module"],
+            sortable_attributes=["index"],
+        )
         task = await chunk_index.update_settings(settings_body)
         await client.wait_for_task(task.task_uid)
     except Exception:

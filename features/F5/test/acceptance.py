@@ -2,6 +2,7 @@ import json
 import shutil
 from pathlib import Path
 import os
+import urllib.request
 
 from features.F2 import duplicate_finder
 from shared import compose, dump_logs, search_chunks, wait_for
@@ -39,12 +40,29 @@ def _run_once(
         with open(chunk_json) as fh:
             chunks = json.load(fh)
 
-        results = search_chunks(
+        chunk_ids = {c["id"] for c in chunks}
+        chunk = next(c for c in chunks if c["id"] == f"chunk_module_{doc_id}_0")
+        for field in ["id", "file_id", "module", "text", "index"]:
+            assert field in chunk
+
+        queries = [
             "algorithms that learn from data",
-            filter_expr=f'file_id = "{doc_id}"',
-        )
-        assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
-        assert any(c["id"] == f"chunk_module_{doc_id}_0" for c in chunks)
+            "automatic learning from data",
+        ]
+        for query in queries:
+            results = search_chunks(query, filter_expr=f'file_id = "{doc_id}"')
+            assert any(r["id"] in chunk_ids for r in results)
+            doc = next(r for r in results if r["id"] == f"chunk_module_{doc_id}_0")
+            for field in ["id", "file_id", "module", "text", "index"]:
+                assert field in doc
+
+        with urllib.request.urlopen(
+            "http://localhost:7700/indexes/file_chunks/settings"
+        ) as resp:
+            settings = json.load(resp)
+        assert "file_id" in settings.get("filterableAttributes", [])
+        assert "module" in settings.get("filterableAttributes", [])
+        assert "index" in settings.get("sortableAttributes", [])
     except Exception:
         dump_logs(compose_file, workdir)
         raise
