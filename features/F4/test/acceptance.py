@@ -1,56 +1,11 @@
 import json
 import shutil
-import subprocess
-import sys
-import time
-import urllib.request
 from pathlib import Path
-from typing import Any
 import os
 
+from shared import compose, dump_logs, search_meili, wait_for
+
 from features.F2 import duplicate_finder
-
-
-def _dump_logs(compose_file: Path, workdir: Path) -> None:
-    """Print logs from all compose containers."""
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
-        cwd=workdir,
-        check=False,
-    )
-    sys.stdout.flush()
-
-
-def _search_meili(
-    filter_expr: str,
-    compose_file: Path,
-    workdir: Path,
-    output_dir: Path,
-    timeout: int = 300,
-    q: str = "",
-) -> list[dict[str, Any]]:
-    """Return documents matching ``filter_expr`` from Meilisearch."""
-    deadline = time.time() + timeout
-    while True:
-        try:
-            data = json.dumps({"q": q, "filter": filter_expr}).encode()
-            req = urllib.request.Request(
-                "http://localhost:7700/indexes/files/search",
-                data=data,
-                headers={"Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req) as resp:
-                payload = json.load(resp)
-            docs = payload.get("hits") or payload.get("results") or []
-            if docs:
-                return list(docs)
-        except Exception:
-            pass
-        if time.time() > deadline:
-            raise AssertionError(
-                f"Timed out waiting for search results for: {filter_expr}"
-            )
-        time.sleep(0.5)
 
 
 def _run_once(
@@ -67,69 +22,36 @@ def _run_once(
 
     env_file.write_text(f"COMMIT_SHA={home_index_ref}\n")
 
-    subprocess.run(
-        [
-            "docker",
-            "compose",
-            "--env-file",
-            str(env_file),
-            "-f",
-            str(compose_file),
-            "up",
-            "-d",
-        ],
-        check=True,
-        cwd=workdir,
-    )
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "hello.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     module_version = (
         output_dir / "metadata" / "by-id" / doc_id / "example_module" / "version.json"
     )
     try:
-        deadline = time.time() + 300
-        while True:
-            time.sleep(0.5)
-            if module_version.exists():
-                break
-            if time.time() > deadline:
-                raise AssertionError("Timed out waiting for module output")
-        docs = _search_meili(f'id = "{doc_id}"', compose_file, workdir, output_dir)
+        wait_for(
+            module_version.exists,
+            timeout=300,
+            message="module output",
+        )
+        docs = search_meili(compose_file, workdir, f'id = "{doc_id}"', timeout=300)
         assert any(doc["id"] == doc_id for doc in docs)
         data = json.loads(module_version.read_text())
         assert data.get("version") == 1
     except Exception:
-        _dump_logs(compose_file, workdir)
+        dump_logs(compose_file, workdir)
         raise
     finally:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "stop",
-            ],
+        compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
             check=False,
-            cwd=workdir,
-        )
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "down",
-                "--volumes",
-                "--rmi",
-                "local",
-            ],
-            check=False,
-            cwd=workdir,
         )
 
 

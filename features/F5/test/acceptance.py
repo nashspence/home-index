@@ -1,56 +1,10 @@
 import json
 import shutil
-import subprocess
-import sys
-import time
-import urllib.request
 from pathlib import Path
-from typing import Any
 import os
 
 from features.F2 import duplicate_finder
-
-
-def _dump_logs(compose_file: Path, workdir: Path) -> None:
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
-        cwd=workdir,
-        check=False,
-    )
-    sys.stdout.flush()
-
-
-def _search_chunks(
-    query: str,
-    compose_file: Path,
-    workdir: Path,
-    filter_expr: str = "",
-    timeout: int = 300,
-) -> list[dict[str, Any]]:
-    deadline = time.time() + timeout
-    while True:
-        try:
-            data = {
-                "q": f"query: {query}",
-                "hybrid": {"semanticRatio": 1, "embedder": "e5-small"},
-            }
-            if filter_expr:
-                data["filter"] = filter_expr
-            req = urllib.request.Request(
-                "http://localhost:7700/indexes/file_chunks/search",
-                data=json.dumps(data).encode(),
-                headers={"Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req) as resp:
-                payload = json.load(resp)
-            docs = payload.get("hits") or payload.get("results") or []
-            if docs:
-                return list(docs)
-        except Exception:
-            pass
-        if time.time() > deadline:
-            raise AssertionError("Timed out waiting for search results")
-        time.sleep(0.5)
+from shared import compose, dump_logs, search_chunks, wait_for
 
 
 def _run_once(
@@ -69,64 +23,41 @@ def _run_once(
 
     env_file.write_text(f"COMMIT_SHA={ref}\n")
 
-    subprocess.run(
-        [
-            "docker",
-            "compose",
-            "--env-file",
-            str(env_file),
-            "-f",
-            str(compose_file),
-            "up",
-            "-d",
-        ],
-        check=True,
-        cwd=workdir,
-    )
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     chunk_json = (
         output_dir / "metadata" / "by-id" / doc_id / "chunk_module" / "chunks.json"
     )
     try:
-        deadline = time.time() + 300
-        while True:
-            time.sleep(0.5)
-            if chunk_json.exists():
-                break
-            if time.time() > deadline:
-                raise AssertionError("Timed out waiting for chunk metadata")
+        wait_for(
+            chunk_json.exists,
+            timeout=300,
+            message="chunk metadata",
+        )
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
 
-        results = _search_chunks(
+        results = search_chunks(
             "algorithms that learn from data",
-            compose_file,
-            workdir,
-            f'file_id = "{doc_id}"',
+            filter_expr=f'file_id = "{doc_id}"',
         )
         assert any(doc["id"] == f"chunk_module_{doc_id}_0" for doc in results)
         assert any(c["id"] == f"chunk_module_{doc_id}_0" for c in chunks)
     except Exception:
-        _dump_logs(compose_file, workdir)
+        dump_logs(compose_file, workdir)
         raise
     finally:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "down",
-                "--volumes",
-                "--rmi",
-                "local",
-            ],
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
             check=False,
-            cwd=workdir,
         )
 
 

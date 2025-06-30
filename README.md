@@ -29,5 +29,7 @@ your files using a locally run language model backed by Meilisearch.
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
+## Planned Maintenance
+
 - Expand acceptance tests to cover all features (F5 concept search improved).
 - Rewrite remaining feature docs to conform to AGENTS.md.
