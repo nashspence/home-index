@@ -63,13 +63,10 @@ def _run_once(
     output_dir: Path,
     doc_relpaths: list[str],
     setup_input: Callable[[Path], None] | None = None,
-    *,
-    reset_output: bool = True,
-    services: list[str] | None = None,
 ) -> list[str]:
-    if reset_output and output_dir.exists():
+    if output_dir.exists():
         shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True)
     (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
 
     input_dir = workdir / "input"
@@ -82,8 +79,8 @@ def _run_once(
     metadata_dir = output_dir / "metadata"
     by_id = metadata_dir / "by-id"
     by_path = metadata_dir / "by-path"
-    by_id.mkdir(parents=True, exist_ok=True)
-    by_path.mkdir(parents=True, exist_ok=True)
+    by_id.mkdir(parents=True)
+    by_path.mkdir(parents=True)
 
     doc_ids: list[str] = []
     for i, doc_relpath in enumerate(doc_relpaths, start=1):
@@ -93,32 +90,30 @@ def _run_once(
         else:
             doc_id = f"hash{i}"
         doc_ids.append(doc_id)
-        doc_dir = by_id / str(doc_id)
-        if not doc_dir.exists():
-            doc = {
-                "id": doc_id,
-                "paths": {doc_relpath: 1.0},
-                "paths_list": [doc_relpath],
-                "mtime": 1.0,
-                "size": 1,
-                "type": "text/plain",
-                "copies": 1,
-                "version": 1,
-                "next": "",
-            }
-            doc_dir.mkdir()
-            (doc_dir / "document.json").write_text(json.dumps(doc))
-            link = by_path / Path(doc_relpath)
-            link.parent.mkdir(parents=True, exist_ok=True)
-            relative_target = os.path.relpath(doc_dir, link.parent)
-            if link.exists():
-                link.unlink()
-            link.symlink_to(relative_target, target_is_directory=True)
+        doc = {
+            "id": doc_id,
+            "paths": {doc_relpath: 1.0},
+            "paths_list": [doc_relpath],
+            "mtime": 1.0,
+            "size": 1,
+            "type": "text/plain",
+            "copies": 1,
+            "version": 1,
+            "next": "",
+        }
+        doc_dir = by_id / str(doc["id"])
+        doc_dir.mkdir()
+        (doc_dir / "document.json").write_text(json.dumps(doc))
+        link = by_path / Path(doc_relpath)
+        link.parent.mkdir(parents=True, exist_ok=True)
+        relative_target = os.path.relpath(by_id / str(doc["id"]), link.parent)
+        link.symlink_to(relative_target, target_is_directory=True)
 
-    cmd = ["docker", "compose", "-f", str(compose_file), "up", "-d"]
-    if services:
-        cmd.extend(services)
-    subprocess.run(cmd, check=True, cwd=workdir)
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        check=True,
+        cwd=workdir,
+    )
 
     for doc_id in doc_ids:
         _search_meili(f'id = "{doc_id}"', compose_file, workdir, output_dir)
@@ -184,8 +179,6 @@ def test_offline_archive_workflow(tmp_path: Path) -> None:
             output_dir,
             ["archive/drive2/bar.txt"],
             removed_setup,
-            reset_output=False,
-            services=["home-index"],
         )
         online_id = ids[0]
 
