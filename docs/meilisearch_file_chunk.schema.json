@@ -20,6 +20,10 @@
       "type": "string",
       "description": "Name of the module that produced the chunk"
     },
+    "index": {
+      "type": "integer",
+      "description": "Position of the chunk within the module's context"
+    },
     "start": {
       "type": "number",
       "description": "Optional start offset of the chunk in the source (float)"
@@ -34,6 +38,6 @@
       "description": "Sentence embedding vector for semantic search"
     }
   },
-  "required": ["id", "file_id", "module", "text"],
+  "required": ["id", "file_id", "module", "text", "index"],
   "additionalProperties": true
 }

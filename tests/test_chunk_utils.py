@@ -9,9 +9,11 @@ def test_segments_with_headers_convert_to_chunk_documents_referencing_the_source
     docs = segments_to_chunk_docs(segments, "file1", module_name="mod")
     assert docs[0]["id"] == "mod_file1_0"
     assert docs[0]["file_id"] == "file1"
+    assert docs[0]["index"] == 0
     assert docs[0]["text"].startswith("[speaker: A]\n")
     assert docs[1]["id"] == "mod_file1_1"
     assert docs[1]["file_id"] == "file1"
+    assert docs[1]["index"] == 1
 
 
 def test_tokentextsplitter_divides_chunk_text_into_smaller_documents():
