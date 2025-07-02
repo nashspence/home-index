@@ -15,6 +15,8 @@ PATH="/workspace/venv/bin:$PATH"
     meilisearch-python-sdk==4.7.1 \
     python-magic==0.4.27 \
     jsonschema==4.24.0 \
+    redis==5.0.4 \
+    PyYAML==6.0.1 \
     xxhash==3.5.0 \
     sentence-transformers==4.1.0 \
     transformers==4.53.0 \

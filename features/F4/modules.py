@@ -6,14 +6,22 @@ import logging
 import logging.handlers
 import os
 import time
+from urllib.parse import urlparse
 from pathlib import Path
 import importlib
 import sys
-from typing import Any, Mapping, Callable, TypeVar, cast
-from xmlrpc.client import Fault, ServerProxy
-
-from typing import MutableMapping
+from typing import Any, Callable, Mapping, MutableMapping, TypeVar, cast
 from features.F3.archive import doc_is_online, update_archive_flags
+
+try:
+    import redis
+except Exception:  # pragma: no cover - redis optional for tests
+    redis = None
+
+try:
+    import yaml
+except Exception:  # pragma: no cover - yaml optional for tests
+    yaml = None
 
 
 def metadata_directory() -> Path:
@@ -29,6 +37,18 @@ def by_id_directory() -> Path:
 def ensure_directories() -> None:
     for path in [metadata_directory(), by_id_directory()]:
         path.mkdir(parents=True, exist_ok=True)
+
+
+def _get_hi() -> Any:
+    try:
+        from home_index import main as hi
+    except Exception:  # pragma: no cover - compatibility
+        hi = sys.modules.get("main")
+        if hi is None:
+            hi = sys.modules.get("__main__")
+        if hi is None:
+            hi = importlib.import_module("main")
+    return hi
 
 
 def write_doc_json(doc: MutableMapping[str, Any]) -> None:
@@ -72,25 +92,29 @@ MODULES_SLEEP_SECONDS = int(
 )
 
 MODULES = os.environ.get("MODULES", "")
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 RETRY_UNTIL_READY_SECONDS = int(os.environ.get("RETRY_UNTIL_READY_SECONDS", "60"))
-HELLO_RETRY_SECONDS = int(
-    os.environ.get("MODULES_HELLO_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
-)
-CHECK_RETRY_SECONDS = int(
-    os.environ.get("MODULES_CHECK_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
-)
-POST_RUN_RETRY_SECONDS = int(
-    os.environ.get("MODULES_POST_RUN_RETRY_SECONDS", RETRY_UNTIL_READY_SECONDS)
-)
-COMMIT_SHA = os.environ.get("COMMIT_SHA", "main")
+DONE_QUEUE = "modules:done"
+TIMEOUT_SET = "timeouts"
 
-hellos: list[dict[str, Any]] = []
+
+def make_redis_client() -> redis.Redis:
+    host = REDIS_HOST
+    if "://" in host:
+        parsed = urlparse(host)
+        return redis.Redis(
+            host=parsed.hostname or host,
+            port=parsed.port or 6379,
+            decode_responses=True,
+        )
+    return redis.Redis(host=host, decode_responses=True)
+
+
+module_configs: list[dict[str, Any]] = []
 module_values: list[dict[str, Any]] = []
 modules: dict[str, dict[str, Any]] = {}
-hello_versions: list[list[Any]] = []
-
-hello_versions_file_path = Path(
-    os.environ.get("HELLO_VERSIONS_FILE_PATH", "/home-index/hello_versions.json")
+modules_config_file_path = Path(
+    os.environ.get("MODULES_CONFIG_FILE_PATH", "/home-index/modules_config.json")
 )
 
 
@@ -111,76 +135,48 @@ def retry_until_ready(
     raise RuntimeError(msg)
 
 
-def setup_modules() -> tuple[
-    dict[str, dict[str, Any]],
-    list[dict[str, Any]],
-    list[dict[str, Any]],
-    list[list[Any]],
-]:
-    hellos_local: list[dict[str, Any]] = []
+def setup_modules() -> (
+    tuple[dict[str, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]
+):
+    configs_local: list[dict[str, Any]] = []
     module_values_local: list[dict[str, Any]] = []
     modules_local: dict[str, dict[str, Any]] = {}
-    hello_versions_local: list[list[Any]] = []
     if MODULES:
-        for module_host in MODULES.split(","):
-            module_host = module_host.strip()
-            proxy = ServerProxy(module_host)
-            hello = retry_until_ready(
-                lambda: json.loads(cast(str, proxy.hello())),
-                f"Failed to get 'hello' from {module_host} many retries",
-                seconds=HELLO_RETRY_SECONDS,
-            )
-            name = hello["name"]
-            target = hello.get("target", "main")
-            if target != COMMIT_SHA:
-                raise ValueError(
-                    f"module {name} targets {target} but running {COMMIT_SHA}"
-                )
-            if name in modules_local:
-                raise ValueError(
-                    f"multiple modules found with name {name}, this must be unique"
-                )
-            version = hello["version"]
-            hellos_local.append(hello)
-            hello_versions_local.append([name, version])
-            modules_local[name] = {
-                "name": name,
-                "proxy": proxy,
-                "host": module_host,
-            }
-            module_values_local.append(modules_local[name])
-    return (
-        modules_local,
-        module_values_local,
-        hellos_local,
-        hello_versions_local,
-    )
+        try:
+            configs_local = cast(list[dict[str, Any]], yaml.safe_load(MODULES)) or []
+        except Exception:
+            configs_local = []
+        for cfg in configs_local:
+            name = cfg["name"]
+            modules_local[name] = cfg
+            module_values_local.append(cfg)
+    return modules_local, module_values_local, configs_local
 
 
 def set_global_modules() -> None:
-    global hellos, module_values, modules, hello_versions
-    modules, module_values, hellos, hello_versions = setup_modules()
+    global module_configs, module_values, modules
+    modules, module_values, module_configs = setup_modules()
 
 
 set_global_modules()
 
 
 def get_is_modules_changed() -> bool:
-    if not hello_versions_file_path.exists():
+    if not modules_config_file_path.exists():
         return True
-    with hello_versions_file_path.open("r") as file:
-        hello_versions_json = json.load(file)
-    known = cast(list[list[Any]], hello_versions_json.get("hello_versions", ""))
-    return hello_versions != known
+    with modules_config_file_path.open("r") as file:
+        config_json = json.load(file)
+    known = cast(list[dict[str, Any]], config_json.get("modules", []))
+    return module_configs != known
 
 
 is_modules_changed = get_is_modules_changed()
 
 
 def save_modules_state() -> None:
-    hello_versions_file_path.parent.mkdir(parents=True, exist_ok=True)
-    with hello_versions_file_path.open("w") as file:
-        json.dump({"hello_versions": hello_versions}, file)
+    modules_config_file_path.parent.mkdir(parents=True, exist_ok=True)
+    with modules_config_file_path.open("w") as file:
+        json.dump({"modules": module_configs}, file)
 
 
 def file_relpath_from_meili_doc(document: Mapping[str, Any]) -> str:
@@ -195,36 +191,14 @@ def metadata_dir_relpath_from_doc(name: str, document: Mapping[str, Any]) -> Pat
 
 
 async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
-    try:
-        from home_index import main as hi
-    except Exception:  # pragma: no cover - compatibility
-        hi = sys.modules.get("main")
-        if hi is None:
-            hi = sys.modules.get("__main__")
-        if hi is None:
-            hi = importlib.import_module("main")
-    hi = cast(Any, hi)
+    hi = cast(Any, _get_hi())
 
-    next_module_name = ""
-    found_previous_next = False
-    for module in module_values:
-        if not found_previous_next:
-            if module["name"] == document["next"]:
-                found_previous_next = True
-            continue
-        claimed = set(
-            json.loads(
-                retry_until_ready(
-                    lambda: module["proxy"].check(json.dumps([document])),
-                    f"failed to contact {module['host']} after module run",
-                    seconds=POST_RUN_RETRY_SECONDS,
-                )
-            )
-        )
-        if document["id"] in claimed:
-            next_module_name = module["name"]
-            break
-    document["next"] = next_module_name
+    next_name = ""
+    if document["next"] in modules:
+        idx = module_values.index(modules[document["next"]])
+        if idx + 1 < len(module_values):
+            next_name = module_values[idx + 1]["name"]
+    document["next"] = next_name
     update_archive_flags(document)
     write_doc_json(document)
     await hi.add_or_update_document(document)
@@ -232,31 +206,73 @@ async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def set_next_modules(files_docs_by_hash: dict[str, dict[str, Any]]) -> None:
-    needs_update = {
-        id: doc for id, doc in files_docs_by_hash.items() if doc_is_online(doc)
-    }
-    for module in module_values:
-        claimed = set(
-            json.loads(
-                retry_until_ready(
-                    lambda: module["proxy"].check(
-                        json.dumps(list(needs_update.values()))
-                    ),
-                    f"failed to contact {module['host']} during sync",
-                    seconds=CHECK_RETRY_SECONDS,
-                )
-            )
-        )
-        for id in claimed:
-            doc = needs_update.pop(id)
-            doc["next"] = module["name"]
-        if not needs_update:
+    if not module_values:
+        return
+    for doc in files_docs_by_hash.values():
+        if doc_is_online(doc):
+            doc["next"] = module_values[0]["name"]
+        else:
+            doc["next"] = ""
+
+
+async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
+    processed = False
+    while True:
+        result_json = client.lpop(DONE_QUEUE)
+        if not result_json:
             break
-    for id, doc in needs_update.items():
-        doc["next"] = ""
+        processed = True
+        result = json.loads(result_json)
+        name = result.get("module", "")
+        if isinstance(result, dict) and "document" in result:
+            chunk_docs = result.get("chunk_docs", [])
+            delete_chunk_ids = result.get("delete_chunk_ids", [])
+            document = result["document"]
+        else:
+            document = result
+            chunk_docs = []
+            delete_chunk_ids = []
+        if chunk_docs:
+            for chunk in chunk_docs:
+                chunk.setdefault("module", name)
+            await hi.add_or_update_chunk_documents(chunk_docs)
+        if delete_chunk_ids:
+            await hi.delete_chunk_docs_by_id(delete_chunk_ids)
+        await hi.update_doc_from_module(document)
+    return processed
 
 
-async def run_module(name: str, proxy: ServerProxy) -> bool:
+def process_timeouts(client: redis.Redis) -> bool:
+    """Requeue jobs whose timeout expired.
+
+    Uses ``ZPOPMIN`` so each expiration is removed atomically before being
+    processed. If the popped job hasn't expired yet it is added back to the
+    ``TIMEOUT_SET``.
+    """
+
+    processed = False
+    while True:
+        items = client.zpopmin(TIMEOUT_SET)
+        if not items:
+            break
+        member, score = items[0]
+        now = time.time()
+        if score > now:
+            client.zadd(TIMEOUT_SET, {member: score})
+            break
+        data = json.loads(member)
+        queue = data.get("q")
+        doc_json = data.get("d")
+        if queue and doc_json:
+            with client.pipeline() as pipe:
+                pipe.lrem(f"{queue}:processing", 0, doc_json)
+                pipe.lpush(queue, doc_json)
+                pipe.execute()
+            processed = True
+    return processed
+
+
+async def service_module_queue(name: str) -> bool:
     try:
         from home_index import main as hi
     except Exception:  # pragma: no cover - compatibility
@@ -268,75 +284,50 @@ async def run_module(name: str, proxy: ServerProxy) -> bool:
     hi = cast(Any, hi)
 
     try:
+        client = make_redis_client()
+
+        processed = False
+
         documents = await hi.get_all_pending_jobs(name)
-        documents = sorted(documents, key=lambda x: x["mtime"], reverse=True)
-        if documents:
-            modules_logger.info("-----------------------------------------------")
-            modules_logger.info(f'start "{name}"')
-            count = len(documents)
-            modules_logger.info(" * call load")
-            proxy.load()
-            modules_logger.info(f" * run for {count}")
-            try:
-                start_time = time.monotonic()
-                for document in documents:
-                    relpath = file_relpath_from_meili_doc(document)
-                    try:
-                        elapsed_time = time.monotonic() - start_time
-                        if elapsed_time > MODULES_MAX_SECONDS:
-                            modules_logger.info(
-                                f"   * time up after {len(documents) - count} ({count} remain)"
-                            )
-                            return True
-                        result = json.loads(cast(str, proxy.run(json.dumps(document))))
-                        if isinstance(result, dict) and "document" in result:
-                            chunk_docs = result.get("chunk_docs", [])
-                            delete_chunk_ids = result.get("delete_chunk_ids", [])
-                            document = result["document"]
-                        else:
-                            document = result
-                            chunk_docs = []
-                            delete_chunk_ids = []
-                        if chunk_docs:
-                            for chunk in chunk_docs:
-                                chunk.setdefault("module", name)
-                            await hi.add_or_update_chunk_documents(chunk_docs)
-                        if delete_chunk_ids:
-                            await hi.delete_chunk_docs_by_id(delete_chunk_ids)
-                        await hi.update_doc_from_module(document)
-                    except Fault as e:
-                        modules_logger.warning(f'   x "{relpath}": {str(e)}')
-                    except Exception as e:  # pragma: no cover - unexpected
-                        modules_logger.warning(f'   x "{relpath}"')
-                        raise e
-                    count -= 1
-                modules_logger.info("   * done")
-                return False
-            except Exception as e:
-                modules_logger.warning(f" x failed: {str(e)}")
-                return True
-            finally:
-                modules_logger.info(" * call unload")
-                proxy.unload()
-                modules_logger.info(" * wait for meilisearch")
-                await hi.wait_for_meili_idle()
-                modules_logger.info(" * done")
-        else:
-            return False
+        check_tasks = set(client.lrange(f"{name}:check", 0, -1))
+        run_tasks = set(client.lrange(f"{name}:run", 0, -1))
+        processing_check = set(client.lrange(f"{name}:check:processing", 0, -1))
+        processing_run = set(client.lrange(f"{name}:run:processing", 0, -1))
+        for document in sorted(documents, key=lambda x: x["mtime"], reverse=True):
+            doc_json = json.dumps(document)
+            if (
+                doc_json not in check_tasks
+                and doc_json not in run_tasks
+                and doc_json not in processing_check
+                and doc_json not in processing_run
+            ):
+                client.rpush(f"{name}:check", doc_json)
+                processed = True
+
+        if processed:
+            await hi.wait_for_meili_idle()
+
+        return processed
     except Exception as e:  # pragma: no cover - unexpected
         modules_logger.warning(f"failed: {str(e)}")
         return True
 
 
-async def run_modules() -> None:
+async def service_module_queues() -> None:
     modules_logger.info("")
     modules_logger.info("start modules processing")
     for index, module in enumerate(module_values):
         modules_logger.info(f" {index + 1}. {module['name']}")
+    client = make_redis_client()
     while True:
-        run_again = False
-        for module in module_values:
-            module_did_not_finish = await run_module(module["name"], module["proxy"])
-            run_again = run_again or module_did_not_finish
-        if not run_again:
+        processed = False
+        if process_timeouts(client):
+            processed = True
+        if await process_done_queue(client, _get_hi()):
+            processed = True
+        tasks = [service_module_queue(module["name"]) for module in module_values]
+        results = await asyncio.gather(*tasks)
+        if any(results):
+            processed = True
+        if not processed:
             await asyncio.sleep(MODULES_SLEEP_SECONDS)

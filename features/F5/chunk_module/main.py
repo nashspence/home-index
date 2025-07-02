@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Mapping
+from typing import Any, Mapping
 
 from features.F4.home_index_module import (
     run_server,
@@ -12,17 +12,6 @@ from features.F4.home_index_module import (
 
 VERSION = 1
 NAME = os.environ.get("NAME", "chunk_module")
-COMMIT_SHA = os.environ.get("COMMIT_SHA", "main")
-
-
-def hello() -> Dict[str, Any]:
-    return {
-        "name": NAME,
-        "version": VERSION,
-        "target": COMMIT_SHA,
-        "filterable_attributes": [],
-        "sortable_attributes": [],
-    }
 
 
 def check(
@@ -52,4 +41,4 @@ def run(
 
 
 if __name__ == "__main__":
-    run_server(NAME, hello, check, run)
+    run_server(check, run)

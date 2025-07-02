@@ -21,6 +21,8 @@ RUN pip install --no-cache-dir --disable-pip-version-check \
     debugpy==1.8.14 \
     meilisearch-python-sdk==4.7.1 \
     python-magic==0.4.27 \
+    redis==5.0.4 \
+    PyYAML==6.0.1 \
     xxhash==3.5.0
 
 COPY main.py ./

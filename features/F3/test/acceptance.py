@@ -22,7 +22,7 @@ def _run_once(
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
+    (output_dir / "modules_config.json").write_text('{"modules": []}')
 
     input_dir = workdir / "input"
     if input_dir.exists():

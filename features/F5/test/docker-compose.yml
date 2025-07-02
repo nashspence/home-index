@@ -2,14 +2,15 @@ services:
   home-index:
     image: ${IMAGE}
     environment:
-      - METADATA_DIRECTORY=/home-index/metadata
-      - MODULES=http://chunk-module:9000
-      - RETRY_UNTIL_READY_SECONDS=180
-      - COMMIT_SHA=${COMMIT_SHA}
-      - DEBUG=${DEBUG:-False}
-      - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
-      - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
-      - WAIT_FOR_DEBUGPY_CLIENT=${WAIT_FOR_DEBUGPY_CLIENT:-False}
+      MODULES: |
+        - name: chunk-module
+      METADATA_DIRECTORY: /home-index/metadata
+      REDIS_HOST: http://redis:6379
+      RETRY_UNTIL_READY_SECONDS: 180
+      DEBUG: ${DEBUG:-False}
+      DEBUGPY_HOST: ${DEBUGPY_HOST:-0.0.0.0}
+      DEBUGPY_PORT: ${DEBUGPY_PORT:-5678}
+      WAIT_FOR_DEBUGPY_CLIENT: ${WAIT_FOR_DEBUGPY_CLIENT:-False}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
@@ -35,6 +36,11 @@ services:
         BASE_IMAGE: ${MODULE_BASE_IMAGE}
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
+      - QUEUE_NAME=chunk-module
+      - REDIS_HOST=http://redis:6379
+      - TIMEOUT=300
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
+  redis:
+    image: redis:latest

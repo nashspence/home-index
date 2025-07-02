@@ -12,7 +12,9 @@ RUN pip install --no-cache-dir \
     langchain-core==0.1.48 \
     langchain-text-splitters==0.0.1 \
     transformers==4.53.0 \
-    tiktoken==0.6.0
+    tiktoken==0.6.0 \
+    redis==5.0.4 \
+    PyYAML==6.0.1
 RUN pip install --no-deps --no-cache-dir \
     git+https://github.com/nashspence/home-index.git@${COMMIT_SHA}
 

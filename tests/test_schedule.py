@@ -47,7 +47,7 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
     monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "5 4 * * *")
     monkeypatch.setenv(
-        "HELLO_VERSIONS_FILE_PATH", str(tmp_path / "hello_versions.json")
+        "MODULES_CONFIG_FILE_PATH", str(tmp_path / "modules_config.json")
     )
     monkeypatch.delenv("DEBUG", raising=False)
     added = {}
@@ -69,10 +69,10 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
 
     monkeypatch.setattr(hi, "BackgroundScheduler", lambda: DummyScheduler())
 
-    async def dummy_run_modules():
+    async def dummy_service_module_queues():
         added["ran"] = True
 
-    monkeypatch.setattr(hi, "run_modules", dummy_run_modules)
+    monkeypatch.setattr(hi, "service_module_queues", dummy_service_module_queues)
 
     async def dummy_async():
         return None
