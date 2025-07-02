@@ -25,7 +25,7 @@ def _run_once(
     doc_path = workdir / "input" / "hello.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     module_version = (
-        output_dir / "metadata" / "by-id" / doc_id / "example_module" / "version.json"
+        output_dir / "metadata" / "by-id" / doc_id / "example-module" / "version.json"
     )
     try:
         wait_for(
