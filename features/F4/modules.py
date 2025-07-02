@@ -321,16 +321,24 @@ async def service_module_queues() -> None:
     if not module_values:
         while True:
             await asyncio.sleep(MODULES_SLEEP_SECONDS)
-    client = make_redis_client()
+    client = None
     while True:
         processed = False
-        if process_timeouts(client):
+        try:
+            if client is None:
+                client = make_redis_client()
+            if process_timeouts(client):
+                processed = True
+            if await process_done_queue(client, _get_hi()):
+                processed = True
+            tasks = [service_module_queue(module["name"]) for module in module_values]
+            results = await asyncio.gather(*tasks)
+            if any(results):
+                processed = True
+        except Exception as exc:  # pragma: no cover - redis errors
+            modules_logger.warning(f"redis error: {exc}")
+            client = None
             processed = True
-        if await process_done_queue(client, _get_hi()):
-            processed = True
-        tasks = [service_module_queue(module["name"]) for module in module_values]
-        results = await asyncio.gather(*tasks)
-        if any(results):
-            processed = True
+            await asyncio.sleep(1)
         if not processed:
             await asyncio.sleep(MODULES_SLEEP_SECONDS)
