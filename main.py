@@ -121,7 +121,14 @@ CPU_COUNT = os.cpu_count() or 1
 MAX_HASH_WORKERS = int(os.environ.get("MAX_HASH_WORKERS", CPU_COUNT // 2))
 MAX_FILE_WORKERS = int(os.environ.get("MAX_FILE_WORKERS", CPU_COUNT // 2))
 
-from shared import EMBED_DEVICE, EMBED_DIM, EMBED_MODEL_NAME
+from shared import (
+    EMBED_DEVICE,
+    EMBED_DIM,
+    EMBED_MODEL_NAME,
+    CHUNK_MODEL_NAME,
+    TOKENS_PER_CHUNK,
+    CHUNK_OVERLAP,
+)
 from shared.embedding import embed_texts, embedding_model
 
 __all__ = [
@@ -130,6 +137,9 @@ __all__ = [
     "EMBED_MODEL_NAME",
     "EMBED_DEVICE",
     "EMBED_DIM",
+    "CHUNK_MODEL_NAME",
+    "TOKENS_PER_CHUNK",
+    "CHUNK_OVERLAP",
 ]
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))

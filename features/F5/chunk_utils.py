@@ -4,12 +4,16 @@ import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from shared.chunk import CHUNK_MODEL_NAME, TOKENS_PER_CHUNK, CHUNK_OVERLAP
+
 
 __all__ = [
     "segments_to_chunk_docs",
-    "split_chunk_docs",
     "write_chunk_docs",
 ]
+
+
+CHUNK_TOKENS_PER_CHUNK = TOKENS_PER_CHUNK
 
 
 def segments_to_chunk_docs(
@@ -17,7 +21,7 @@ def segments_to_chunk_docs(
     file_id: str,
     module_name: str = "chunk",
 ) -> list[dict[str, Any]]:
-    """Convert raw segments to chunk documents with consistent IDs."""
+    """Convert raw segments to chunk documents with consistent IDs and split them."""
 
     docs = []
 
@@ -41,37 +45,27 @@ def segments_to_chunk_docs(
 
         docs.append(doc)
 
-    return docs
-
-
-def split_chunk_docs(
-    chunk_docs: Iterable[dict[str, Any]],
-    model: str = "intfloat/e5-small-v2",
-    tokens_per_chunk: int = 450,
-    chunk_overlap: int = 50,
-) -> list[dict[str, Any]]:
-    """Return ``chunk_docs`` split by tokens using ``langchain`` utilities."""
     try:  # pragma: no cover - optional dependency
         from langchain_core.documents import Document
         from langchain_text_splitters import TokenTextSplitter
         from transformers import AutoTokenizer
-    except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError("langchain is required for split_chunk_docs") from exc
+    except Exception:  # pragma: no cover - optional dependency
+        return docs
 
-    docs = []
-    for d in chunk_docs:
-        d = d.copy()
-        text = d.pop("text")
-        docs.append(Document(page_content=text, metadata=d))
+    lc_docs = []
+    for d in docs:
+        meta = d.copy()
+        text = meta.pop("text")
+        lc_docs.append(Document(page_content=text, metadata=meta))
 
-    hf_tok = AutoTokenizer.from_pretrained(model)
+    hf_tok = AutoTokenizer.from_pretrained(CHUNK_MODEL_NAME)
     splitter = TokenTextSplitter.from_huggingface_tokenizer(
         hf_tok,
-        chunk_size=tokens_per_chunk,
-        chunk_overlap=chunk_overlap,
+        chunk_size=CHUNK_TOKENS_PER_CHUNK,
+        chunk_overlap=CHUNK_OVERLAP,
     )
 
-    split_docs = splitter.split_documents(docs)
+    split_docs = splitter.split_documents(lc_docs)
 
     counts: dict[str, int] = {}
     result = []
