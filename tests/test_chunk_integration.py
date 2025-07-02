@@ -93,6 +93,7 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
             return DummyRedis.Pipeline(self)
 
     dummy = DummyRedis()
+    # Reuse the dummy Redis client
     monkeypatch.setattr(hi.modules_f4, "make_redis_client", lambda: dummy)
 
     monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
@@ -101,7 +102,7 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
     monkeypatch.setattr(hi, "wait_for_meili_idle", fake_wait)
     hi.module_values = []
 
-    result = asyncio.run(hi.service_module_queue("mod"))
+    result = asyncio.run(hi.service_module_queue("mod", dummy))
     asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
     asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
 
@@ -179,7 +180,7 @@ def test_service_module_queue_handles_update_only(monkeypatch):
     monkeypatch.setattr(hi, "wait_for_meili_idle", dummy_wait)
     hi.module_values = []
 
-    result = asyncio.run(hi.service_module_queue("mod"))
+    result = asyncio.run(hi.service_module_queue("mod", dummy))
     asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
 
     assert result is True

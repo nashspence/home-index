@@ -270,7 +270,7 @@ def process_timeouts(client: redis.Redis) -> bool:
     return processed
 
 
-async def service_module_queue(name: str) -> bool:
+async def service_module_queue(name: str, client: redis.Redis | None = None) -> bool:
     try:
         from home_index import main as hi
     except Exception:  # pragma: no cover - compatibility
@@ -282,7 +282,8 @@ async def service_module_queue(name: str) -> bool:
     hi = cast(Any, hi)
 
     try:
-        client = make_redis_client()
+        if client is None:
+            client = make_redis_client()
 
         processed = False
 
@@ -329,7 +330,9 @@ async def service_module_queues() -> None:
                 processed = True
             if await process_done_queue(client, _get_hi()):
                 processed = True
-            tasks = [service_module_queue(module["name"]) for module in module_values]
+            tasks = [
+                service_module_queue(module["name"], client) for module in module_values
+            ]
             results = await asyncio.gather(*tasks)
             if any(results):
                 processed = True
