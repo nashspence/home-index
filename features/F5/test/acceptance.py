@@ -17,7 +17,7 @@ def _run_once(
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
     (output_dir / "modules_config.json").write_text(
-        '{"modules": [{"name": "chunk_module"}]}'
+        '{"modules": [{"name": "chunk-module"}]}'
     )
 
     env_file.write_text("")
@@ -26,7 +26,7 @@ def _run_once(
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     chunk_json = (
-        output_dir / "metadata" / "by-id" / doc_id / "chunk_module" / "chunks.json"
+        output_dir / "metadata" / "by-id" / doc_id / "chunk-module" / "chunks.json"
     )
     try:
         wait_for(
