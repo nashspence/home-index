@@ -83,13 +83,11 @@ _file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(mess
 modules_logger.addHandler(_file_handler)
 
 DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
-MODULES_MAX_SECONDS = int(os.environ.get("MODULES_MAX_SECONDS", 5 if DEBUG else 300))
-MODULES_SLEEP_SECONDS = int(
-    os.environ.get(
-        "MODULES_SLEEP_SECONDS",
-        os.environ.get("MODULES_MAX_SECONDS", 1 if DEBUG else 1800),
-    )
+MODULES_MAX_SECONDS = int(
+    os.environ.get("MODULES_MAX_SECONDS", "5" if DEBUG else "300")
 )
+# Default to a short pause so new documents are picked up quickly.
+MODULES_SLEEP_SECONDS = int(os.environ.get("MODULES_SLEEP_SECONDS", "1"))
 
 MODULES = os.environ.get("MODULES", "")
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
