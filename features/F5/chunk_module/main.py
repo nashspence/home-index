@@ -6,7 +6,6 @@ from typing import Any, Mapping
 from features.F4.home_index_module import (
     run_server,
     segments_to_chunk_docs,
-    split_chunk_docs,
     write_chunk_docs,
 )
 
@@ -29,9 +28,6 @@ def run(
     # Build one segment from the entire file then convert to chunk documents.
     segments = [{"doc": {"text": text}}]
     chunk_docs = segments_to_chunk_docs(segments, document["id"], module_name=NAME)
-
-    # Split chunk documents by tokens to avoid oversize passages.
-    chunk_docs = split_chunk_docs(chunk_docs)
 
     # Store all chunk metadata in one file for simpler downstream usage.
     write_chunk_docs(metadata_dir_path, chunk_docs)

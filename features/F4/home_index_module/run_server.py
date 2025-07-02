@@ -24,10 +24,6 @@ except Exception:  # pragma: no cover - optional for tests
 
 
 segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
-
-
-split_chunk_docs = chunk_utils.split_chunk_docs
-
 write_chunk_docs = chunk_utils.write_chunk_docs
 
 

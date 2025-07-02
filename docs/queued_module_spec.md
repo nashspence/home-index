@@ -11,6 +11,10 @@ Every module container must define these variables:
 - `TIMEOUT` – seconds a task may run before being requeued. When the limit is reached the job's output is discarded and the file is queued again.
 - `WORKER_ID` – unique identifier when using shared resources.
 - `RESOURCE_SHARES` – optional YAML describing resource share groups.
+- `CHUNK_MODEL_NAME` – HuggingFace tokenizer to split chunk text (default `intfloat/e5-small-v2`).
+- `TOKENS_PER_CHUNK` – maximum tokens per chunk (default `510`).
+- `CHUNK_OVERLAP` – token overlap between chunks (default `50`).
+  Home Index reads the same variables, so modules and the indexer must use matching values for consistent chunk IDs.
 
 A configuration for `RESOURCE_SHARES` looks like:
 
@@ -68,8 +72,7 @@ Where chunk documents follow `docs/meilisearch_file_chunk.schema.json`.
 
 The ``home_index_module`` package exposes utilities for building chunk-based modules:
 
-- `segments_to_chunk_docs(segments, file_id, module_name="chunk")` – convert raw segments to chunk documents with stable IDs.
-- `split_chunk_docs(chunk_docs, model="intfloat/e5-small-v2", tokens_per_chunk=450, chunk_overlap=50)` – divide oversized chunks by token count using the LangChain text splitter.
+- `segments_to_chunk_docs(segments, file_id, module_name="chunk")` – convert raw segments to chunk documents with stable IDs and split them by token count.
 - `write_chunk_docs(metadata_dir_path, chunk_docs, filename="chunks.json")` – write chunk documents to a JSON file and return its path.
 
 These helpers originate from `features.F5.chunk_utils` and are re-exported by `home_index_module` for convenience.
