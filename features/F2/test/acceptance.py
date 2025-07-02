@@ -29,7 +29,7 @@ def _run_once(compose_file: Path, workdir: Path, output_dir: Path) -> tuple[
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
+    (output_dir / "modules_config.json").write_text('{"modules": []}')
 
     input_dir = workdir / "input"
     info = {name: _stat_info(input_dir / name) for name in ["a.txt", "b.txt", "c.txt"]}

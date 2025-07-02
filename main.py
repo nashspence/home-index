@@ -92,12 +92,11 @@ magic_mime = magic.Magic(mime=True)
 modules_logger = modules_f4.modules_logger
 module_values = modules_f4.module_values
 modules = modules_f4.modules
-hellos = modules_f4.hellos
-hello_versions = modules_f4.hello_versions
+module_configs = modules_f4.module_configs
 is_modules_changed = modules_f4.is_modules_changed
 save_modules_state = modules_f4.save_modules_state
-run_module = modules_f4.run_module
-run_modules = modules_f4.run_modules
+service_module_queue = modules_f4.service_module_queue
+service_module_queues = modules_f4.service_module_queues
 file_relpath_from_meili_doc = modules_f4.file_relpath_from_meili_doc
 metadata_dir_relpath_from_doc = modules_f4.metadata_dir_relpath_from_doc
 update_doc_from_module = modules_f4.update_doc_from_module
@@ -285,7 +284,7 @@ async def init_meili():
         "next",
         "type",
         "copies",
-    ] + list(chain(*[hello["filterable_attributes"] for hello in hellos]))
+    ] + list(chain(*[cfg.get("filterable_attributes", []) for cfg in module_configs]))
 
     try:
         files_logger.debug("meili update index attrs")
@@ -299,7 +298,9 @@ async def init_meili():
                 "type",
                 "copies",
             ]
-            + list(chain(*[hello["sortable_attributes"] for hello in hellos]))
+            + list(
+                chain(*[cfg.get("sortable_attributes", []) for cfg in module_configs])
+            )
         )
         await wait_for_meili_idle()
     except Exception:
@@ -882,7 +883,7 @@ async def main():
         save_modules_state()
 
     sched.start()
-    await run_modules()
+    await service_module_queues()
 
 
 if __name__ == "__main__":

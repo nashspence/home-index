@@ -2,24 +2,14 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Mapping, cast
+from typing import Any, Mapping, cast
 
 from features.F4.home_index_module import run_server
 
 VERSION = 1
 NAME = os.environ.get("NAME", "example_module")
-COMMIT_SHA = os.environ.get("COMMIT_SHA", "main")
-
-
-def hello() -> Dict[str, Any]:
-    """Return metadata describing the module."""
-    return {
-        "name": NAME,
-        "version": VERSION,
-        "target": COMMIT_SHA,
-        "filterable_attributes": [],
-        "sortable_attributes": [],
-    }
+QUEUE_NAME = os.environ.get("QUEUE_NAME", NAME)
+TIMEOUT = int(os.environ.get("TIMEOUT", "300"))
 
 
 def check(
@@ -30,7 +20,7 @@ def check(
     if not version_path.exists():
         return True
     with open(version_path) as file:
-        version = cast(Dict[str, Any], json.load(file))
+        version = cast(dict[str, Any], json.load(file))
     return int(version["version"]) != VERSION
 
 
@@ -47,4 +37,4 @@ def run(
 
 
 if __name__ == "__main__":
-    run_server(NAME, hello, check, run)
+    run_server(check, run)

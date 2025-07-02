@@ -1,7 +1,7 @@
 import json
+import os
 import shutil
 from pathlib import Path
-import os
 
 from shared import compose, dump_logs, search_meili, wait_for
 
@@ -13,20 +13,19 @@ def _run_once(
     workdir: Path,
     output_dir: Path,
     env_file: Path,
-    home_index_ref: str,
 ) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    (output_dir / "hello_versions.json").write_text('{"hello_versions": []}')
+    (output_dir / "modules_config.json").write_text('{"modules": []}')
 
-    env_file.write_text(f"COMMIT_SHA={home_index_ref}\n")
+    env_file.write_text(f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\n")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "hello.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     module_version = (
-        output_dir / "metadata" / "by-id" / doc_id / "example_module" / "version.json"
+        output_dir / "metadata" / "by-id" / doc_id / "example-module" / "version.json"
     )
     try:
         wait_for(
@@ -60,5 +59,4 @@ def test_modules_process_documents(tmp_path: Path) -> None:
     workdir = compose_file.parent
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
-    ref = os.environ.get("COMMIT_SHA", "main")
-    _run_once(compose_file, workdir, output_dir, env_file, ref)
+    _run_once(compose_file, workdir, output_dir, env_file)

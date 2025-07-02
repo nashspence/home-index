@@ -1,6 +1,5 @@
 import asyncio
 import importlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +8,7 @@ import pytest
 
 def _reload_modules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("MODULES", "")
-    monkeypatch.setenv("HELLO_VERSIONS_FILE_PATH", str(tmp_path / "hv.json"))
+    monkeypatch.setenv("MODULES_CONFIG_FILE_PATH", str(tmp_path / "config.json"))
     return importlib.reload(__import__("features.F4.modules", fromlist=["*"]))
 
 
@@ -39,27 +38,22 @@ def test_set_next_modules_assigns_module_names(
 ) -> None:
     modules = _reload_modules(monkeypatch, tmp_path)
 
-    class Proxy1:
-        def check(self, data: str) -> str:
-            return json.dumps(["1"])
-
-    class Proxy2:
-        def check(self, data: str) -> str:
-            return json.dumps(["2"])
-
     modules.module_values = [
-        {"name": "m1", "proxy": Proxy1(), "host": "h1"},
-        {"name": "m2", "proxy": Proxy2(), "host": "h2"},
+        {"name": "m1"},
+        {"name": "m2"},
     ]
+    modules.modules = {
+        "m1": modules.module_values[0],
+        "m2": modules.module_values[1],
+    }
 
     docs = {"1": {"id": "1", "next": ""}, "2": {"id": "2", "next": ""}}
 
-    monkeypatch.setattr(modules, "retry_until_ready", lambda fn, msg, seconds=0: fn())
     monkeypatch.setattr(modules, "doc_is_online", lambda doc: True)
 
     modules.set_next_modules(docs)
     assert docs["1"]["next"] == "m1"
-    assert docs["2"]["next"] == "m2"
+    assert docs["2"]["next"] == "m1"
 
 
 def test_update_doc_from_module_updates_and_saves(
@@ -69,19 +63,17 @@ def test_update_doc_from_module_updates_and_saves(
     import main as hi
 
     importlib.reload(hi)
-
-    class ProxyIgnore:
-        def check(self, data: str) -> str:
-            return json.dumps([])
-
-    class ProxyClaim:
-        def check(self, data: str) -> str:
-            return json.dumps(["1"])
+    hi.modules_f4 = modules
+    hi.update_doc_from_module = modules.update_doc_from_module
 
     modules.module_values = [
-        {"name": "m1", "proxy": ProxyIgnore(), "host": "h1"},
-        {"name": "m2", "proxy": ProxyClaim(), "host": "h2"},
+        {"name": "m1"},
+        {"name": "m2"},
     ]
+    modules.modules = {
+        "m1": modules.module_values[0],
+        "m2": modules.module_values[1],
+    }
 
     recorded: dict[str, Any] = {}
 
@@ -95,7 +87,6 @@ def test_update_doc_from_module_updates_and_saves(
     monkeypatch.setattr(
         modules, "write_doc_json", lambda d: recorded.setdefault("written", True)
     )
-    monkeypatch.setattr(modules, "retry_until_ready", lambda fn, msg, seconds=0: fn())
 
     doc = {"id": "1", "paths": {"a.txt": 1.0}, "next": "m1"}
     asyncio.run(modules.update_doc_from_module(doc))
@@ -109,8 +100,8 @@ def test_modules_state_round_trip(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     modules = _reload_modules(monkeypatch, tmp_path)
-    modules.hello_versions = [["mod", 1]]
+    modules.module_configs = [{"name": "mod"}]
     modules.save_modules_state()
     assert modules.get_is_modules_changed() is False
-    modules.hello_versions = [["mod", 2]]
+    modules.module_configs = [{"name": "mod2"}]
     assert modules.get_is_modules_changed() is True

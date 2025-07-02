@@ -5,13 +5,27 @@ import logging
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence, Iterator
+from typing import Any, Callable, Mapping, Sequence, Iterator, cast
+import time
+import uuid
+from urllib.parse import urlparse
 
 import features.F5.chunk_utils as chunk_utils
-from xmlrpc.server import SimpleXMLRPCServer
+
+try:
+    import redis
+except Exception:  # pragma: no cover - optional for tests
+    redis = None
+
+try:
+    import yaml
+except Exception:  # pragma: no cover - optional for tests
+    yaml = None
 
 
 segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
+
+
 split_chunk_docs = chunk_utils.split_chunk_docs
 
 write_chunk_docs = chunk_utils.write_chunk_docs
@@ -52,13 +66,65 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-HOST = os.environ.get("HOST", "0.0.0.0")
-PORT = int(os.environ.get("PORT", 9000))
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+QUEUE_NAME = os.environ.get("QUEUE_NAME", "module")
+WORKER_ID = os.environ.get("WORKER_ID", str(uuid.uuid4()))
+RESOURCE_SHARES = os.environ.get("RESOURCE_SHARES", "")
+TIMEOUT = int(os.environ.get("TIMEOUT", "300"))
+DONE_QUEUE = "modules:done"
+TIMEOUT_SET = "timeouts"
 METADATA_DIRECTORY = metadata_directory()
 FILES_DIRECTORY = Path(os.environ.get("FILES_DIRECTORY", "/files"))
 BY_ID_DIRECTORY = by_id_directory()
 ensure_directories()
+
+
+def make_redis_client() -> redis.Redis:
+    host = REDIS_HOST
+    if "://" in host:
+        parsed = urlparse(host)
+        return redis.Redis(
+            host=parsed.hostname or host,
+            port=parsed.port or 6379,
+            decode_responses=True,
+        )
+    return redis.Redis(host=host, decode_responses=True)
+
+
+def parse_resource_shares() -> list[dict[str, Any]]:
+    if not RESOURCE_SHARES:
+        return []
+    if yaml is not None:
+        try:
+            return cast(list[dict[str, Any]], yaml.safe_load(RESOURCE_SHARES)) or []
+        except Exception:
+            return []
+    groups: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for line in RESOURCE_SHARES.strip().splitlines():
+        line = line.strip()
+        if line.startswith("-"):
+            if current:
+                groups.append(current)
+            current = {}
+            line = line[1:].strip()
+            if line:
+                key, val = line.split(":", 1)
+                current[key.strip()] = (
+                    int(val.strip()) if val.strip().isdigit() else val.strip()
+                )
+        elif ":" in line and current is not None:
+            key, val = line.split(":", 1)
+            current[key.strip()] = (
+                int(val.strip()) if val.strip().isdigit() else val.strip()
+            )
+    if current:
+        groups.append(current)
+    return groups
+
+
+RESOURCE_SHARE_GROUPS = parse_resource_shares()
 
 
 def file_path_from_meili_doc(document: Mapping[str, Any]) -> Path:
@@ -66,8 +132,8 @@ def file_path_from_meili_doc(document: Mapping[str, Any]) -> Path:
     return Path(FILES_DIRECTORY / relpath)
 
 
-def metadata_dir_path_from_doc(name: str, document: Mapping[str, Any]) -> Path:
-    dir_path = Path(BY_ID_DIRECTORY / document["id"] / name)
+def metadata_dir_path_from_doc(document: Mapping[str, Any]) -> Path:
+    dir_path = Path(BY_ID_DIRECTORY / document["id"] / QUEUE_NAME)
     dir_path.mkdir(parents=True, exist_ok=True)
     return dir_path
 
@@ -180,52 +246,143 @@ def log_to_file_and_stdout(file_path: str | Path) -> Iterator[None]:
 
 
 def run_server(
-    name: str,
-    hello_fn: Callable[[], Mapping[str, Any]],
     check_fn: Callable[[Path, Mapping[str, Any], Path], bool],
     run_fn: Callable[[Path, Mapping[str, Any], Path], Any],
     load_fn: Callable[[], Any] | None = None,
     unload_fn: Callable[[], Any] | None = None,
 ) -> None:
-    """Run an XML-RPC server exposing common module hooks."""
+    """Process tasks from Redis queues with optional resource sharing."""
+    client = make_redis_client()
 
-    class Handler:
-        def hello(self) -> str:
-            logging.info("hello")
-            return json.dumps(hello_fn())
+    for group in RESOURCE_SHARE_GROUPS:
+        q = f"{group['name']}:share"
+        ttl_set = f"{q}:ttl"
+        if WORKER_ID not in client.lrange(q, 0, -1):
+            client.rpush(q, WORKER_ID)
+        client.zadd(ttl_set, {WORKER_ID: time.time() + TIMEOUT})
 
-        def check(self, docs: str) -> str:
-            response = set()
-            for document in json.loads(docs):
-                file_path = file_path_from_meili_doc(document)
-                try:
-                    metadata_dir_path = metadata_dir_path_from_doc(name, document)
-                    with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                        if check_fn(file_path, document, metadata_dir_path):
-                            response.add(document["id"])
-                except Exception:
-                    logging.exception(f'failed to check "{file_path}"')
-            return json.dumps(list(response))
+    def wait_turn(group: dict[str, Any]) -> None:
+        q = f"{group['name']}:share"
+        ttl_set = f"{q}:ttl"
+        while True:
+            members = client.lrange(q, 0, -1)
+            if WORKER_ID not in members:
+                client.rpush(q, WORKER_ID)
+                client.zadd(ttl_set, {WORKER_ID: time.time() + TIMEOUT})
+            head = members[0] if members else None
+            if head == WORKER_ID:
+                client.zadd(ttl_set, {WORKER_ID: time.time() + TIMEOUT})
+                return
+            if head is not None:
+                expire = client.zscore(ttl_set, head)
+                if expire is not None and float(expire) < time.time():
+                    client.lrem(q, 0, head)
+                    client.zrem(ttl_set, head)
+                    rotate(group)
+            time.sleep(1)
 
-        def load(self) -> None:
-            logging.info("load")
+    def rotate(group: dict[str, Any]) -> None:
+        q = f"{group['name']}:share"
+        ttl_set = f"{q}:ttl"
+        head = client.lpop(q)
+        if head:
+            client.zrem(ttl_set, head)
+            client.rpush(q, head)
+
+    def add_timeout(queue: str, doc_json: str) -> str:
+        key = json.dumps({"q": queue, "d": doc_json})
+        with client.pipeline() as pipe:
+            pipe.zadd(TIMEOUT_SET, {key: time.time() + TIMEOUT})
+            pipe.rpush(f"{queue}:processing", doc_json)
+            pipe.execute()
+        return key
+
+    def remove_timeout(queue: str, doc_json: str) -> None:
+        key = json.dumps({"q": queue, "d": doc_json})
+        with client.pipeline() as pipe:
+            pipe.zrem(TIMEOUT_SET, key)
+            pipe.lrem(f"{queue}:processing", 0, doc_json)
+            pipe.execute()
+
+    def process_check() -> bool:
+        doc_json = client.lpop(f"{QUEUE_NAME}:check")
+        if not doc_json:
+            return False
+        add_timeout(f"{QUEUE_NAME}:check", doc_json)
+        document = json.loads(doc_json)
+        file_path = file_path_from_meili_doc(document)
+        metadata_dir_path = metadata_dir_path_from_doc(document)
+        should_run = check_fn(file_path, document, metadata_dir_path)
+        remove_timeout(f"{QUEUE_NAME}:check", doc_json)
+        if should_run:
+            client.rpush(f"{QUEUE_NAME}:run", doc_json)
+        else:
+            client.rpush(
+                DONE_QUEUE, json.dumps({"module": QUEUE_NAME, "document": document})
+            )
+        for group in RESOURCE_SHARE_GROUPS:
+            client.zadd(
+                f"{group['name']}:share:ttl", {WORKER_ID: time.time() + TIMEOUT}
+            )
+        return True
+
+    def process_run() -> bool:
+        try:
+            doc_json = client.blmove(
+                f"{QUEUE_NAME}:run",
+                f"{QUEUE_NAME}:run:processing",
+                "LEFT",
+                "RIGHT",
+                timeout=1,
+            )
+        except Exception:
+            item = client.blpop(f"{QUEUE_NAME}:run", timeout=1)
+            if not item:
+                return False
+            doc_json = item[1]
+        if not doc_json:
+            return False
+        key = add_timeout(f"{QUEUE_NAME}:run", doc_json)
+        document = json.loads(doc_json)
+        file_path = file_path_from_meili_doc(document)
+        metadata_dir_path = metadata_dir_path_from_doc(document)
+        with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
+            result = run_fn(file_path, document, metadata_dir_path)
+        expiration = client.zscore(TIMEOUT_SET, key)
+        if expiration is not None and time.time() > float(expiration):
+            return True
+        remove_timeout(f"{QUEUE_NAME}:run", doc_json)
+        for group in RESOURCE_SHARE_GROUPS:
+            client.zadd(
+                f"{group['name']}:share:ttl", {WORKER_ID: time.time() + TIMEOUT}
+            )
+        if isinstance(result, dict) and "document" in result:
+            payload = result
+        else:
+            payload = {"document": result}
+        payload["module"] = QUEUE_NAME
+        client.rpush(DONE_QUEUE, json.dumps(payload))
+        return True
+
+    while True:
+        while process_check():
+            pass
+        groups = RESOURCE_SHARE_GROUPS or [{"name": "", "seconds": 0}]
+        for group in groups:
+            if group["name"]:
+                wait_turn(group)
             if load_fn:
                 load_fn()
-
-        def run(self, document_json: str) -> str:
-            document = json.loads(document_json)
-            file_path = file_path_from_meili_doc(document)
-            metadata_dir_path = metadata_dir_path_from_doc(name, document)
-            with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
-                result = run_fn(file_path, document, metadata_dir_path)
-            return json.dumps(result)
-
-        def unload(self) -> None:
-            logging.info("unload")
+            start = time.time()
+            while True:
+                while process_check():
+                    pass
+                processed = process_run()
+                if not processed and not group["name"]:
+                    break
+                if group["name"] and time.time() - start >= int(group["seconds"]):
+                    break
             if unload_fn:
                 unload_fn()
-
-    server = SimpleXMLRPCServer((HOST, PORT), allow_none=True)
-    server.register_instance(Handler())
-    print(f"Server running at {server.server_address}")
-    server.serve_forever()
+            if group["name"]:
+                rotate(group)

@@ -1,7 +1,6 @@
 import json
 import shutil
 from pathlib import Path
-import os
 import urllib.request
 
 from features.F2 import duplicate_finder
@@ -13,22 +12,21 @@ def _run_once(
     workdir: Path,
     output_dir: Path,
     env_file: Path,
-    ref: str,
 ) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    (output_dir / "hello_versions.json").write_text(
-        '{"hello_versions": [["chunk_module", 1]]}'
+    (output_dir / "modules_config.json").write_text(
+        '{"modules": [{"name": "chunk-module"}]}'
     )
 
-    env_file.write_text(f"COMMIT_SHA={ref}\n")
+    env_file.write_text("")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     chunk_json = (
-        output_dir / "metadata" / "by-id" / doc_id / "chunk_module" / "chunks.json"
+        output_dir / "metadata" / "by-id" / doc_id / "chunk-module" / "chunks.json"
     )
     try:
         wait_for(
@@ -84,5 +82,4 @@ def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
     workdir = compose_file.parent
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
-    ref = os.environ.get("COMMIT_SHA", "main")
-    _run_once(compose_file, workdir, output_dir, env_file, ref)
+    _run_once(compose_file, workdir, output_dir, env_file)
