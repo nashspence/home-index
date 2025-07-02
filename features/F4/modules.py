@@ -318,6 +318,9 @@ async def service_module_queues() -> None:
     modules_logger.info("start modules processing")
     for index, module in enumerate(module_values):
         modules_logger.info(f" {index + 1}. {module['name']}")
+    if not module_values:
+        while True:
+            await asyncio.sleep(MODULES_SLEEP_SECONDS)
     client = make_redis_client()
     while True:
         processed = False
