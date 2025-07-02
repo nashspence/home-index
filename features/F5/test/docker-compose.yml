@@ -43,4 +43,6 @@ services:
       - ./input:/files:ro
       - ./output:/home-index
   redis:
-    image: redis:latest
+    image: redis:7
+    ports:
+      - "6379:6379"
