@@ -1,7 +1,7 @@
 import json
 import shutil
-from pathlib import Path
 import urllib.request
+from pathlib import Path
 
 from features.F2 import duplicate_finder
 from shared import compose, dump_logs, search_chunks, wait_for
@@ -25,8 +25,15 @@ def _run_once(
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
+    from features.F5 import chunk_utils
+
     chunk_json = (
-        output_dir / "metadata" / "by-id" / doc_id / "chunk-module" / "chunks.json"
+        output_dir
+        / "metadata"
+        / "by-id"
+        / doc_id
+        / "chunk-module"
+        / chunk_utils.CHUNK_FILENAME
     )
     try:
         wait_for(

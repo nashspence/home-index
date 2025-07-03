@@ -3,12 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
-from features.F4.home_index_module import (
-    run_server,
-    segments_to_chunk_docs,
-    split_chunk_docs,
-    write_chunk_docs,
-)
+from features.F4.home_index_module import run_server
 
 VERSION = 1
 NAME = os.environ.get("NAME", "chunk_module")
@@ -25,19 +20,10 @@ def run(
 ) -> Mapping[str, Any]:
     logging.info("start %s", file_path)
     text = file_path.read_text()
-
-    # Build one segment from the entire file then convert to chunk documents.
-    segments = [{"doc": {"text": text}}]
-    chunk_docs = segments_to_chunk_docs(segments, document["id"], module_name=NAME)
-
-    # Split chunk documents by tokens to avoid oversize passages.
-    chunk_docs = split_chunk_docs(chunk_docs)
-
-    # Store all chunk metadata in one file for simpler downstream usage.
-    write_chunk_docs(metadata_dir_path, chunk_docs)
-
+    doc = dict(document)
+    doc[f"{NAME}.content"] = text
     logging.info("done")
-    return {"document": document, "chunk_docs": chunk_docs}
+    return doc
 
 
 if __name__ == "__main__":

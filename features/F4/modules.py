@@ -234,8 +234,12 @@ async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
             for chunk in chunk_docs:
                 chunk.setdefault("module", name)
             await hi.add_or_update_chunk_documents(chunk_docs)
-        if delete_chunk_ids:
-            await hi.delete_chunk_docs_by_id(delete_chunk_ids)
+            hi.write_chunk_docs(
+                hi.module_metadata_path(document["id"], name), chunk_docs
+            )
+        else:
+            await hi.add_content_chunks(document, name)
+        await hi.delete_chunk_docs_by_id(delete_chunk_ids)
         await hi.update_doc_from_module(document)
     return processed
 

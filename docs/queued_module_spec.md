@@ -52,27 +52,23 @@ if __name__ == "__main__":
 
 Optional `load_fn` and `unload_fn` parameters provide hooks for loading models or cleaning up resources before and after processing a share group.
 
-Results pushed to `modules:done` may include:
+Modules should return the document after processing. To index searchable
+content, include a `<QUEUE_NAME>.content` field on the returned document. The
+value can be a string or a list of objects describing segments.
 
-```python
-{
-    "document": <updated file document>,
-    "chunk_docs": [<chunk documents>],
-    "delete_chunk_ids": [<obsolete chunk ids>]
-}
-```
+Each segment object must provide a `text` key and may include:
 
-Where chunk documents follow `docs/meilisearch_file_chunk.schema.json`.
+- `header` – mapping of metadata that will be formatted as a prefix like
+  `[speaker: A]`.
+- `time_offset`/`time_length` – optional floating point offsets suitable for
+  audio or video timestamps.
+- `start_time` – epoch seconds when the segment begins. When omitted,
+  Home Index defaults to the file's `mtime` plus `time_offset`.
+- `char_offset`/`char_length` – integer character offsets. When omitted,
+  Home Index calculates them based on the final chunk text.
 
-## Helper functions
-
-The ``home_index_module`` package exposes utilities for building chunk-based modules:
-
-- `segments_to_chunk_docs(segments, file_id, module_name="chunk")` – convert raw segments to chunk documents with stable IDs.
-- `split_chunk_docs(chunk_docs, model="intfloat/e5-small-v2", tokens_per_chunk=450, chunk_overlap=50)` – divide oversized chunks by token count using the LangChain text splitter.
-- `write_chunk_docs(metadata_dir_path, chunk_docs, filename="chunks.json")` – write chunk documents to a JSON file and return its path.
-
-These helpers originate from `features.F5.chunk_utils` and are re-exported by `home_index_module` for convenience.
+Home Index splits segments into chunk documents and stores them in
+`chunks.json` under `metadata/by-id/<file-id>/<QUEUE_NAME>/`.
 
 ## Building
 
