@@ -4,6 +4,7 @@ services:
     environment:
       MODULES: |
         - name: example-module
+        - name: timeout-module
       METADATA_DIRECTORY: /home-index/metadata
       REDIS_HOST: http://redis:6379
       RETRY_UNTIL_READY_SECONDS: 180
@@ -19,6 +20,7 @@ services:
     depends_on:
       - meilisearch
       - example-module
+      - timeout-module
       - redis
   meilisearch:
     image: getmeili/meilisearch:v1.15
@@ -39,7 +41,25 @@ services:
       - METADATA_DIRECTORY=/home-index/metadata
       - QUEUE_NAME=example-module
       - REDIS_HOST=http://redis:6379
-      - TIMEOUT=300
+      - TIMEOUT=${EXAMPLE_TIMEOUT:-300}
+      - SLEEP=${EXAMPLE_SLEEP:-0}
+      - CHECK_SLEEP=${EXAMPLE_CHECK_SLEEP:-0}
+    volumes:
+      - ./input:/files:ro
+      - ./output:/home-index
+  timeout-module:
+    build:
+      context: ./timeout_module/
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: ${MODULE_BASE_IMAGE}
+    environment:
+      - METADATA_DIRECTORY=/home-index/metadata
+      - QUEUE_NAME=timeout-module
+      - REDIS_HOST=http://redis:6379
+      - TIMEOUT=${TIMEOUT:-300}
+      - SLEEP=${MODULE_SLEEP:-0}
+      - CHECK_SLEEP=${CHECK_SLEEP:-0}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
