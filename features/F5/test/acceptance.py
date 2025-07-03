@@ -27,12 +27,13 @@ def _run_once(
     doc_id = duplicate_finder.compute_hash(doc_path)
     from features.F5 import chunk_utils
 
+    module_name = "chunk-module"
     chunk_json = (
         output_dir
         / "metadata"
         / "by-id"
         / doc_id
-        / "chunk-module"
+        / module_name
         / chunk_utils.CHUNK_FILENAME
     )
     try:
@@ -46,7 +47,7 @@ def _run_once(
             chunks = json.load(fh)
 
         chunk_ids = {c["id"] for c in chunks}
-        chunk = next(c for c in chunks if c["id"] == f"chunk_module_{doc_id}_0")
+        chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
         for field in ["id", "file_id", "module", "text", "index"]:
             assert field in chunk
 
@@ -57,7 +58,7 @@ def _run_once(
         for query in queries:
             results = search_chunks(query, filter_expr=f'file_id = "{doc_id}"')
             assert any(r["id"] in chunk_ids for r in results)
-            doc = next(r for r in results if r["id"] == f"chunk_module_{doc_id}_0")
+            doc = next(r for r in results if r["id"] == f"{module_name}_{doc_id}_0")
             for field in ["id", "file_id", "module", "text", "index"]:
                 assert field in doc
 
