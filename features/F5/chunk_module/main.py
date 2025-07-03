@@ -6,7 +6,9 @@ from typing import Any, Mapping
 from features.F4.home_index_module import run_server
 
 VERSION = 1
-NAME = os.environ.get("NAME", "chunk_module")
+# default the module name to QUEUE_NAME so returned metadata matches the
+# queue configured in docker-compose
+NAME = os.environ.get("NAME") or os.environ.get("QUEUE_NAME", "chunk_module")
 
 
 def check(
