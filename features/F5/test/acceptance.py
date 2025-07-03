@@ -3,21 +3,10 @@ import os
 import shutil
 import urllib.request
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
+from features.F2 import duplicate_finder
 from shared import compose, dump_logs, search_chunks, wait_for
-
-
-def _get_doc_id(output_dir: Path, *, timeout: int = 120) -> str:
-    """Return the first document ID in ``output_dir`` and wait for metadata."""
-    by_id = output_dir / "metadata" / "by-id"
-    wait_for(
-        lambda: by_id.exists() and any(by_id.iterdir()),
-        timeout=timeout,
-        message="metadata",
-    )
-    doc_dirs: Iterable[Path] = [p for p in by_id.iterdir() if p.is_dir()]
-    return next(iter(doc_dirs)).name
 
 
 def _run_once(
@@ -45,7 +34,8 @@ def _run_once(
     env_file.write_text("\n".join(entries) + "\n")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
-    doc_id = _get_doc_id(output_dir)
+    doc_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(doc_path)
     from features.F5 import chunk_utils
 
     module_name = "chunk-module"
@@ -130,7 +120,8 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
         env_file,
         env=first_env,
     )
-    doc_id = _get_doc_id(output_dir)
+    doc_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(doc_path)
     settings_path = output_dir / "chunk_settings.json"
     with settings_path.open() as fh:
         settings1 = json.load(fh)
