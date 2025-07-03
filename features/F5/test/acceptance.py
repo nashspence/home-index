@@ -3,10 +3,15 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-from features.F2 import duplicate_finder
 from typing import Any
 
 from shared import compose, dump_logs, search_chunks, wait_for
+
+
+def _get_doc_id(output_dir: Path) -> str:
+    by_id = output_dir / "metadata" / "by-id"
+    wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+    return next(iter(p.name for p in by_id.iterdir() if p.is_dir()))
 
 
 def _run_once(
@@ -31,8 +36,7 @@ def _run_once(
         env_file.write_text("")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
-    doc_path = workdir / "input" / "snippet.txt"
-    doc_id = duplicate_finder.compute_hash(doc_path)
+    doc_id = _get_doc_id(output_dir)
     from features.F5 import chunk_utils
 
     module_name = "chunk-module"
@@ -109,9 +113,6 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
 
-    doc_path = workdir / "input" / "snippet.txt"
-    doc_id = duplicate_finder.compute_hash(doc_path)
-
     first_env = {"TOKENS_PER_CHUNK": "1000", "CHUNK_OVERLAP": "0"}
     chunks1 = _run_once(
         compose_file,
@@ -120,6 +121,7 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
         env_file,
         env=first_env,
     )
+    doc_id = _get_doc_id(output_dir)
     settings_path = output_dir / "chunk_settings.json"
     with settings_path.open() as fh:
         settings1 = json.load(fh)

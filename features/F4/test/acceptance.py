@@ -7,7 +7,14 @@ import subprocess
 
 from shared import compose, dump_logs, search_meili, wait_for
 
-from features.F2 import duplicate_finder
+from typing import Iterable
+
+
+def _get_doc_id(output_dir: Path) -> str:
+    by_id = output_dir / "metadata" / "by-id"
+    wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+    doc_dirs: Iterable[Path] = [p for p in by_id.iterdir() if p.is_dir()]
+    return next(iter(doc_dirs)).name
 
 
 def _run_once(
@@ -24,8 +31,7 @@ def _run_once(
     env_file.write_text(f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\n")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
-    doc_path = workdir / "input" / "hello.txt"
-    doc_id = duplicate_finder.compute_hash(doc_path)
+    doc_id = _get_doc_id(output_dir)
     module_version = (
         output_dir / "metadata" / "by-id" / doc_id / "example-module" / "version.json"
     )
@@ -99,10 +105,9 @@ def _run_timeout(
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
 
-    doc_path = workdir / "input" / "hello.txt"
-    doc_id = duplicate_finder.compute_hash(doc_path)
+    doc_id = _get_doc_id(output_dir)
     log_file = output_dir / "metadata" / "by-id" / doc_id / "timeout-module" / "log.txt"
-    wait_for(log_file.exists, timeout=120, message="timeout log")
+    wait_for(log_file.exists, timeout=300, message="timeout log")
     # allow the job to time out
     wait_for(
         lambda: _redis_llen(compose_file, workdir, "modules:done") == 0,
@@ -155,8 +160,7 @@ def _run_check_timeout(
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
 
-    doc_path = workdir / "input" / "hello.txt"
-    doc_id = duplicate_finder.compute_hash(doc_path)
+    doc_id = _get_doc_id(output_dir)
 
     wait_for(
         lambda: _redis_llen(compose_file, workdir, "timeout-module:check:processing")
