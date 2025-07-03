@@ -46,8 +46,6 @@ def _run_once(
         / module_name
         / chunk_utils.CHUNK_FILENAME
     )
-    if not reset_output and chunk_json.exists():
-        chunk_json.unlink()
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
