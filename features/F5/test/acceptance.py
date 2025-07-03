@@ -8,9 +8,13 @@ from typing import Any
 from shared import compose, dump_logs, search_chunks, wait_for
 
 
-def _get_doc_id(output_dir: Path) -> str:
+def _get_doc_id(output_dir: Path, *, timeout: int = 300) -> str:
     by_id = output_dir / "metadata" / "by-id"
-    wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+    wait_for(
+        lambda: by_id.exists() and any(by_id.iterdir()),
+        timeout=timeout,
+        message="metadata",
+    )
     return next(iter(p.name for p in by_id.iterdir() if p.is_dir()))
 
 
