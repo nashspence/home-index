@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import urllib.request
 from pathlib import Path
@@ -8,7 +9,7 @@ from typing import Any
 from shared import compose, dump_logs, search_chunks, wait_for
 
 
-def _get_doc_id(output_dir: Path, *, timeout: int = 300) -> str:
+def _get_doc_id(output_dir: Path, *, timeout: int = 600) -> str:
     by_id = output_dir / "metadata" / "by-id"
     wait_for(
         lambda: by_id.exists() and any(by_id.iterdir()),
@@ -34,10 +35,13 @@ def _run_once(
         '{"modules": [{"name": "chunk-module"}]}'
     )
 
+    entries = [
+        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}",
+        f"MODULE_BASE_IMAGE={os.environ.get('MODULE_BASE_IMAGE', 'home-index-module:ci')}",
+    ]
     if env:
-        env_file.write_text("\n".join(f"{k}={v}" for k, v in env.items()))
-    else:
-        env_file.write_text("")
+        entries.extend(f"{k}={v}" for k, v in env.items())
+    env_file.write_text("\n".join(entries) + "\n")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_id = _get_doc_id(output_dir)
