@@ -21,6 +21,7 @@ services:
     depends_on:
       - meilisearch
       - chunk-module
+      - redis
   meilisearch:
     image: getmeili/meilisearch:v1.15
     environment:
