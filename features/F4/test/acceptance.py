@@ -107,7 +107,7 @@ def _run_timeout(
 
     doc_id = _get_doc_id(output_dir)
     log_file = output_dir / "metadata" / "by-id" / doc_id / "timeout-module" / "log.txt"
-    wait_for(log_file.exists, timeout=300, message="timeout log")
+    wait_for(log_file.exists, timeout=120, message="timeout log")
     # allow the job to time out
     wait_for(
         lambda: _redis_llen(compose_file, workdir, "modules:done") == 0,
