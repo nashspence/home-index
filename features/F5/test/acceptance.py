@@ -8,15 +8,16 @@ from typing import Any
 
 from shared import compose, dump_logs, search_chunks, wait_for
 
+from features.F2 import duplicate_finder
 
-def _get_doc_id(output_dir: Path, *, timeout: int = 600) -> str:
-    by_id = output_dir / "metadata" / "by-id"
-    wait_for(
-        lambda: by_id.exists() and any(by_id.iterdir()),
-        timeout=timeout,
-        message="metadata",
-    )
-    return next(iter(p.name for p in by_id.iterdir() if p.is_dir()))
+
+def _get_doc_id(workdir: Path, output_dir: Path, *, timeout: int = 120) -> str:
+    """Return the expected document ID and wait for metadata."""
+    file_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(file_path)
+    by_id_doc = output_dir / "metadata" / "by-id" / doc_id
+    wait_for(by_id_doc.exists, timeout=timeout, message="metadata")
+    return doc_id
 
 
 def _run_once(
@@ -44,7 +45,7 @@ def _run_once(
     env_file.write_text("\n".join(entries) + "\n")
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
-    doc_id = _get_doc_id(output_dir)
+    doc_id = _get_doc_id(workdir, output_dir)
     from features.F5 import chunk_utils
 
     module_name = "chunk-module"
@@ -129,7 +130,7 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
         env_file,
         env=first_env,
     )
-    doc_id = _get_doc_id(output_dir)
+    doc_id = _get_doc_id(workdir, output_dir)
     settings_path = output_dir / "chunk_settings.json"
     with settings_path.open() as fh:
         settings1 = json.load(fh)
