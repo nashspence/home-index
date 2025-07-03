@@ -219,7 +219,7 @@ async def init_meili():
             except Exception:
                 pass
         try:
-            task = await client.delete_index(MEILISEARCH_CHUNK_INDEX_NAME)
+            task = await client.index(MEILISEARCH_CHUNK_INDEX_NAME).delete()
             await client.wait_for_task(task.task_uid)
         except Exception as e:
             if getattr(e, "code", None) != "index_not_found":
