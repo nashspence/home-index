@@ -11,8 +11,8 @@ services:
       DEBUGPY_HOST: ${DEBUGPY_HOST:-0.0.0.0}
       DEBUGPY_PORT: ${DEBUGPY_PORT:-5678}
       WAIT_FOR_DEBUGPY_CLIENT: ${WAIT_FOR_DEBUGPY_CLIENT:-False}
-      TOKENS_PER_CHUNK: ${TOKENS_PER_CHUNK:-}
-      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-}
+      TOKENS_PER_CHUNK: ${TOKENS_PER_CHUNK:-510}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-50}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
