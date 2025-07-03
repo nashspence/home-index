@@ -33,7 +33,6 @@ def _run_once(
         entries.extend(f"{k}={v}" for k, v in env.items())
     env_file.write_text("\n".join(entries) + "\n")
 
-    compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     from features.F5 import chunk_utils
@@ -47,6 +46,10 @@ def _run_once(
         / module_name
         / chunk_utils.CHUNK_FILENAME
     )
+    if not reset_output and chunk_json.exists():
+        chunk_json.unlink()
+
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
     try:
         wait_for(
