@@ -1,7 +1,7 @@
 import json
 import shutil
-from pathlib import Path
 import urllib.request
+from pathlib import Path
 
 from features.F2 import duplicate_finder
 from shared import compose, dump_logs, search_chunks, wait_for
@@ -25,8 +25,16 @@ def _run_once(
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
+    from features.F5 import chunk_utils
+
+    module_name = "chunk-module"
     chunk_json = (
-        output_dir / "metadata" / "by-id" / doc_id / "chunk-module" / "chunks.json"
+        output_dir
+        / "metadata"
+        / "by-id"
+        / doc_id
+        / module_name
+        / chunk_utils.CHUNK_FILENAME
     )
     try:
         wait_for(
@@ -39,7 +47,7 @@ def _run_once(
             chunks = json.load(fh)
 
         chunk_ids = {c["id"] for c in chunks}
-        chunk = next(c for c in chunks if c["id"] == f"chunk_module_{doc_id}_0")
+        chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
         for field in ["id", "file_id", "module", "text", "index"]:
             assert field in chunk
 
@@ -50,7 +58,7 @@ def _run_once(
         for query in queries:
             results = search_chunks(query, filter_expr=f'file_id = "{doc_id}"')
             assert any(r["id"] in chunk_ids for r in results)
-            doc = next(r for r in results if r["id"] == f"chunk_module_{doc_id}_0")
+            doc = next(r for r in results if r["id"] == f"{module_name}_{doc_id}_0")
             for field in ["id", "file_id", "module", "text", "index"]:
                 assert field in doc
 

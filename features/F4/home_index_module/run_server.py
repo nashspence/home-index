@@ -3,14 +3,12 @@ from __future__ import annotations
 import json
 import logging
 import os
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence, Iterator, cast
 import time
 import uuid
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Callable, Iterator, Mapping, Sequence, cast
 from urllib.parse import urlparse
-
-import features.F5.chunk_utils as chunk_utils
 
 try:
     import redis
@@ -21,14 +19,6 @@ try:
     import yaml
 except Exception:  # pragma: no cover - optional for tests
     yaml = None
-
-
-segments_to_chunk_docs = chunk_utils.segments_to_chunk_docs
-
-
-split_chunk_docs = chunk_utils.split_chunk_docs
-
-write_chunk_docs = chunk_utils.write_chunk_docs
 
 
 def metadata_directory() -> Path:

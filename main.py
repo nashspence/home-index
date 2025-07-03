@@ -59,6 +59,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from itertools import chain
 from multiprocessing import Manager, Process
 from pathlib import Path
+from typing import Any, Iterable, Mapping
 
 import magic
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -75,6 +76,13 @@ from features.F1 import scheduler
 from features.F2 import duplicate_finder, metadata_store, migrations, path_links
 from features.F3 import archive
 from features.F4 import modules as modules_f4
+from features.F5 import chunk_utils
+
+write_chunk_docs = chunk_utils.write_chunk_docs
+is_chunk_settings_changed = chunk_utils.is_chunk_settings_changed
+save_chunk_settings = chunk_utils.save_chunk_settings
+CHUNK_SETTINGS_FILE_PATH = chunk_utils.CHUNK_SETTINGS_FILE_PATH
+CHUNK_FILENAME = chunk_utils.CHUNK_FILENAME
 
 path_from_relpath = archive.path_from_relpath
 is_in_archive_dir = archive.is_in_archive_dir
@@ -130,6 +138,15 @@ __all__ = [
     "EMBED_MODEL_NAME",
     "EMBED_DEVICE",
     "EMBED_DIM",
+    "module_metadata_path",
+    "build_chunk_docs_from_content",
+    "add_content_chunks",
+    "delete_chunk_docs_by_file_id_and_module",
+    "write_chunk_docs",
+    "is_chunk_settings_changed",
+    "save_chunk_settings",
+    "CHUNK_SETTINGS_FILE_PATH",
+    "CHUNK_FILENAME",
 ]
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
@@ -155,6 +172,14 @@ METADATA_DIRECTORY = metadata_store.metadata_directory()
 BY_ID_DIRECTORY = metadata_store.by_id_directory()
 metadata_store.ensure_directories()
 path_links.ensure_directories()
+
+
+def module_metadata_path(file_id: str, module_name: str) -> Path:
+    """Return the metadata directory path for ``module_name`` and ``file_id``."""
+    path = BY_ID_DIRECTORY / file_id / module_name
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
 
 ARCHIVE_DIRECTORY = archive.archive_directory()
 _safe_mkdir(ARCHIVE_DIRECTORY)
@@ -186,6 +211,21 @@ async def init_meili():
     global client, index, chunk_index
     files_logger.debug("meili init")
     client = AsyncClient(MEILISEARCH_HOST)
+
+    if is_chunk_settings_changed:
+        for path in BY_ID_DIRECTORY.rglob(CHUNK_FILENAME):
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+        try:
+            task = await client.index(MEILISEARCH_CHUNK_INDEX_NAME).delete()
+            await client.wait_for_task(task.task_uid)
+        except Exception as e:
+            if getattr(e, "code", None) != "index_not_found":
+                files_logger.exception("delete chunk index failed")
+                raise
+        save_chunk_settings()
 
     for attempt in range(30):
         try:
@@ -243,13 +283,13 @@ async def init_meili():
             MeilisearchSettings,
         )
 
-        # 1️⃣ register the embedder and wait for the model download
-        files_logger.info("create embedder e5-small")
+        # Register the embedder and wait for the model download
+        files_logger.info("create embedder %s", EMBED_MODEL_NAME)
         task = await chunk_index.update_embedders(
             Embedders(
                 embedders={
                     "e5-small": HuggingFaceEmbedder(
-                        model="intfloat/e5-small-v2",
+                        model=EMBED_MODEL_NAME,
                         document_template="passage: {{doc.text}}",
                     )
                 }
@@ -257,13 +297,7 @@ async def init_meili():
         )
         await client.wait_for_task(task.task_uid)
 
-        # 2️⃣ ensure the embedder is stored
-        embedders = await chunk_index.get_embedders()
-        files_logger.info("embedders stored: %s", list(embedders.embedders.keys()))
-        if "e5-small" not in embedders.embedders:
-            raise RuntimeError("embedder not stored")
-
-        # 3️⃣ set filterable attributes
+        # Configure filterable attributes
         files_logger.info("update chunk index settings")
         settings_body = MeilisearchSettings(
             filterable_attributes=["file_id", "module"],
@@ -271,6 +305,7 @@ async def init_meili():
         )
         task = await chunk_index.update_settings(settings_body)
         await client.wait_for_task(task.task_uid)
+        save_chunk_settings()
     except Exception:
         files_logger.exception("meili update chunk index settings failed")
         raise
@@ -383,6 +418,8 @@ async def delete_docs_by_id(ids):
 
 
 async def delete_chunk_docs_by_id(ids):
+    if not ids:
+        return
     if not chunk_index:
         raise Exception("meili chunk index did not init")
 
@@ -416,6 +453,91 @@ async def delete_chunk_docs_by_file_ids(file_ids):
     except Exception:
         files_logger.exception("meili delete chunk documents by file id failed")
         raise
+
+
+async def delete_chunk_docs_by_file_id_and_module(file_id: str, module: str) -> None:
+    """Delete chunks for ``file_id`` produced by ``module``."""
+    if not chunk_index:
+        raise Exception("meili chunk index did not init")
+
+    try:
+        docs = []
+        offset = 0
+        limit = MEILISEARCH_BATCH_SIZE
+        while True:
+            result = await chunk_index.get_documents(offset=offset, limit=limit)
+            docs.extend(result.results)
+            if len(result.results) < limit:
+                break
+            offset += limit
+
+        ids_to_delete = [
+            d["id"]
+            for d in docs
+            if d.get("file_id") == file_id and d.get("module") == module
+        ]
+        await delete_chunk_docs_by_id(ids_to_delete)
+    except Exception:
+        files_logger.exception(
+            "meili delete chunk documents by file id and module failed"
+        )
+        raise
+
+
+def build_chunk_docs_from_content(
+    content: str | Iterable[Mapping[str, Any]],
+    file_id: str,
+    module_name: str,
+    *,
+    file_mtime: float | None = None,
+) -> list[dict[str, Any]]:
+    """Return chunk documents built from ``content``."""
+
+    return chunk_utils.content_to_chunk_docs(
+        content,
+        file_id,
+        module_name,
+        file_mtime=file_mtime,
+    )
+
+
+async def add_content_chunks(document: dict[str, Any], module_name: str) -> None:
+    """Generate and index chunk documents from ``module_name.content``."""
+
+    key = f"{module_name}.content"
+    if key not in document:
+        return
+
+    content = document.pop(key)
+    dir_path = module_metadata_path(document["id"], module_name)
+    file_path = dir_path / CHUNK_FILENAME
+    if file_path.exists():
+        file_path.unlink()
+    await delete_chunk_docs_by_file_id_and_module(document["id"], module_name)
+    chunks = build_chunk_docs_from_content(
+        content,
+        document["id"],
+        module_name,
+        file_mtime=document.get("mtime"),
+    )
+    chunk_utils.write_chunk_docs(dir_path, chunks)
+    await add_or_update_chunk_documents(chunks)
+
+
+async def sync_content_fields(docs_by_hash: Mapping[str, dict[str, Any]]) -> None:
+    """Chunk any ``<module>.content`` fields and index the resulting docs."""
+
+    for doc in docs_by_hash.values():
+        keys = [k for k in doc.keys() if k.endswith(".content")]
+        for key in keys:
+            module_name = key.split(".")[0]
+            dir_path = module_metadata_path(doc["id"], module_name)
+            file_path = dir_path / CHUNK_FILENAME
+            if not file_path.exists():
+                await add_content_chunks(doc, module_name)
+            else:
+                doc.pop(key)
+            await update_doc_from_module(doc)
 
 
 async def get_document(doc_id):
@@ -842,6 +964,7 @@ async def sync_documents():
 
         files_logger.info("commit changes to meilisearch")
         await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
+        await sync_content_fields(files_docs_by_hash)
     except:
         files_logger.exception("sync failed")
         raise

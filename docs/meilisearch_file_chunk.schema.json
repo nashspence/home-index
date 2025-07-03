@@ -24,20 +24,27 @@
       "type": "integer",
       "description": "Position of the chunk within the module's context"
     },
-    "start": {
+    "time_offset": {
       "type": "number",
       "description": "Optional start offset of the chunk in the source (float)"
     },
-    "end": {
+    "time_length": {
       "type": "number",
-      "description": "Optional end offset of the chunk in the source (float)"
+      "description": "Optional length of the chunk in the source (float)"
     },
-    "_vector": {
-      "type": "array",
-      "items": {"type": "number"},
-      "description": "Sentence embedding vector for semantic search"
+    "start_time": {
+      "type": "number",
+      "description": "Epoch timestamp when the chunk begins"
+    },
+    "char_offset": {
+      "type": "integer",
+      "description": "Character offset of the chunk text"
+    },
+    "char_length": {
+      "type": "integer",
+      "description": "Number of characters in the chunk text"
     }
   },
-  "required": ["id", "file_id", "module", "text", "index"],
+  "required": ["id", "file_id", "module", "text", "index", "start_time", "char_offset", "char_length"],
   "additionalProperties": true
 }

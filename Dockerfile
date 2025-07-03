@@ -21,6 +21,10 @@ RUN pip install --no-cache-dir --disable-pip-version-check \
     debugpy==1.8.14 \
     meilisearch-python-sdk==4.7.1 \
     python-magic==0.4.27 \
+    langchain-core==0.1.48 \
+    langchain-text-splitters==0.0.1 \
+    transformers==4.53.0 \
+    tiktoken==0.6.0 \
     redis==5.0.4 \
     PyYAML==6.0.1 \
     xxhash==3.5.0
