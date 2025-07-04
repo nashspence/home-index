@@ -69,6 +69,8 @@ Each segment object must provide a `text` key and may include:
 
 Home Index splits segments into chunk documents and stores them in
 `chunks.json` under `metadata/by-id/<file-id>/<QUEUE_NAME>/`.
+The original `<QUEUE_NAME>.content` field stays in `document.json` and the
+Meilisearch document so chunks can rebuild when settings change.
 
 ## Building
 

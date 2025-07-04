@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from features.F2 import duplicate_finder
-from shared import compose, dump_logs, search_chunks, wait_for
+from shared import compose, dump_logs, search_chunks, search_meili, wait_for
 
 
 def _run_once(
@@ -17,7 +17,7 @@ def _run_once(
     env: dict[str, str] | None = None,
     *,
     reset_output: bool = True,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if reset_output and output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -48,15 +48,17 @@ def _run_once(
     )
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
+    doc_json = output_dir / "metadata" / "by-id" / doc_id / "document.json"
     try:
-        wait_for(
-            chunk_json.exists,
-            timeout=300,
-            message="chunk metadata",
-        )
+        wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
+        wait_for(doc_json.exists, timeout=300, message="document.json")
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
+        doc_data = json.loads(doc_json.read_text())
+        assert doc_data[f"{module_name}.content"] == doc_path.read_text()
+        docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
+        assert docs[0][f"{module_name}.content"] == doc_path.read_text()
 
         chunk_ids = {c["id"] for c in chunks}
         chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
@@ -113,7 +115,7 @@ def _run_once(
             env_file=env_file,
             check=False,
         )
-    return chunks
+    return chunks, doc_data
 
 
 def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
@@ -131,7 +133,7 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
 
     first_env = {"TOKENS_PER_CHUNK": "1000", "CHUNK_OVERLAP": "0"}
-    chunks1 = _run_once(
+    chunks1, doc1 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -153,7 +155,7 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
     start_count1 = log_file.read_text().count("start")
 
     second_env = {"TOKENS_PER_CHUNK": "10", "CHUNK_OVERLAP": "0"}
-    chunks2 = _run_once(
+    chunks2, doc2 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -169,7 +171,9 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
     mtime2 = chunk_file.stat().st_mtime
     start_count2 = log_file.read_text().count("start")
     assert mtime2 > mtime1
-    assert start_count2 > start_count1
+    assert start_count2 == start_count1
+    assert doc1["chunk-module.content"] == doc_path.read_text()
+    assert doc2["chunk-module.content"] == doc1["chunk-module.content"]
 
 
 def test_chunk_overlap_change(tmp_path: Path) -> None:
@@ -179,7 +183,7 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
 
     first_env = {"TOKENS_PER_CHUNK": "20", "CHUNK_OVERLAP": "0"}
-    chunks1 = _run_once(
+    chunks1, doc1 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -200,7 +204,7 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
     start_count1 = log_file.read_text().count("start")
 
     second_env = {"TOKENS_PER_CHUNK": "20", "CHUNK_OVERLAP": "5"}
-    chunks2 = _run_once(
+    chunks2, doc2 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -214,4 +218,6 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
     assert settings2["CHUNK_OVERLAP"] == 5
     assert len(chunks2) > len(chunks1)
     assert chunk_file.stat().st_mtime > mtime1
-    assert log_file.read_text().count("start") > start_count1
+    assert log_file.read_text().count("start") == start_count1
+    assert doc1["chunk-module.content"] == doc_path.read_text()
+    assert doc2["chunk-module.content"] == doc1["chunk-module.content"]
