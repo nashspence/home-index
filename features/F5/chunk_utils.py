@@ -14,16 +14,12 @@ __all__ = [
     "content_to_chunk_docs",
     "write_chunk_docs",
     "CHUNK_FILENAME",
-    "CONTENT_FILENAME",
-    "write_content",
-    "read_content",
 ]
 
 TOKENS_PER_CHUNK = int(os.environ.get("TOKENS_PER_CHUNK", "510"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "50"))
 
 CHUNK_FILENAME = "chunks.json"
-CONTENT_FILENAME = "content.json"
 
 
 def segments_to_chunk_docs(
@@ -166,24 +162,6 @@ def write_chunk_docs(
     with path.open("w") as fh:
         json.dump(list(chunk_docs), fh, indent=4)
     return path
-
-
-def write_content(metadata_dir_path: Path, content: Any) -> Path:
-    """Write ``content`` to ``CONTENT_FILENAME`` and return the path."""
-    path = Path(metadata_dir_path) / CONTENT_FILENAME
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as fh:
-        json.dump(content, fh, indent=4)
-    return path
-
-
-def read_content(metadata_dir_path: Path) -> Any | None:
-    """Return previously saved content or ``None``."""
-    path = Path(metadata_dir_path) / CONTENT_FILENAME
-    if not path.exists():
-        return None
-    with path.open() as fh:
-        return json.load(fh)
 
 
 # chunk settings persistence

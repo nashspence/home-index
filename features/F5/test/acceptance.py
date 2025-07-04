@@ -46,8 +46,6 @@ def _run_once(
         / module_name
         / chunk_utils.CHUNK_FILENAME
     )
-    content_json = chunk_json.with_name(chunk_utils.CONTENT_FILENAME)
-
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
     try:
@@ -56,7 +54,6 @@ def _run_once(
             timeout=300,
             message="chunk metadata",
         )
-        assert content_json.exists()
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
@@ -133,7 +130,6 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
 
     module_dir = output_dir / "metadata" / "by-id" / doc_id / "chunk-module"
     chunk_file = module_dir / "chunks.json"
-    content_file = module_dir / "content.json"
     log_file = module_dir / "log.txt"
     mtime1 = chunk_file.stat().st_mtime
     start_count1 = log_file.read_text().count("start")
@@ -154,8 +150,6 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
     assert len(chunks2) > len(chunks1)
     mtime2 = chunk_file.stat().st_mtime
     start_count2 = log_file.read_text().count("start")
-    assert content_file.exists()
-
     assert mtime2 > mtime1
     assert start_count2 > start_count1
 
@@ -179,7 +173,6 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
     doc_id = duplicate_finder.compute_hash(doc_path)
     module_dir = output_dir / "metadata" / "by-id" / doc_id / "chunk-module"
     chunk_file = module_dir / "chunks.json"
-    content_file = module_dir / "content.json"
     log_file = module_dir / "log.txt"
     settings_path = output_dir / "chunk_settings.json"
     with settings_path.open() as fh:
@@ -204,4 +197,3 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
     assert len(chunks2) > len(chunks1)
     assert chunk_file.stat().st_mtime > mtime1
     assert log_file.read_text().count("start") > start_count1
-    assert content_file.exists()

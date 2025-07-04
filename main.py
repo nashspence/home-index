@@ -505,15 +505,11 @@ async def add_content_chunks(document: dict[str, Any], module_name: str) -> None
     """Generate and index chunk documents from ``module_name.content``."""
 
     key = f"{module_name}.content"
-    dir_path = module_metadata_path(document["id"], module_name)
-    content = document.pop(key, None)
-    if content is None:
-        content = chunk_utils.read_content(dir_path)
-        if content is None:
-            return
-    else:
-        chunk_utils.write_content(dir_path, content)
+    if key not in document:
+        return
 
+    content = document.pop(key)
+    dir_path = module_metadata_path(document["id"], module_name)
     file_path = dir_path / CHUNK_FILENAME
     if file_path.exists():
         file_path.unlink()
