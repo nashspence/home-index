@@ -4,6 +4,7 @@ import json
 
 def test_service_module_queue_processes_chunk_docs(monkeypatch):
     import importlib
+
     import main as hi
 
     importlib.reload(hi)
@@ -114,6 +115,7 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
 
 def test_service_module_queue_handles_update_only(monkeypatch):
     import importlib
+
     import main as hi
 
     importlib.reload(hi)
@@ -191,6 +193,7 @@ def test_service_module_queue_handles_update_only(monkeypatch):
 
 def test_service_module_queue_processes_content(monkeypatch):
     import importlib
+
     import main as hi
 
     importlib.reload(hi)
@@ -270,6 +273,7 @@ def test_service_module_queue_processes_content(monkeypatch):
     assert recorded.get("deleted") == ("file3", "mod")
     assert recorded["chunks"][0]["module"] == "mod"
     assert recorded["updated"]["id"] == doc["id"]
+    assert recorded["updated"]["mod.content"] == "hello world"
 
 
 def test_sync_content_fields_generates_chunks(monkeypatch, tmp_path):
@@ -298,3 +302,4 @@ def test_sync_content_fields_generates_chunks(monkeypatch, tmp_path):
 
     assert recorded.get("chunks")
     assert recorded["updated"]["id"] == "file4"
+    assert recorded["updated"]["mod.content"] == "x"

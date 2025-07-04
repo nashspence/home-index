@@ -508,7 +508,7 @@ async def add_content_chunks(document: dict[str, Any], module_name: str) -> None
     if key not in document:
         return
 
-    content = document.pop(key)
+    content = document[key]
     dir_path = module_metadata_path(document["id"], module_name)
     file_path = dir_path / CHUNK_FILENAME
     if file_path.exists():
@@ -535,8 +535,6 @@ async def sync_content_fields(docs_by_hash: Mapping[str, dict[str, Any]]) -> Non
             file_path = dir_path / CHUNK_FILENAME
             if not file_path.exists():
                 await add_content_chunks(doc, module_name)
-            else:
-                doc.pop(key)
             await update_doc_from_module(doc)
 
 
