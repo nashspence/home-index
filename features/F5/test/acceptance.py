@@ -154,3 +154,48 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
 
     assert mtime2 > mtime1
     assert start_count2 > start_count1
+
+
+def test_chunk_overlap_change(tmp_path: Path) -> None:
+    compose_file = Path(__file__).with_name("docker-compose.yml")
+    workdir = compose_file.parent
+    output_dir = workdir / "output"
+    env_file = tmp_path / ".env"
+
+    first_env = {"TOKENS_PER_CHUNK": "20", "CHUNK_OVERLAP": "0"}
+    chunks1 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=first_env,
+    )
+
+    doc_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(doc_path)
+    module_dir = output_dir / "metadata" / "by-id" / doc_id / "chunk-module"
+    chunk_file = module_dir / "chunks.json"
+    log_file = module_dir / "log.txt"
+    settings_path = output_dir / "chunk_settings.json"
+    with settings_path.open() as fh:
+        settings1 = json.load(fh)
+    assert settings1["CHUNK_OVERLAP"] == 0
+    mtime1 = chunk_file.stat().st_mtime
+    start_count1 = log_file.read_text().count("start")
+
+    second_env = {"TOKENS_PER_CHUNK": "20", "CHUNK_OVERLAP": "5"}
+    chunks2 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=second_env,
+        reset_output=False,
+    )
+    with settings_path.open() as fh:
+        settings2 = json.load(fh)
+
+    assert settings2["CHUNK_OVERLAP"] == 5
+    assert len(chunks2) > len(chunks1)
+    assert chunk_file.stat().st_mtime > mtime1
+    assert log_file.read_text().count("start") > start_count1
