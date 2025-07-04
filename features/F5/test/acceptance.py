@@ -60,7 +60,16 @@ def _run_once(
 
         chunk_ids = {c["id"] for c in chunks}
         chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
-        for field in ["id", "file_id", "module", "text", "index"]:
+        for field in [
+            "id",
+            "file_id",
+            "module",
+            "text",
+            "index",
+            "start_time",
+            "char_offset",
+            "char_length",
+        ]:
             assert field in chunk
 
         queries = [
@@ -71,7 +80,16 @@ def _run_once(
             results = search_chunks(query, filter_expr=f'file_id = "{doc_id}"')
             assert any(r["id"] in chunk_ids for r in results)
             doc = next(r for r in results if r["id"] == f"{module_name}_{doc_id}_0")
-            for field in ["id", "file_id", "module", "text", "index"]:
+            for field in [
+                "id",
+                "file_id",
+                "module",
+                "text",
+                "index",
+                "start_time",
+                "char_offset",
+                "char_length",
+            ]:
                 assert field in doc
 
         with urllib.request.urlopen(
