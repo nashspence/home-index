@@ -57,6 +57,15 @@ def _run_once(
             chunks = json.load(fh)
         doc_data = json.loads(doc_json.read_text())
         assert doc_data[f"{module_name}.content"] == doc_path.read_text()
+
+        def _doc_has_content() -> bool:
+            docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
+            return (
+                bool(docs)
+                and docs[0].get(f"{module_name}.content") == doc_path.read_text()
+            )
+
+        wait_for(_doc_has_content, timeout=300, message="indexed document")
         docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
         assert docs[0][f"{module_name}.content"] == doc_path.read_text()
 
