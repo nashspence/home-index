@@ -60,16 +60,16 @@ def _run_once(
         wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
         wait_for(content_json.exists, timeout=300, message="content.json")
 
-        with open(chunk_json) as fh:
-            chunks = json.load(fh)
-        with open(content_json) as fh:
-            content_data = json.load(fh)
-
         def _doc_in_search() -> bool:
             docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
             return bool(docs)
 
         wait_for(_doc_in_search, timeout=300, message="indexed document")
+
+        with open(chunk_json) as fh:
+            chunks = json.load(fh)
+        with open(content_json) as fh:
+            content_data = json.load(fh)
 
         chunk_ids = {c["id"] for c in chunks}
         chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
