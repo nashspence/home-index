@@ -191,6 +191,10 @@ def metadata_dir_relpath_from_doc(name: str, document: Mapping[str, Any]) -> Pat
 async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
     hi = cast(Any, _get_hi())
 
+    for k in list(document.keys()):
+        if k.endswith(".content"):
+            document.pop(k)
+
     next_name = ""
     if document["next"] in modules:
         idx = module_values.index(modules[document["next"]])
@@ -225,11 +229,13 @@ async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
         if isinstance(result, dict) and "document" in result:
             chunk_docs = result.get("chunk_docs", [])
             delete_chunk_ids = result.get("delete_chunk_ids", [])
+            content = result.get("content")
             document = result["document"]
         else:
             document = result
             chunk_docs = []
             delete_chunk_ids = []
+            content = None
         if chunk_docs:
             for chunk in chunk_docs:
                 chunk.setdefault("module", name)
@@ -237,6 +243,8 @@ async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
             hi.write_chunk_docs(
                 hi.module_metadata_path(document["id"], name), chunk_docs
             )
+        elif content is not None:
+            await hi.add_content_chunks(document, name, content=content)
         else:
             await hi.add_content_chunks(document, name)
         await hi.delete_chunk_docs_by_id(delete_chunk_ids)

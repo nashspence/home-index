@@ -2,7 +2,7 @@ import json
 import importlib
 
 
-def test_index_files_preserves_content(tmp_path, monkeypatch):
+def test_index_files_ignores_content(tmp_path, monkeypatch):
     index_dir = tmp_path / "index"
     meta_dir = tmp_path / "meta"
     by_id = meta_dir / "by-id"
@@ -41,4 +41,4 @@ def test_index_files_preserves_content(tmp_path, monkeypatch):
     md, mhr, ua_docs, ua_hashes, _ = hi.index_metadata()
     files_docs, hashes = hi.index_files(md, mhr, ua_docs, ua_hashes)
 
-    assert files_docs[doc_id]["mod.content"] == text
+    assert "mod.content" not in files_docs[doc_id]

@@ -83,6 +83,7 @@ is_chunk_settings_changed = chunk_utils.is_chunk_settings_changed
 save_chunk_settings = chunk_utils.save_chunk_settings
 CHUNK_SETTINGS_FILE_PATH = chunk_utils.CHUNK_SETTINGS_FILE_PATH
 CHUNK_FILENAME = chunk_utils.CHUNK_FILENAME
+CONTENT_FILENAME = chunk_utils.CONTENT_FILENAME
 
 path_from_relpath = archive.path_from_relpath
 is_in_archive_dir = archive.is_in_archive_dir
@@ -147,6 +148,8 @@ __all__ = [
     "save_chunk_settings",
     "CHUNK_SETTINGS_FILE_PATH",
     "CHUNK_FILENAME",
+    "CONTENT_FILENAME",
+    "sync_content_files",
 ]
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
@@ -501,15 +504,21 @@ def build_chunk_docs_from_content(
     )
 
 
-async def add_content_chunks(document: dict[str, Any], module_name: str) -> None:
-    """Generate and index chunk documents from ``module_name.content``."""
+async def add_content_chunks(
+    document: dict[str, Any], module_name: str, content: Any | None = None
+) -> None:
+    """Generate and index chunk documents from ``content``."""
 
-    key = f"{module_name}.content"
-    if key not in document:
-        return
-
-    content = document[key]
     dir_path = module_metadata_path(document["id"], module_name)
+    content_path = dir_path / CONTENT_FILENAME
+    if content is None:
+        if not content_path.exists():
+            return
+        with content_path.open() as fh:
+            content = json.load(fh)
+    else:
+        with content_path.open("w") as fh:
+            json.dump(content, fh)
     file_path = dir_path / CHUNK_FILENAME
     if file_path.exists():
         file_path.unlink()
@@ -524,18 +533,21 @@ async def add_content_chunks(document: dict[str, Any], module_name: str) -> None
     await add_or_update_chunk_documents(chunks)
 
 
-async def sync_content_fields(docs_by_hash: Mapping[str, dict[str, Any]]) -> None:
-    """Chunk any ``<module>.content`` fields and index the resulting docs."""
+async def sync_content_files(docs_by_hash: Mapping[str, dict[str, Any]]) -> None:
+    """Chunk any stored content files and index the resulting docs."""
 
     for doc in docs_by_hash.values():
-        keys = [k for k in doc.keys() if k.endswith(".content")]
-        for key in keys:
-            module_name = key.split(".")[0]
-            dir_path = module_metadata_path(doc["id"], module_name)
-            file_path = dir_path / CHUNK_FILENAME
-            if not file_path.exists():
-                await add_content_chunks(doc, module_name)
-            await update_doc_from_module(doc)
+        mod_dir = BY_ID_DIRECTORY / doc["id"]
+        if not mod_dir.exists():
+            continue
+        for module_dir in mod_dir.iterdir():
+            if not module_dir.is_dir():
+                continue
+            content_path = module_dir / CONTENT_FILENAME
+            chunk_path = module_dir / CHUNK_FILENAME
+            if content_path.exists() and not chunk_path.exists():
+                await add_content_chunks(doc, module_dir.name)
+        await update_doc_from_module(doc)
 
 
 async def get_document(doc_id):
@@ -672,6 +684,10 @@ def index_metadata():
         if hash in metadata_docs_by_hash:
             return
 
+        for k in list(doc.keys()):
+            if k.endswith(".content"):
+                doc.pop(k)
+
         original_has_archive = doc.get("has_archive_paths")
         original_offline = doc.get("offline")
         update_archive_flags(doc)
@@ -766,10 +782,6 @@ def index_files(
             doc = metadata_doc
         elif files_doc:
             doc = files_doc
-            if metadata_doc:
-                for k, v in metadata_doc.items():
-                    if k.endswith(".content") and k not in doc:
-                        doc[k] = v
         else:
             doc = {
                 "id": hash_val,
@@ -966,7 +978,7 @@ async def sync_documents():
 
         files_logger.info("commit changes to meilisearch")
         await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
-        await sync_content_fields(files_docs_by_hash)
+        await sync_content_files(files_docs_by_hash)
     except:
         files_logger.exception("sync failed")
         raise

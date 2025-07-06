@@ -17,7 +17,7 @@ def _run_once(
     env: dict[str, str] | None = None,
     *,
     reset_output: bool = True,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], Any]:
     if reset_output and output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -49,34 +49,29 @@ def _run_once(
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
     doc_json = output_dir / "metadata" / "by-id" / doc_id / "document.json"
+    content_json = (
+        output_dir
+        / "metadata"
+        / "by-id"
+        / doc_id
+        / module_name
+        / chunk_utils.CONTENT_FILENAME
+    )
     try:
         wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
-
-        def _doc_has_content() -> bool:
-            if not doc_json.exists():
-                return False
-            try:
-                data = json.loads(doc_json.read_text())
-            except Exception:
-                return False
-            return data.get(f"{module_name}.content") == doc_path.read_text()
-
-        wait_for(_doc_has_content, timeout=300, message="document.json")
+        wait_for(content_json.exists, timeout=300, message="content.json")
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
         doc_data = json.loads(doc_json.read_text())
+        with open(content_json) as fh:
+            content_data = json.load(fh)
 
         def _doc_in_search() -> bool:
             docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
-            return (
-                bool(docs)
-                and docs[0].get(f"{module_name}.content") == doc_path.read_text()
-            )
+            return bool(docs)
 
         wait_for(_doc_in_search, timeout=300, message="indexed document")
-        docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
-        assert docs[0][f"{module_name}.content"] == doc_path.read_text()
 
         chunk_ids = {c["id"] for c in chunks}
         chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
@@ -133,7 +128,7 @@ def _run_once(
             env_file=env_file,
             check=False,
         )
-    return chunks, doc_data
+    return chunks, content_data
 
 
 def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
@@ -155,7 +150,7 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
         "CHUNK_OVERLAP": "0",
         "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
     }
-    chunks1, doc1 = _run_once(
+    chunks1, content1 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -182,7 +177,7 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
         "CHUNK_OVERLAP": "0",
         "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
     }
-    chunks2, doc2 = _run_once(
+    chunks2, content2 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -199,8 +194,8 @@ def test_chunk_settings_change(tmp_path: Path) -> None:
     start_count2 = log_file.read_text().count("start")
     assert mtime2 > mtime1
     assert start_count2 == start_count1
-    assert doc1["chunk-module.content"] == doc_path.read_text()
-    assert doc2["chunk-module.content"] == doc1["chunk-module.content"]
+    assert content1 == doc_path.read_text()
+    assert content2 == content1
 
 
 def test_chunk_overlap_change(tmp_path: Path) -> None:
@@ -214,7 +209,7 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
         "CHUNK_OVERLAP": "0",
         "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
     }
-    chunks1, doc1 = _run_once(
+    chunks1, content1 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -240,7 +235,7 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
         "CHUNK_OVERLAP": "5",
         "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
     }
-    chunks2, doc2 = _run_once(
+    chunks2, content2 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -255,8 +250,8 @@ def test_chunk_overlap_change(tmp_path: Path) -> None:
     assert len(chunks2) > len(chunks1)
     assert chunk_file.stat().st_mtime > mtime1
     assert log_file.read_text().count("start") == start_count1
-    assert doc1["chunk-module.content"] == doc_path.read_text()
-    assert doc2["chunk-module.content"] == doc1["chunk-module.content"]
+    assert content1 == doc_path.read_text()
+    assert content2 == content1
 
 
 def test_chunk_model_change(tmp_path: Path) -> None:
@@ -270,7 +265,7 @@ def test_chunk_model_change(tmp_path: Path) -> None:
         "CHUNK_OVERLAP": "0",
         "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
     }
-    chunks1, doc1 = _run_once(
+    chunks1, content1 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -295,7 +290,7 @@ def test_chunk_model_change(tmp_path: Path) -> None:
         "CHUNK_OVERLAP": "0",
         "EMBED_MODEL_NAME": "intfloat/e5-base",
     }
-    chunks2, doc2 = _run_once(
+    chunks2, content2 = _run_once(
         compose_file,
         workdir,
         output_dir,
@@ -310,5 +305,5 @@ def test_chunk_model_change(tmp_path: Path) -> None:
     assert len(chunks2) == len(chunks1)
     assert chunk_file.stat().st_mtime > mtime1
     assert log_file.read_text().count("start") == start_count1
-    assert doc1["chunk-module.content"] == doc_path.read_text()
-    assert doc2["chunk-module.content"] == doc1["chunk-module.content"]
+    assert content1 == doc_path.read_text()
+    assert content2 == content1

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 
 
 def test_service_module_queue_processes_chunk_docs(monkeypatch):
@@ -203,7 +204,6 @@ def test_service_module_queue_processes_content(monkeypatch):
         "mtime": 1.0,
         "paths": {"c.txt": 1.0},
         "next": "",
-        "mod.content": "hello world",
     }
 
     async def fake_get_jobs(name):
@@ -225,7 +225,11 @@ def test_service_module_queue_processes_content(monkeypatch):
             self.storage = {
                 "mod:check": [],
                 "mod:run": [],
-                "modules:done": [json.dumps({"module": "mod", "document": doc})],
+                "modules:done": [
+                    json.dumps(
+                        {"module": "mod", "document": doc, "content": "hello world"}
+                    )
+                ],
                 "mod:check:processing": {},
                 "mod:run:processing": {},
                 "timeouts": {},
@@ -273,19 +277,23 @@ def test_service_module_queue_processes_content(monkeypatch):
     assert recorded.get("deleted") == ("file3", "mod")
     assert recorded["chunks"][0]["module"] == "mod"
     assert recorded["updated"]["id"] == doc["id"]
-    assert recorded["updated"]["mod.content"] == "hello world"
+    assert "mod.content" not in recorded["updated"]
 
 
-def test_sync_content_fields_generates_chunks(monkeypatch, tmp_path):
+def test_sync_content_files_generates_chunks(monkeypatch, tmp_path):
     import importlib
 
     monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta"))
     import main as hi
 
     importlib.reload(hi)
+    monkeypatch.setattr(hi, "BY_ID_DIRECTORY", Path(tmp_path / "meta" / "by-id"))
 
-    doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": "", "mod.content": "x"}
+    doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": ""}
     docs = {"file4": doc}
+    mod_dir = Path(tmp_path / "meta" / "by-id" / "file4" / "mod")
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "content.json").write_text("x")
 
     recorded = {}
 
@@ -298,8 +306,8 @@ def test_sync_content_fields_generates_chunks(monkeypatch, tmp_path):
     monkeypatch.setattr(hi, "add_content_chunks", fake_add_content_chunks)
     monkeypatch.setattr(hi, "update_doc_from_module", fake_update)
 
-    asyncio.run(hi.sync_content_fields(docs))
+    asyncio.run(hi.sync_content_files(docs))
 
     assert recorded.get("chunks")
     assert recorded["updated"]["id"] == "file4"
-    assert recorded["updated"]["mod.content"] == "x"
+    assert "mod.content" not in recorded["updated"]
