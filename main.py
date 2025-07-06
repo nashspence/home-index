@@ -545,9 +545,7 @@ async def sync_content_files(docs_by_hash: Mapping[str, dict[str, Any]]) -> None
                 continue
             content_path = module_dir / CONTENT_FILENAME
             chunk_path = module_dir / CHUNK_FILENAME
-            if content_path.exists() and (
-                is_chunk_settings_changed or not chunk_path.exists()
-            ):
+            if content_path.exists() and not chunk_path.exists():
                 await add_content_chunks(doc, module_dir.name)
         await update_doc_from_module(doc)
 
