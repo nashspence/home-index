@@ -1,15 +1,16 @@
 import asyncio
 import json
+from pathlib import Path
 
 
-def test_service_module_queue_processes_chunk_docs(monkeypatch):
+def test_service_module_queue_processes_segment_content(monkeypatch):
     import importlib
+
     import main as hi
 
     importlib.reload(hi)
 
     doc = {"id": "file1", "mtime": 1.0, "paths": {"a.txt": 1.0}, "next": ""}
-    chunk = {"id": "chunk1", "text": "hello"}
 
     async def fake_get_jobs(name):
         return [doc]
@@ -22,6 +23,9 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
     async def fake_update_doc(d):
         recorded["updated"] = d
 
+    async def fake_delete(fid, mod):
+        recorded["deleted"] = (fid, mod)
+
     async def fake_wait():
         recorded["wait"] = True
 
@@ -32,7 +36,11 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
                 "mod:run": [],
                 "modules:done": [
                     json.dumps(
-                        {"module": "mod", "document": doc, "chunk_docs": [chunk]}
+                        {
+                            "module": "mod",
+                            "document": doc,
+                            "content": [{"text": "hello"}],
+                        }
                     )
                 ],
                 "mod:check:processing": {},
@@ -99,6 +107,11 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
     monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
     monkeypatch.setattr(hi, "add_or_update_chunk_documents", fake_add_chunks)
     monkeypatch.setattr(hi, "update_doc_from_module", fake_update_doc)
+    monkeypatch.setattr(
+        hi,
+        "delete_chunk_docs_by_file_id_and_module",
+        fake_delete,
+    )
     monkeypatch.setattr(hi, "wait_for_meili_idle", fake_wait)
     hi.module_values = []
 
@@ -108,12 +121,13 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
 
     assert result is True
     assert recorded["lpop"]
-    assert "_vector" not in recorded["chunks"][0]
+    assert recorded["chunks"][0]["module"] == "mod"
     assert recorded["updated"]["id"] == doc["id"]
 
 
 def test_service_module_queue_handles_update_only(monkeypatch):
     import importlib
+
     import main as hi
 
     importlib.reload(hi)
@@ -191,6 +205,7 @@ def test_service_module_queue_handles_update_only(monkeypatch):
 
 def test_service_module_queue_processes_content(monkeypatch):
     import importlib
+
     import main as hi
 
     importlib.reload(hi)
@@ -200,7 +215,6 @@ def test_service_module_queue_processes_content(monkeypatch):
         "mtime": 1.0,
         "paths": {"c.txt": 1.0},
         "next": "",
-        "mod.content": "hello world",
     }
 
     async def fake_get_jobs(name):
@@ -222,7 +236,11 @@ def test_service_module_queue_processes_content(monkeypatch):
             self.storage = {
                 "mod:check": [],
                 "mod:run": [],
-                "modules:done": [json.dumps({"module": "mod", "document": doc})],
+                "modules:done": [
+                    json.dumps(
+                        {"module": "mod", "document": doc, "content": "hello world"}
+                    )
+                ],
                 "mod:check:processing": {},
                 "mod:run:processing": {},
                 "timeouts": {},
@@ -270,18 +288,23 @@ def test_service_module_queue_processes_content(monkeypatch):
     assert recorded.get("deleted") == ("file3", "mod")
     assert recorded["chunks"][0]["module"] == "mod"
     assert recorded["updated"]["id"] == doc["id"]
+    assert "mod.content" not in recorded["updated"]
 
 
-def test_sync_content_fields_generates_chunks(monkeypatch, tmp_path):
+def test_sync_content_files_generates_chunks(monkeypatch, tmp_path):
     import importlib
 
     monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta"))
     import main as hi
 
     importlib.reload(hi)
+    monkeypatch.setattr(hi, "BY_ID_DIRECTORY", Path(tmp_path / "meta" / "by-id"))
 
-    doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": "", "mod.content": "x"}
+    doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": ""}
     docs = {"file4": doc}
+    mod_dir = Path(tmp_path / "meta" / "by-id" / "file4" / "mod")
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "content.json").write_text("x")
 
     recorded = {}
 
@@ -294,7 +317,8 @@ def test_sync_content_fields_generates_chunks(monkeypatch, tmp_path):
     monkeypatch.setattr(hi, "add_content_chunks", fake_add_content_chunks)
     monkeypatch.setattr(hi, "update_doc_from_module", fake_update)
 
-    asyncio.run(hi.sync_content_fields(docs))
+    asyncio.run(hi.sync_content_files(docs))
 
     assert recorded.get("chunks")
     assert recorded["updated"]["id"] == "file4"
+    assert "mod.content" not in recorded["updated"]
