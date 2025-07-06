@@ -51,21 +51,30 @@ def _run_once(
     doc_json = output_dir / "metadata" / "by-id" / doc_id / "document.json"
     try:
         wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
-        wait_for(doc_json.exists, timeout=300, message="document.json")
+
+        def _doc_has_content() -> bool:
+            if not doc_json.exists():
+                return False
+            try:
+                data = json.loads(doc_json.read_text())
+            except Exception:
+                return False
+            return data.get(f"{module_name}.content") == doc_path.read_text()
+
+        wait_for(_doc_has_content, timeout=300, message="document.json")
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
         doc_data = json.loads(doc_json.read_text())
-        assert doc_data[f"{module_name}.content"] == doc_path.read_text()
 
-        def _doc_has_content() -> bool:
+        def _doc_in_search() -> bool:
             docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
             return (
                 bool(docs)
                 and docs[0].get(f"{module_name}.content") == doc_path.read_text()
             )
 
-        wait_for(_doc_has_content, timeout=300, message="indexed document")
+        wait_for(_doc_in_search, timeout=300, message="indexed document")
         docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
         assert docs[0][f"{module_name}.content"] == doc_path.read_text()
 
