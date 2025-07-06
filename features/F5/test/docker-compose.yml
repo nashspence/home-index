@@ -13,6 +13,7 @@ services:
       WAIT_FOR_DEBUGPY_CLIENT: ${WAIT_FOR_DEBUGPY_CLIENT:-False}
       TOKENS_PER_CHUNK: ${TOKENS_PER_CHUNK:-510}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-50}
+      EMBED_MODEL_NAME: ${EMBED_MODEL_NAME:-intfloat/e5-small-v2}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
