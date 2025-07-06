@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from pathlib import Path
@@ -14,6 +15,17 @@ NAME = os.environ.get("NAME") or os.environ.get("QUEUE_NAME", "chunk_module")
 def check(
     file_path: Path, document: Mapping[str, Any], metadata_dir_path: Path
 ) -> bool:
+    """Return ``True`` if ``file_path`` should be processed."""
+
+    doc_json_path = metadata_dir_path.parent / "document.json"
+    if doc_json_path.exists():
+        try:
+            with doc_json_path.open() as fh:
+                doc = json.load(fh)
+            if doc.get(f"{NAME}.content") == file_path.read_text():
+                return False
+        except Exception:
+            pass
     return True
 
 
