@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 
-def test_service_module_queue_processes_chunk_docs(monkeypatch):
+def test_service_module_queue_processes_segment_content(monkeypatch):
     import importlib
 
     import main as hi
@@ -11,7 +11,6 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
     importlib.reload(hi)
 
     doc = {"id": "file1", "mtime": 1.0, "paths": {"a.txt": 1.0}, "next": ""}
-    chunk = {"id": "chunk1", "text": "hello"}
 
     async def fake_get_jobs(name):
         return [doc]
@@ -24,6 +23,9 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
     async def fake_update_doc(d):
         recorded["updated"] = d
 
+    async def fake_delete(fid, mod):
+        recorded["deleted"] = (fid, mod)
+
     async def fake_wait():
         recorded["wait"] = True
 
@@ -34,7 +36,11 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
                 "mod:run": [],
                 "modules:done": [
                     json.dumps(
-                        {"module": "mod", "document": doc, "chunk_docs": [chunk]}
+                        {
+                            "module": "mod",
+                            "document": doc,
+                            "content": [{"text": "hello"}],
+                        }
                     )
                 ],
                 "mod:check:processing": {},
@@ -101,6 +107,11 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
     monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
     monkeypatch.setattr(hi, "add_or_update_chunk_documents", fake_add_chunks)
     monkeypatch.setattr(hi, "update_doc_from_module", fake_update_doc)
+    monkeypatch.setattr(
+        hi,
+        "delete_chunk_docs_by_file_id_and_module",
+        fake_delete,
+    )
     monkeypatch.setattr(hi, "wait_for_meili_idle", fake_wait)
     hi.module_values = []
 
@@ -110,7 +121,7 @@ def test_service_module_queue_processes_chunk_docs(monkeypatch):
 
     assert result is True
     assert recorded["lpop"]
-    assert "_vector" not in recorded["chunks"][0]
+    assert recorded["chunks"][0]["module"] == "mod"
     assert recorded["updated"]["id"] == doc["id"]
 
 

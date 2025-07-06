@@ -223,27 +223,15 @@ async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
         result = json.loads(result_json)
         name = result.get("module", "")
         if isinstance(result, dict) and "document" in result:
-            chunk_docs = result.get("chunk_docs", [])
-            delete_chunk_ids = result.get("delete_chunk_ids", [])
             content = result.get("content")
             document = result["document"]
         else:
             document = result
-            chunk_docs = []
-            delete_chunk_ids = []
             content = None
-        if chunk_docs:
-            for chunk in chunk_docs:
-                chunk.setdefault("module", name)
-            await hi.add_or_update_chunk_documents(chunk_docs)
-            hi.write_chunk_docs(
-                hi.module_metadata_path(document["id"], name), chunk_docs
-            )
-        elif content is not None:
+        if content is not None:
             await hi.add_content_chunks(document, name, content=content)
         else:
             await hi.add_content_chunks(document, name)
-        await hi.delete_chunk_docs_by_id(delete_chunk_ids)
         await hi.update_doc_from_module(document)
     return processed
 
