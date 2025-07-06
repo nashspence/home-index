@@ -766,6 +766,10 @@ def index_files(
             doc = metadata_doc
         elif files_doc:
             doc = files_doc
+            if metadata_doc:
+                for k, v in metadata_doc.items():
+                    if k.endswith(".content") and k not in doc:
+                        doc[k] = v
         else:
             doc = {
                 "id": hash_val,
