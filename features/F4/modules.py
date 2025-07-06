@@ -192,8 +192,9 @@ async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
     hi = cast(Any, _get_hi())
 
     next_name = ""
-    if document["next"] in modules:
-        idx = module_values.index(modules[document["next"]])
+    current = document.get("next", "")
+    if current in modules:
+        idx = module_values.index(modules[current])
         if idx + 1 < len(module_values):
             next_name = module_values[idx + 1]["name"]
     document["next"] = next_name
