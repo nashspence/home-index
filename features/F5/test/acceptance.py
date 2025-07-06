@@ -48,7 +48,6 @@ def _run_once(
     )
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
-    doc_json = output_dir / "metadata" / "by-id" / doc_id / "document.json"
     content_json = (
         output_dir
         / "metadata"
@@ -63,7 +62,6 @@ def _run_once(
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
-        doc_data = json.loads(doc_json.read_text())
         with open(content_json) as fh:
             content_data = json.load(fh)
 
