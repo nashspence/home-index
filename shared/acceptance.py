@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -96,10 +97,17 @@ def compose(
 ) -> subprocess.CompletedProcess[bytes]:
     """Run ``docker compose`` with the given arguments."""
     cmd = ["docker", "compose"]
+    env = None
     if env_file:
         cmd += ["--env-file", str(env_file)]
+        env = os.environ.copy()
+        for line in Path(env_file).read_text().splitlines():
+            if not line or line.startswith("#"):
+                continue
+            key, _, val = line.partition("=")
+            env[key] = val
     cmd += ["-f", str(compose_file), *args]
-    return subprocess.run(cmd, check=check, cwd=workdir)
+    return subprocess.run(cmd, check=check, cwd=workdir, env=env)
 
 
 def wait_for(

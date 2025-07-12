@@ -52,9 +52,9 @@ if __name__ == "__main__":
 
 Optional `load_fn` and `unload_fn` parameters provide hooks for loading models or cleaning up resources before and after processing a share group.
 
-Modules should return the document after processing. To index searchable
-content, include a `<QUEUE_NAME>.content` field on the returned document. The
-value can be a string or a list of objects describing segments.
+Modules should return the processed document and may also return a `content`
+value containing raw text or a list of segment objects. When present this
+content is written to `content.json` under the module's metadata directory.
 
 Each segment object must provide a `text` key and may include:
 
@@ -68,7 +68,8 @@ Each segment object must provide a `text` key and may include:
   Home Index calculates them based on the final chunk text.
 
 Home Index splits segments into chunk documents and stores them in
-`chunks.json` under `metadata/by-id/<file-id>/<QUEUE_NAME>/`.
+`chunks.json` under `metadata/by-id/<file-id>/<QUEUE_NAME>/`. Chunks can be
+rebuilt later from the stored `content.json` whenever chunk settings change.
 
 ## Building
 

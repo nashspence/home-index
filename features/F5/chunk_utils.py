@@ -14,12 +14,14 @@ __all__ = [
     "content_to_chunk_docs",
     "write_chunk_docs",
     "CHUNK_FILENAME",
+    "CONTENT_FILENAME",
 ]
 
 TOKENS_PER_CHUNK = int(os.environ.get("TOKENS_PER_CHUNK", "510"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "50"))
 
 CHUNK_FILENAME = "chunks.json"
+CONTENT_FILENAME = "content.json"
 
 
 def segments_to_chunk_docs(

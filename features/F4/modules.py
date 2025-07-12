@@ -192,8 +192,9 @@ async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
     hi = cast(Any, _get_hi())
 
     next_name = ""
-    if document["next"] in modules:
-        idx = module_values.index(modules[document["next"]])
+    current = document.get("next", "")
+    if current in modules:
+        idx = module_values.index(modules[current])
         if idx + 1 < len(module_values):
             next_name = module_values[idx + 1]["name"]
     document["next"] = next_name
@@ -223,23 +224,15 @@ async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
         result = json.loads(result_json)
         name = result.get("module", "")
         if isinstance(result, dict) and "document" in result:
-            chunk_docs = result.get("chunk_docs", [])
-            delete_chunk_ids = result.get("delete_chunk_ids", [])
+            content = result.get("content")
             document = result["document"]
         else:
             document = result
-            chunk_docs = []
-            delete_chunk_ids = []
-        if chunk_docs:
-            for chunk in chunk_docs:
-                chunk.setdefault("module", name)
-            await hi.add_or_update_chunk_documents(chunk_docs)
-            hi.write_chunk_docs(
-                hi.module_metadata_path(document["id"], name), chunk_docs
-            )
+            content = None
+        if content is not None:
+            await hi.add_content_chunks(document, name, content=content)
         else:
             await hi.add_content_chunks(document, name)
-        await hi.delete_chunk_docs_by_id(delete_chunk_ids)
         await hi.update_doc_from_module(document)
     return processed
 

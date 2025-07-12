@@ -1,10 +1,12 @@
 import json
+import os
 import shutil
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from features.F2 import duplicate_finder
-from shared import compose, dump_logs, search_chunks, wait_for
+from shared import compose, dump_logs, search_chunks, search_meili, wait_for
 
 
 def _run_once(
@@ -12,17 +14,25 @@ def _run_once(
     workdir: Path,
     output_dir: Path,
     env_file: Path,
-) -> None:
-    if output_dir.exists():
+    env: dict[str, str] | None = None,
+    *,
+    reset_output: bool = True,
+) -> tuple[list[dict[str, Any]], Any]:
+    if reset_output and output_dir.exists():
         shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "modules_config.json").write_text(
         '{"modules": [{"name": "chunk-module"}]}'
     )
 
-    env_file.write_text("")
+    entries = [
+        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}",
+        f"MODULE_BASE_IMAGE={os.environ.get('MODULE_BASE_IMAGE', 'home-index-module:ci')}",
+    ]
+    if env:
+        entries.extend(f"{k}={v}" for k, v in env.items())
+    env_file.write_text("\n".join(entries) + "\n")
 
-    compose(compose_file, workdir, "up", "-d", env_file=env_file)
     doc_path = workdir / "input" / "snippet.txt"
     doc_id = duplicate_finder.compute_hash(doc_path)
     from features.F5 import chunk_utils
@@ -36,19 +46,49 @@ def _run_once(
         / module_name
         / chunk_utils.CHUNK_FILENAME
     )
+    pre_mtime = chunk_json.stat().st_mtime if chunk_json.exists() else 0.0
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    chunks: list[dict[str, Any]] = []
+    content_json = (
+        output_dir
+        / "metadata"
+        / "by-id"
+        / doc_id
+        / module_name
+        / chunk_utils.CONTENT_FILENAME
+    )
     try:
+        wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
         wait_for(
-            chunk_json.exists,
+            lambda: chunk_json.exists() and chunk_json.stat().st_mtime > pre_mtime,
             timeout=300,
-            message="chunk metadata",
+            message="chunk refresh",
         )
+        wait_for(content_json.exists, timeout=300, message="content.json")
+
+        def _doc_in_search() -> bool:
+            docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
+            return bool(docs)
+
+        wait_for(_doc_in_search, timeout=300, message="indexed document")
 
         with open(chunk_json) as fh:
             chunks = json.load(fh)
+        with open(content_json) as fh:
+            content_data = json.load(fh)
 
         chunk_ids = {c["id"] for c in chunks}
         chunk = next(c for c in chunks if c["id"] == f"{module_name}_{doc_id}_0")
-        for field in ["id", "file_id", "module", "text", "index"]:
+        for field in [
+            "id",
+            "file_id",
+            "module",
+            "text",
+            "index",
+            "start_time",
+            "char_offset",
+            "char_length",
+        ]:
             assert field in chunk
 
         queries = [
@@ -59,7 +99,16 @@ def _run_once(
             results = search_chunks(query, filter_expr=f'file_id = "{doc_id}"')
             assert any(r["id"] in chunk_ids for r in results)
             doc = next(r for r in results if r["id"] == f"{module_name}_{doc_id}_0")
-            for field in ["id", "file_id", "module", "text", "index"]:
+            for field in [
+                "id",
+                "file_id",
+                "module",
+                "text",
+                "index",
+                "start_time",
+                "char_offset",
+                "char_length",
+            ]:
                 assert field in doc
 
         with urllib.request.urlopen(
@@ -83,6 +132,7 @@ def _run_once(
             env_file=env_file,
             check=False,
         )
+    return chunks, content_data
 
 
 def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
@@ -91,3 +141,173 @@ def test_search_file_chunks_by_concept(tmp_path: Path) -> None:
     output_dir = workdir / "output"
     env_file = tmp_path / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)
+
+
+def test_chunk_settings_change(tmp_path: Path) -> None:
+    compose_file = Path(__file__).with_name("docker-compose.yml")
+    workdir = compose_file.parent
+    output_dir = workdir / "output"
+    env_file = tmp_path / ".env"
+
+    first_env = {
+        "TOKENS_PER_CHUNK": "1000",
+        "CHUNK_OVERLAP": "0",
+        "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
+    }
+    chunks1, content1 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=first_env,
+    )
+    doc_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(doc_path)
+    settings_path = output_dir / "chunk_settings.json"
+    with settings_path.open() as fh:
+        settings1 = json.load(fh)
+    assert settings1["TOKENS_PER_CHUNK"] == 1000
+    assert settings1["EMBED_MODEL_NAME"] == "intfloat/e5-small-v2"
+    assert len(chunks1) == 1
+
+    module_dir = output_dir / "metadata" / "by-id" / doc_id / "chunk-module"
+    chunk_file = module_dir / "chunks.json"
+    log_file = module_dir / "log.txt"
+    mtime1 = chunk_file.stat().st_mtime
+    start_count1 = log_file.read_text().count("start")
+
+    second_env = {
+        "TOKENS_PER_CHUNK": "10",
+        "CHUNK_OVERLAP": "0",
+        "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
+    }
+    chunks2, content2 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=second_env,
+        reset_output=False,
+    )
+    with settings_path.open() as fh:
+        settings2 = json.load(fh)
+
+    assert settings2["TOKENS_PER_CHUNK"] == 10
+    assert len(chunks2) > len(chunks1)
+    mtime2 = chunk_file.stat().st_mtime
+    start_count2 = log_file.read_text().count("start")
+    assert mtime2 > mtime1
+    assert start_count2 == start_count1
+    assert content1 == doc_path.read_text()
+    assert content2 == content1
+
+
+def test_chunk_overlap_change(tmp_path: Path) -> None:
+    compose_file = Path(__file__).with_name("docker-compose.yml")
+    workdir = compose_file.parent
+    output_dir = workdir / "output"
+    env_file = tmp_path / ".env"
+
+    first_env = {
+        "TOKENS_PER_CHUNK": "20",
+        "CHUNK_OVERLAP": "0",
+        "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
+    }
+    chunks1, content1 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=first_env,
+    )
+
+    doc_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(doc_path)
+    module_dir = output_dir / "metadata" / "by-id" / doc_id / "chunk-module"
+    chunk_file = module_dir / "chunks.json"
+    log_file = module_dir / "log.txt"
+    settings_path = output_dir / "chunk_settings.json"
+    with settings_path.open() as fh:
+        settings1 = json.load(fh)
+    assert settings1["CHUNK_OVERLAP"] == 0
+    assert settings1["EMBED_MODEL_NAME"] == "intfloat/e5-small-v2"
+    mtime1 = chunk_file.stat().st_mtime
+    start_count1 = log_file.read_text().count("start")
+
+    second_env = {
+        "TOKENS_PER_CHUNK": "20",
+        "CHUNK_OVERLAP": "5",
+        "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
+    }
+    chunks2, content2 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=second_env,
+        reset_output=False,
+    )
+    with settings_path.open() as fh:
+        settings2 = json.load(fh)
+
+    assert settings2["CHUNK_OVERLAP"] == 5
+    assert len(chunks2) > len(chunks1)
+    assert chunk_file.stat().st_mtime > mtime1
+    assert log_file.read_text().count("start") == start_count1
+    assert content1 == doc_path.read_text()
+    assert content2 == content1
+
+
+def test_chunk_model_change(tmp_path: Path) -> None:
+    compose_file = Path(__file__).with_name("docker-compose.yml")
+    workdir = compose_file.parent
+    output_dir = workdir / "output"
+    env_file = tmp_path / ".env"
+
+    first_env = {
+        "TOKENS_PER_CHUNK": "20",
+        "CHUNK_OVERLAP": "0",
+        "EMBED_MODEL_NAME": "intfloat/e5-small-v2",
+    }
+    chunks1, content1 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=first_env,
+    )
+
+    doc_path = workdir / "input" / "snippet.txt"
+    doc_id = duplicate_finder.compute_hash(doc_path)
+    module_dir = output_dir / "metadata" / "by-id" / doc_id / "chunk-module"
+    chunk_file = module_dir / "chunks.json"
+    log_file = module_dir / "log.txt"
+    settings_path = output_dir / "chunk_settings.json"
+    with settings_path.open() as fh:
+        settings1 = json.load(fh)
+    assert settings1["EMBED_MODEL_NAME"] == "intfloat/e5-small-v2"
+    mtime1 = chunk_file.stat().st_mtime
+    start_count1 = log_file.read_text().count("start")
+
+    second_env = {
+        "TOKENS_PER_CHUNK": "20",
+        "CHUNK_OVERLAP": "0",
+        "EMBED_MODEL_NAME": "intfloat/e5-base",
+    }
+    chunks2, content2 = _run_once(
+        compose_file,
+        workdir,
+        output_dir,
+        env_file,
+        env=second_env,
+        reset_output=False,
+    )
+    with settings_path.open() as fh:
+        settings2 = json.load(fh)
+
+    assert settings2["EMBED_MODEL_NAME"] == "intfloat/e5-base"
+    assert len(chunks2) == len(chunks1)
+    assert chunk_file.stat().st_mtime > mtime1
+    assert log_file.read_text().count("start") == start_count1
+    assert content1 == doc_path.read_text()
+    assert content2 == content1
