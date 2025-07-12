@@ -60,7 +60,7 @@ def _run_once(
     try:
         wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
         wait_for(
-            lambda: chunk_json.stat().st_mtime > pre_mtime,
+            lambda: chunk_json.exists() and chunk_json.stat().st_mtime > pre_mtime,
             timeout=300,
             message="chunk refresh",
         )
