@@ -46,6 +46,7 @@ def _run_once(
         / module_name
         / chunk_utils.CHUNK_FILENAME
     )
+    pre_mtime = chunk_json.stat().st_mtime if chunk_json.exists() else 0.0
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     chunks: list[dict[str, Any]] = []
     content_json = (
@@ -58,6 +59,11 @@ def _run_once(
     )
     try:
         wait_for(chunk_json.exists, timeout=300, message="chunk metadata")
+        wait_for(
+            lambda: chunk_json.stat().st_mtime > pre_mtime,
+            timeout=300,
+            message="chunk refresh",
+        )
         wait_for(content_json.exists, timeout=300, message="content.json")
 
         def _doc_in_search() -> bool:
