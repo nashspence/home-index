@@ -16,6 +16,7 @@ S7_OPEN_PR
 ## S0\_HARD\_PROHIBITIONS
 
 * MUST\_NOT deviate from S1\_PROMPT\_CLASSIFICATION\_AND\_FLOW.
+* MUST\_NOT modify any feature spec at `docs/Fx.md` unless prompt indicates GOAL_WORK (S1.1).
 * MUST\_NOT build dev‑ or release‑containers, run acceptance tests, or `pip install -r requirements.txt` locally.
 * Work only with required libraries, run unit tests if present, then PUSH and rely on CI.
 
@@ -33,22 +34,21 @@ CATEGORIES:
   UNCLEAR
 ```
 
-### S1.1\_GOAL\_WORK  ("Add new user goal", "Change Features list")
+### S1.1\_GOAL\_WORK  ("Tighten acceptance on F1", "Revise F2 docs")
 
-1. Deep‑scan repo → ensure every Fx is a minimal vertical slice covering 100 % of code and stated exactly "I want …" (see S2.1).
-2. Update Features list in README.md.
-3. Update Planned\_Maintenance in README.md (S5.2).
-4. PUSH, open PR.
+1. Read relevant feature specification (`docs/Fx.md`).
+2. Make changes as per prompt.
+3. Update Features list in README.md if needed.
+4. Update Planned\_Maintenance in README.md with an appropriate `conform to new spec` item (S5.2).
+5. PUSH, open PR.
 
 ### S1.2\_FEATURE\_WORK  ("Fix bug on F1", "Implement F2")
 
-1. Edit / add acceptance tests (unit tests optional) S3.1.
-2. Implement / fix code.
-3. Run MAINTENANCE\_PASS S5.
-4. Run `agents-check.sh`; resolve all issues S4.1.
-5. Update docs `docs/Fx.md` S2.2.
-6. Refresh Planned\_Maintenance S5.2.
-7. PUSH, open PR.
+1. Read relevant feature specification (`docs/Fx.md`, section `Acceptance`).
+2. Implement / fix code as per spec
+3. Edit / add acceptance tests as per spec
+4. Update Planned\_Maintenance in README.md (S5.2).
+5. PUSH, open PR.
 
 ### S1.3\_MAINTENANCE\_WORK  ("Refactor repo", "Do maintenance")
 
@@ -68,15 +68,12 @@ Ask clarifying questions. DO\_NOT open PR.
 ### S2.1\_FEATURES\_LIST
 
 * Location: README.md → Features section.
-* Format: `Fx  "I want …"` (technology‑agnostic).
-* List MUST  describe a consistent, domain‑aware user.
+* List describes a consistent, domain‑aware user.
 * Each entry links to `docs/Fx.md`.
 
-### S2.2\_FEATURE\_DOCUMENTATION
+### S2.2\_FEATURE\_SPECIFICATIONS
 
 * One markdown file per feature in `docs/`, named `Fx.md`.
-* Conform exactly to https://raw.githubusercontent.com/nashspence/codex-agentmd/refs/heads/main/Fx.md.
-* Write only after an acceptance test exists (S3.1).
 
 ### S2.3\_REPOSITORY\_LAYOUT
 
@@ -103,7 +100,7 @@ repo/
 
 * ONE `features/Fx/test/docker-compose.yml` per feature.
 * Vary scenarios via env vars + input files; keep all inputs/outputs in test dir.
-* Assert exact user‑facing output (logs, UI, API, exit codes).
+* Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Test script starts & stops `<repo>:ci` via compose.
 * On failure output test logs + relevant release‑env container logs.
 
@@ -165,6 +162,7 @@ Priority order:
 
 * Location: README.md → Planned\_Maintenance section.
 * Update on every push.
+* Always remove completed/irrelevant items.
 
 ---
 
