@@ -18,6 +18,11 @@ PATH="/workspace/venv/bin:$PATH"
     redis==5.0.4 \
     PyYAML==6.0.1 \
     xxhash==3.5.0 \
+    fastapi==0.110.0 \
+    asgi-webdav[async_filesystem]==4.3.1 \
+    uvicorn==0.29.0 \
+    aiofiles==23.2.1 \
+    types-PyYAML==6.0.12 \
     sentence-transformers==4.1.0 \
     transformers==4.53.0 \
     black==25.1.0 ruff==0.12.0 mypy==1.10.0 pytest==8.4.1

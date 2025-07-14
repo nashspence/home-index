@@ -1,0 +1,27 @@
+services:
+  home-index:
+    image: ${IMAGE}
+    environment:
+      - CRON_EXPRESSION=* * * * *
+      - METADATA_DIRECTORY=/home-index/metadata
+      - DEBUG=${DEBUG:-False}
+      - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
+      - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
+      - WAIT_FOR_DEBUGPY_CLIENT=${WAIT_FOR_DEBUGPY_CLIENT:-False}
+    volumes:
+      - ./input:/files:rw
+      - ./output:/home-index
+    ports:
+      - "5678:5678"
+      - "8000:8000"
+    depends_on:
+      - meilisearch
+  meilisearch:
+    image: getmeili/meilisearch:v1.15
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_LOG_LEVEL=warn
+    volumes:
+      - ./output/meili:/meili_data
+    ports:
+      - "7700:7700"

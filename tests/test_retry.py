@@ -2,7 +2,7 @@ import ast
 import pathlib
 import os
 import time
-from typing import Callable, List, TypeVar
+from typing import Callable, TypeVar
 
 import pytest
 
@@ -12,7 +12,7 @@ import pytest
 # Extract retry_until_ready function without importing entire module
 SRC = pathlib.Path("features/F4/modules.py").read_text()
 module = ast.parse(SRC)
-nodes: List[ast.AST] = []
+nodes: list[ast.stmt] = []
 for node in module.body:
     if (
         isinstance(node, ast.Assign)
