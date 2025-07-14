@@ -37,10 +37,12 @@ CATEGORIES:
 ### S1.1\_GOAL\_WORK  ("Tighten acceptance on F1", "Revise F2 docs")
 
 1. Read relevant feature specs (`docs/Fx.md`).
-2. Make changes to specs as per prompt - do not change code.
-3. Update Features list in README.md if needed.
-4. Update Planned\_Maintenance in README.md with an appropriate `conform to new spec` item (S5.2).
-5. PUSH, open PR.
+2. Make changes to specs as per prompt - try to link `Acceptance` inputs and outputs the exact corresponding code lines in the acceptance tests.
+3. Edit / add acceptance tests as per spec.
+4. Implement / fix code as per spec
+5. Update Features list in README.md.
+6. Update Planned\_Maintenance in README.md (S5.2).
+7. PUSH, open PR.
 
 ### S1.2\_FEATURE\_WORK  ("Fix bug on F1", "Implement F2")
 
@@ -74,6 +76,8 @@ Ask clarifying questions. DO\_NOT open PR.
 ### S2.2\_FEATURE\_SPECIFICATIONS
 
 * One markdown file per feature in `docs/`, named `Fx.md`.
+* Always user facing, attempt to abstract out implementation details as much as possible.
+* Link `Acceptance` inputs and outputs to exact corresponding code lines in the acceptance tests. Write test code with this goal in mind.
 
 ### S2.3\_REPOSITORY\_LAYOUT
 
