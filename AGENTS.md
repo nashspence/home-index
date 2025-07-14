@@ -36,8 +36,8 @@ CATEGORIES:
 
 ### S1.1\_GOAL\_WORK  ("Tighten acceptance on F1", "Revise F2 docs")
 
-1. Read relevant feature specification (`docs/Fx.md`).
-2. Make changes as per prompt.
+1. Read relevant feature specs (`docs/Fx.md`).
+2. Make changes to specs as per prompt - do not change code.
 3. Update Features list in README.md if needed.
 4. Update Planned\_Maintenance in README.md with an appropriate `conform to new spec` item (S5.2).
 5. PUSH, open PR.
