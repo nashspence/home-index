@@ -4,7 +4,6 @@ import shutil
 from pathlib import Path
 
 import subprocess
-import time
 
 from shared import compose, dump_logs, search_meili, wait_for
 from features.F2 import duplicate_finder
@@ -120,7 +119,6 @@ def _run_timeout(
         timeout=120,
         message="requeued",
     )
-    time.sleep(2)
     # allow the job to time out
     wait_for(
         lambda: _redis_llen(compose_file, workdir, "modules:done") == 0,
@@ -128,7 +126,17 @@ def _run_timeout(
         message="no done",
     )
 
-    compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+    compose(
+        compose_file,
+        workdir,
+        "stop",
+        "home-index",
+        "example-module",
+        "timeout-module",
+        "meilisearch",
+        env_file=env_file,
+        check=False,
+    )
 
     env_file.write_text(
         f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nMODULE_SLEEP=0\n"
@@ -144,7 +152,17 @@ def _run_timeout(
     docs = search_meili(compose_file, workdir, f'id = "{doc_id}"', timeout=300)
     assert any(doc["id"] == doc_id for doc in docs)
 
-    compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+    compose(
+        compose_file,
+        workdir,
+        "stop",
+        "home-index",
+        "example-module",
+        "timeout-module",
+        "meilisearch",
+        env_file=env_file,
+        check=False,
+    )
     compose(
         compose_file,
         workdir,
@@ -187,7 +205,17 @@ def _run_check_timeout(
         message="requeued",
     )
 
-    compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+    compose(
+        compose_file,
+        workdir,
+        "stop",
+        "home-index",
+        "example-module",
+        "timeout-module",
+        "meilisearch",
+        env_file=env_file,
+        check=False,
+    )
 
     env_file.write_text(
         f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nCHECK_SLEEP=0\nMODULE_SLEEP=0\n"
