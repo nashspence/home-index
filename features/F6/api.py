@@ -2,7 +2,7 @@
 home_share.py – mountable WebDAV endpoint + JSON /fileops API
 -------------------------------------------------------------
 
-  pip install fastapi asgi-webdav[async_filesystem] uvicorn aiofiles
+  pip install fastapi asgiwebdav uvicorn aiofiles
   # optional if you ever switch to WSGI:
   # pip install wsgidav
 
