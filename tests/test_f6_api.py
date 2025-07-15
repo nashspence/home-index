@@ -42,6 +42,7 @@ def test_debounce_cancels_previous(monkeypatch):
     api.debounce(lambda: coro2(), loop)
     loop.run_until_complete(asyncio.sleep(0))
     loop.close()
+    asyncio.set_event_loop(None)
 
     assert cancelled
     assert called == ["one", "two"]
@@ -59,14 +60,15 @@ def test_file_ops_endpoint_calls_debounce(monkeypatch):
     monkeypatch.setattr(api, "apply_ops", fake_apply)
     monkeypatch.setattr(api, "debounce", fake_debounce)
 
-    client = TestClient(api.app)
-    res = client.post("/fileops", json={"move": [{"src": "a", "dest": "b"}]})
-    assert res.status_code == 202
-    assert res.json() == {"status": "accepted"}
+    with TestClient(api.app) as client:
+        res = client.post("/fileops", json={"move": [{"src": "a", "dest": "b"}]})
+        assert res.status_code == 202
+        assert res.json() == {"status": "accepted"}
 
     loop = asyncio.new_event_loop()
     loop.run_until_complete(recorded["coro"]())
     loop.close()
+    asyncio.set_event_loop(None)
 
     assert recorded["ops"].move[0].src == "a"
     assert recorded["ops"].move[0].dest == "b"
@@ -106,6 +108,7 @@ def test_ops_provider_methods(monkeypatch, tmp_path: Path):
     loop.run_until_complete(recorded_cf.pop()())
     assert recorded_ops[-1].delete[0] == "b.txt"
     loop.close()
+    asyncio.set_event_loop(None)
 
 
 def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
@@ -180,6 +183,7 @@ def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
     assert "b.txt" in doc["paths"]
     loop.run_until_complete(api.apply_ops(api.FileOps(delete=["b.txt"])))
     loop.close()
+    asyncio.set_event_loop(None)
     assert deleted["ids"] == ["id1"]
     assert deleted["chunks"] == ["id1"]
     assert deleted["waited"]
