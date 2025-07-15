@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, cast
 
 
 EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL_NAME", "intfloat/e5-small-v2")
@@ -176,7 +176,10 @@ def load_chunk_settings() -> dict[str, Any] | None:
     if not CHUNK_SETTINGS_FILE_PATH.exists():
         return None
     with CHUNK_SETTINGS_FILE_PATH.open("r") as file:
-        return json.load(file)
+        data = json.load(file)
+    if not isinstance(data, dict):
+        return None
+    return cast(dict[str, Any], data)
 
 
 def save_chunk_settings() -> None:
