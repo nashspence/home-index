@@ -307,10 +307,10 @@ def run_server(
             (metadata_dir_path / "log.txt").touch(exist_ok=True)
         key = json.dumps({"q": f"{QUEUE_NAME}:check", "d": doc_json})
         expiration = client.zscore(TIMEOUT_SET, key)
+        if expiration is not None and time.time() > float(expiration):
+            return True
         removed = remove_timeout(f"{QUEUE_NAME}:check", doc_json)
         if not removed:
-            return True
-        if expiration is not None and time.time() > float(expiration):
             return True
         if should_run:
             client.rpush(f"{QUEUE_NAME}:run", doc_json)
@@ -347,10 +347,10 @@ def run_server(
         with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
             result = run_fn(file_path, document, metadata_dir_path)
         expiration = client.zscore(TIMEOUT_SET, key)
+        if expiration is not None and time.time() > float(expiration):
+            return True
         removed = remove_timeout(f"{QUEUE_NAME}:run", doc_json)
         if not removed:
-            return True
-        if expiration is not None and time.time() > float(expiration):
             return True
         for group in RESOURCE_SHARE_GROUPS:
             client.zadd(
