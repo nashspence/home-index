@@ -101,7 +101,7 @@ def _run_timeout(
     )
 
     env_file.write_text(
-        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nMODULE_SLEEP=5\n"
+        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nMODULE_SLEEP=2\n"
     )
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
@@ -113,6 +113,11 @@ def _run_timeout(
         lambda: _redis_llen(compose_file, workdir, "timeout-module:run:processing") > 0,
         timeout=60,
         message="module started",
+    )
+    wait_for(
+        lambda: _redis_llen(compose_file, workdir, "timeout-module:run") == 1,
+        timeout=120,
+        message="requeued",
     )
     # allow the job to time out
     wait_for(
@@ -161,7 +166,7 @@ def _run_check_timeout(
     )
 
     env_file.write_text(
-        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nCHECK_SLEEP=5\nMODULE_SLEEP=0\n"
+        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nCHECK_SLEEP=2\nMODULE_SLEEP=0\n"
     )
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
