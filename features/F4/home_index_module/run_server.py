@@ -303,7 +303,12 @@ def run_server(
         file_path = file_path_from_meili_doc(document)
         metadata_dir_path = metadata_dir_path_from_doc(document)
         should_run = check_fn(file_path, document, metadata_dir_path)
+        expiration = client.zscore(
+            TIMEOUT_SET, json.dumps({"q": f"{QUEUE_NAME}:check", "d": doc_json})
+        )
         remove_timeout(f"{QUEUE_NAME}:check", doc_json)
+        if expiration is None or time.time() > float(expiration):
+            return True
         if should_run:
             client.rpush(f"{QUEUE_NAME}:run", doc_json)
         else:
@@ -339,7 +344,7 @@ def run_server(
         with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
             result = run_fn(file_path, document, metadata_dir_path)
         expiration = client.zscore(TIMEOUT_SET, key)
-        if expiration is not None and time.time() > float(expiration):
+        if expiration is None or time.time() > float(expiration):
             return True
         remove_timeout(f"{QUEUE_NAME}:run", doc_json)
         for group in RESOURCE_SHARE_GROUPS:
