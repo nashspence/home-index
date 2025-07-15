@@ -110,7 +110,7 @@ def _run_timeout(
     log_file = output_dir / "metadata" / "by-id" / doc_id / "timeout-module" / "log.txt"
     wait_for(log_file.exists, timeout=120, message="timeout log")
     wait_for(
-        lambda: "start" in log_file.read_text(),
+        lambda: _redis_llen(compose_file, workdir, "timeout-module:run:processing") > 0,
         timeout=60,
         message="module started",
     )
