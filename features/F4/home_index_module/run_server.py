@@ -303,6 +303,8 @@ def run_server(
         file_path = file_path_from_meili_doc(document)
         metadata_dir_path = metadata_dir_path_from_doc(document)
         should_run = check_fn(file_path, document, metadata_dir_path)
+        if should_run:
+            (metadata_dir_path / "log.txt").touch(exist_ok=True)
         key = json.dumps({"q": f"{QUEUE_NAME}:check", "d": doc_json})
         expiration = client.zscore(TIMEOUT_SET, key)
         removed = remove_timeout(f"{QUEUE_NAME}:check", doc_json)
