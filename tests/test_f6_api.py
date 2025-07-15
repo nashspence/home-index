@@ -171,7 +171,6 @@ def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
     assert added["docs"][0]["id"] == "id1"
 
     doc_dir = by_id / "id1"
-    doc_dir = by_id / "id1"
     loop.run_until_complete(
         api.apply_ops(api.FileOps(move=[api.MoveItem(src="a.txt", dest="b.txt")]))
     )
@@ -180,10 +179,6 @@ def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
         doc = json.load(fh)
     assert "b.txt" in doc["paths"]
     loop.run_until_complete(api.apply_ops(api.FileOps(delete=["b.txt"])))
-    loop.close()
-    assert deleted["ids"] == ["id1"]
-    assert deleted["chunks"] == ["id1"]
-    assert deleted["waited"]
     loop.close()
     assert deleted["ids"] == ["id1"]
     assert deleted["chunks"] == ["id1"]

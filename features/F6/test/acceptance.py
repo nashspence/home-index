@@ -1,6 +1,7 @@
 import json
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from features.F2 import duplicate_finder
 from shared import compose, dump_logs, search_meili, wait_for
@@ -16,7 +17,7 @@ def _api_ready() -> bool:
     return True
 
 
-def _post_ops(data: dict) -> None:
+def _post_ops(data: dict[str, Any]) -> None:
     req = urllib.request.Request(
         "http://localhost:8000/fileops",
         data=json.dumps(data).encode(),
@@ -53,7 +54,7 @@ def test_file_ops_endpoint(tmp_path: Path) -> None:
         doc_dir = output_dir / "metadata" / "by-id" / file_id
         wait_for(doc_dir.exists, message="metadata")
         wait_for(
-            lambda: search_meili(compose_file, workdir, f'id = "{file_id}"'),
+            lambda: bool(search_meili(compose_file, workdir, f'id = "{file_id}"')),
             message="search add",
         )
 
@@ -87,7 +88,7 @@ def test_file_ops_endpoint(tmp_path: Path) -> None:
             doc = json.load(fh)
         assert "e.txt" in doc.get("paths", {})
         wait_for(
-            lambda: search_meili(compose_file, workdir, f'id = "{file_c_id}"'),
+            lambda: bool(search_meili(compose_file, workdir, f'id = "{file_c_id}"')),
             message="search batch",
         )
         wait_for(

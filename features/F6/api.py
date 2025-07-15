@@ -19,33 +19,36 @@ Mount (Linux):
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, List
-
-try:
-    from asgi_webdav import WebDavApp, FileSystemProvider
-    import aiofiles
-except Exception:  # pragma: no cover - optional deps may be missing
-    aiofiles = None  # type: ignore
-
-    class _DummyProvider:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-    class _DummyApp:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-    FileSystemProvider = _DummyProvider  # type: ignore
-    WebDavApp = _DummyApp  # type: ignore
-
+from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, cast
 
 from fastapi import FastAPI, Request, status
 from pydantic import BaseModel
+
+try:
+    from asgi_webdav import WebDavApp, FileSystemProvider
+    import aiofiles as _aiofiles
+except Exception:  # pragma: no cover - optional deps may be missing
+    _aiofiles = None
+
+    class _DummyProvider:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    class _DummyApp:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    FileSystemProvider = cast(Any, _DummyProvider)
+    WebDavApp = cast(Any, _DummyApp)
+
+aiofiles: Any | None = _aiofiles
 
 # ------------------------------------------------------------------------
 # Configuration
@@ -63,20 +66,28 @@ app = FastAPI(title="Home‑Share API")
 # ------------------------------------------------------------------------
 # Pydantic models – unchanged from your original code
 # ------------------------------------------------------------------------
-class AddItem(BaseModel):
+class AddItem(BaseModel):  # type: ignore[misc]
     path: str
     content_path: Path  # now we stream to a temp‑file and pass its path
 
 
-class MoveItem(BaseModel):
+class MoveItem(BaseModel):  # type: ignore[misc]
     src: str
     dest: str
 
 
-class FileOps(BaseModel):
+class FileOps(BaseModel):  # type: ignore[misc]
     add: List[AddItem] = []
     move: List[MoveItem] = []
     delete: List[str] = []
+
+
+def _get_hi() -> Any:
+    """Return the running ``main`` module without importing at type-check time."""
+    hi = sys.modules.get("main") or sys.modules.get("__main__")
+    if hi is None:
+        hi = importlib.import_module("main")
+    return hi
 
 
 # ------------------------------------------------------------------------
@@ -89,8 +100,8 @@ async def apply_ops(ops: FileOps) -> None:
     The body is 99 % your original code – only the file‑write section
     changed to accept a temp file path instead of base64.
     """
-    # Lazy import to avoid cycles
-    import main as hi
+    # Lazy import to avoid cycles and keep mypy happy
+    hi = cast(Any, _get_hi())
     from features.F2 import duplicate_finder, metadata_store, path_links
     from features.F3 import archive
     from features.F4 import modules as modules_f4
@@ -227,7 +238,7 @@ def debounce(
 # ------------------------------------------------------------------------
 # FastAPI JSON endpoint – useful for tests / scripting
 # ------------------------------------------------------------------------
-@app.post("/fileops", status_code=status.HTTP_202_ACCEPTED)
+@app.post("/fileops", status_code=status.HTTP_202_ACCEPTED)  # type: ignore[misc]
 async def file_ops_endpoint(ops: FileOps, request: Request) -> Dict[str, str]:
     loop = asyncio.get_running_loop()
     debounce(lambda: apply_ops(ops), loop)
@@ -237,13 +248,15 @@ async def file_ops_endpoint(ops: FileOps, request: Request) -> Dict[str, str]:
 # ------------------------------------------------------------------------
 # WebDAV provider – translate DAV verbs → FileOps objects  --------------
 # ------------------------------------------------------------------------
-class OpsProvider(FileSystemProvider):
+class OpsProvider(FileSystemProvider):  # type: ignore[misc]
     """
     We inherit normal read‑only behaviour but override create/move/delete so
     that every mutating FS action is funneled into `apply_ops()` (via debounce).
     """
 
-    async def create(self, rel_path: str, data_iter, **kw):
+    async def create(
+        self, rel_path: str, data_iter: AsyncIterable[bytes], **kw: Any
+    ) -> None:
         # Stream body to a temp‑file on disk
         fd, tmp = tempfile.mkstemp(dir=str(INDEX_DIRECTORY))
         os.close(fd)
@@ -259,11 +272,11 @@ class OpsProvider(FileSystemProvider):
         ops = FileOps(add=[AddItem(path=rel_path, content_path=Path(tmp))])
         debounce(lambda: apply_ops(ops), asyncio.get_running_loop())
 
-    async def move(self, src: str, dst: str, **kw):
+    async def move(self, src: str, dst: str, **kw: Any) -> None:
         ops = FileOps(move=[MoveItem(src=src, dest=dst)])
         debounce(lambda: apply_ops(ops), asyncio.get_running_loop())
 
-    async def delete(self, rel_path: str, **kw):
+    async def delete(self, rel_path: str, **kw: Any) -> None:
         ops = FileOps(delete=[rel_path])
         debounce(lambda: apply_ops(ops), asyncio.get_running_loop())
 
