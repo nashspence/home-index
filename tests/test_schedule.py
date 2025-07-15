@@ -69,6 +69,13 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
 
     monkeypatch.setattr(hi, "BackgroundScheduler", lambda: DummyScheduler())
 
+    import features.F6.server as f6_server
+
+    async def dummy_serve_api():
+        added["served"] = True
+
+    monkeypatch.setattr(f6_server, "serve_api", dummy_serve_api)
+
     async def dummy_service_module_queues():
         added["ran"] = True
 

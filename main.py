@@ -1004,6 +1004,8 @@ async def init_meili_and_sync():
 
 
 async def main():
+    from features.F6 import server as file_api
+
     files_logger.info("running commit %s", COMMIT_SHA)
     await init_meili_and_sync()
     sched = BackgroundScheduler()
@@ -1020,7 +1022,7 @@ async def main():
         save_modules_state()
 
     sched.start()
-    await service_module_queues()
+    await asyncio.gather(file_api.serve_api(), service_module_queues())
 
 
 if __name__ == "__main__":

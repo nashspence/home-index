@@ -27,7 +27,13 @@ RUN pip install --no-cache-dir --disable-pip-version-check \
     tiktoken==0.6.0 \
     redis==5.0.4 \
     PyYAML==6.0.1 \
-    xxhash==3.5.0
+    xxhash==3.5.0 \
+    fastapi==0.116.1 \
+    asgiwebdav==1.5.0 \
+    uvicorn==0.35.0 \
+    aiofiles==23.2.1 \
+    httpx==0.28.1 \
+    types-PyYAML==6.0.12
 
 COPY main.py ./
 COPY shared ./shared
