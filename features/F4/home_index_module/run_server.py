@@ -287,12 +287,12 @@ def run_server(
             pipe.execute()
         return key
 
-    def remove_timeout(queue: str, doc_json: str) -> None:
+    def remove_timeout(queue: str, doc_json: str) -> bool:
         key = json.dumps({"q": queue, "d": doc_json})
-        with client.pipeline() as pipe:
-            pipe.zrem(TIMEOUT_SET, key)
-            pipe.lrem(f"{queue}:processing", 0, doc_json)
-            pipe.execute()
+        exists = client.zscore(TIMEOUT_SET, key) is not None
+        client.zrem(TIMEOUT_SET, key)
+        client.lrem(f"{queue}:processing", 0, doc_json)
+        return exists
 
     def process_check() -> bool:
         doc_json = client.lpop(f"{QUEUE_NAME}:check")
@@ -303,11 +303,12 @@ def run_server(
         file_path = file_path_from_meili_doc(document)
         metadata_dir_path = metadata_dir_path_from_doc(document)
         should_run = check_fn(file_path, document, metadata_dir_path)
-        expiration = client.zscore(
-            TIMEOUT_SET, json.dumps({"q": f"{QUEUE_NAME}:check", "d": doc_json})
-        )
-        remove_timeout(f"{QUEUE_NAME}:check", doc_json)
-        if expiration is None or time.time() > float(expiration):
+        key = json.dumps({"q": f"{QUEUE_NAME}:check", "d": doc_json})
+        expiration = client.zscore(TIMEOUT_SET, key)
+        removed = remove_timeout(f"{QUEUE_NAME}:check", doc_json)
+        if not removed:
+            return True
+        if expiration is not None and time.time() > float(expiration):
             return True
         if should_run:
             client.rpush(f"{QUEUE_NAME}:run", doc_json)
@@ -344,9 +345,11 @@ def run_server(
         with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
             result = run_fn(file_path, document, metadata_dir_path)
         expiration = client.zscore(TIMEOUT_SET, key)
-        if expiration is None or time.time() > float(expiration):
+        removed = remove_timeout(f"{QUEUE_NAME}:run", doc_json)
+        if not removed:
             return True
-        remove_timeout(f"{QUEUE_NAME}:run", doc_json)
+        if expiration is not None and time.time() > float(expiration):
+            return True
         for group in RESOURCE_SHARE_GROUPS:
             client.zadd(
                 f"{group['name']}:share:ttl", {WORKER_ID: time.time() + TIMEOUT}
