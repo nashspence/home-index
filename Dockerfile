@@ -32,6 +32,7 @@ RUN pip install --no-cache-dir --disable-pip-version-check \
     asgi-webdav[async_filesystem]==4.3.1 \
     uvicorn==0.29.0 \
     aiofiles==23.2.1 \
+    httpx==0.27.0 \
     types-PyYAML==6.0.12
 
 COPY main.py ./
