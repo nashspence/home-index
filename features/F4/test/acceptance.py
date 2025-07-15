@@ -101,7 +101,7 @@ def _run_timeout(
     )
 
     env_file.write_text(
-        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nMODULE_SLEEP=2\n"
+        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nMODULE_SLEEP=5\n"
     )
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
@@ -156,7 +156,7 @@ def _run_check_timeout(
     )
 
     env_file.write_text(
-        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nCHECK_SLEEP=2\nMODULE_SLEEP=0\n"
+        f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nCHECK_SLEEP=5\nMODULE_SLEEP=0\n"
     )
 
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
