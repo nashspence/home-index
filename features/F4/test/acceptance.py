@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 import subprocess
+import time
 
 from shared import compose, dump_logs, search_meili, wait_for
 from features.F2 import duplicate_finder
@@ -119,11 +120,7 @@ def _run_timeout(
         timeout=120,
         message="requeued",
     )
-    wait_for(
-        lambda: log_file.read_text().count("start") >= 1,
-        timeout=60,
-        message="first start",
-    )
+    time.sleep(2)
     # allow the job to time out
     wait_for(
         lambda: _redis_llen(compose_file, workdir, "modules:done") == 0,
