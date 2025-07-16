@@ -2,6 +2,18 @@
 
 Home Index modules extend the indexer with specialised processors such as caption generators, OCR engines or metadata extractors.  Modules run as small services that communicate solely through Redis lists and write their results under each file's metadata directory.
 
+## Configuring Home Index
+
+Set a single environment variable on the **home-index** service listing the queue names to process:
+
+```yaml
+QUEUES: |
+  - example-module
+  - another-module
+```
+
+Each module container advertises its queue via the `QUEUE_NAME` variable and must appear in this list.
+
 ## Environment variables
 
 Every module container must define these variables:
