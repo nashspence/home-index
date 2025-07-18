@@ -109,6 +109,16 @@ def _run_timeout(
     doc_id = _get_doc_id(workdir, output_dir)
     log_file = output_dir / "metadata" / "by-id" / doc_id / "timeout-module" / "log.txt"
     wait_for(log_file.exists, timeout=120, message="timeout log")
+    wait_for(
+        lambda: _redis_llen(compose_file, workdir, "timeout-module:run:processing") > 0,
+        timeout=60,
+        message="module started",
+    )
+    wait_for(
+        lambda: _redis_llen(compose_file, workdir, "timeout-module:run") == 1,
+        timeout=120,
+        message="requeued",
+    )
     # allow the job to time out
     wait_for(
         lambda: _redis_llen(compose_file, workdir, "modules:done") == 0,
@@ -116,7 +126,17 @@ def _run_timeout(
         message="no done",
     )
 
-    compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+    compose(
+        compose_file,
+        workdir,
+        "stop",
+        "home-index",
+        "example-module",
+        "timeout-module",
+        "meilisearch",
+        env_file=env_file,
+        check=False,
+    )
 
     env_file.write_text(
         f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nMODULE_SLEEP=0\n"
@@ -132,7 +152,17 @@ def _run_timeout(
     docs = search_meili(compose_file, workdir, f'id = "{doc_id}"', timeout=300)
     assert any(doc["id"] == doc_id for doc in docs)
 
-    compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+    compose(
+        compose_file,
+        workdir,
+        "stop",
+        "home-index",
+        "example-module",
+        "timeout-module",
+        "meilisearch",
+        env_file=env_file,
+        check=False,
+    )
     compose(
         compose_file,
         workdir,
@@ -175,7 +205,17 @@ def _run_check_timeout(
         message="requeued",
     )
 
-    compose(compose_file, workdir, "stop", env_file=env_file, check=False)
+    compose(
+        compose_file,
+        workdir,
+        "stop",
+        "home-index",
+        "example-module",
+        "timeout-module",
+        "meilisearch",
+        env_file=env_file,
+        check=False,
+    )
 
     env_file.write_text(
         f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nTIMEOUT=1\nCHECK_SLEEP=0\nMODULE_SLEEP=0\n"
