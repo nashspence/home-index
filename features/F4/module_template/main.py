@@ -9,7 +9,7 @@ from features.F4.home_index_module import run_server
 VERSION = 1
 NAME = os.environ.get("NAME", "example_module")
 QUEUE_NAME = os.environ.get("QUEUE_NAME", NAME)
-TIMEOUT = int(os.environ.get("TIMEOUT", "300"))
+TIMEOUT = int(os.environ.get("TIMEOUT", "30"))
 
 
 def check(
@@ -32,8 +32,10 @@ def run(
     version_path = metadata_dir_path / "version.json"
     with open(version_path, "w") as file:
         json.dump({"version": VERSION}, file, indent=4)
+    updated = dict(document)
+    updated["note"] = "hello"
     logging.info("done")
-    return document
+    return {"document": updated, "content": "hello world"}
 
 
 if __name__ == "__main__":

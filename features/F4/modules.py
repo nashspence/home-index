@@ -292,7 +292,11 @@ async def service_module_queue(name: str, client: redis.Redis | None = None) -> 
         processing_check = set(client.lrange(f"{name}:check:processing", 0, -1))
         processing_run = set(client.lrange(f"{name}:run:processing", 0, -1))
         for document in sorted(documents, key=lambda x: x["mtime"], reverse=True):
-            doc_json = json.dumps(document)
+            doc_with_uid = dict(document)
+            cfg = modules.get(name, {})
+            if "uid" in cfg:
+                doc_with_uid["uid"] = cfg["uid"]
+            doc_json = json.dumps(doc_with_uid)
             if (
                 doc_json not in check_tasks
                 and doc_json not in run_tasks
