@@ -61,7 +61,10 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 QUEUE_NAME = os.environ.get("QUEUE_NAME", "module")
 WORKER_ID = os.environ.get("WORKER_ID", str(uuid.uuid4()))
 RESOURCE_SHARES = os.environ.get("RESOURCE_SHARES", "")
-TIMEOUT = int(os.environ.get("TIMEOUT", "300"))
+TIMEOUT = int(os.environ.get("TIMEOUT", "30"))
+MODULE_UID = os.environ.get("MODULE_UID", "")
+MODULES_CFG = os.environ.get("MODULES", "")
+UID_RETRY_SECONDS = int(os.environ.get("UID_RETRY_SECONDS", "600"))
 DONE_QUEUE = "modules:done"
 TIMEOUT_SET = "timeouts"
 METADATA_DIRECTORY = metadata_directory()
@@ -115,6 +118,50 @@ def parse_resource_shares() -> list[dict[str, Any]]:
 
 
 RESOURCE_SHARE_GROUPS = parse_resource_shares()
+
+
+def _parse_modules_cfg() -> list[dict[str, Any]]:
+    if not MODULES_CFG:
+        return []
+    if yaml is not None:
+        try:
+            return cast(list[dict[str, Any]], yaml.safe_load(MODULES_CFG)) or []
+        except Exception:
+            return []
+    modules: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for line in MODULES_CFG.strip().splitlines():
+        line = line.strip()
+        if line.startswith("-"):
+            if current:
+                modules.append(current)
+            current = {}
+            line = line[1:].strip()
+            if line:
+                key, val = line.split(":", 1)
+                current[key.strip()] = val.strip()
+        elif ":" in line and current is not None:
+            key, val = line.split(":", 1)
+            current[key.strip()] = val.strip()
+    if current:
+        modules.append(current)
+    return modules
+
+
+MODULES_LIST = _parse_modules_cfg()
+
+
+def _verify_module_uid() -> None:
+    if not MODULES_LIST or not MODULE_UID:
+        return
+    expected = None
+    for mod in MODULES_LIST:
+        if mod.get("name") == QUEUE_NAME:
+            expected = str(mod.get("uid"))
+            break
+    if expected is None or str(MODULE_UID) != expected:
+        logging.critical("fatal mis-configuration")
+        raise SystemExit(1)
 
 
 def file_path_from_meili_doc(document: Mapping[str, Any]) -> Path:
@@ -242,6 +289,7 @@ def run_server(
     unload_fn: Callable[[], Any] | None = None,
 ) -> None:
     """Process tasks from Redis queues with optional resource sharing."""
+    _verify_module_uid()
     client = make_redis_client()
 
     for group in RESOURCE_SHARE_GROUPS:
@@ -271,6 +319,32 @@ def run_server(
                     rotate(group)
             time.sleep(1)
 
+    def wait_turn_all(groups: list[dict[str, Any]]) -> None:
+        while True:
+            ready = True
+            for grp in groups:
+                q = f"{grp['name']}:share"
+                ttl_set = f"{q}:ttl"
+                members = client.lrange(q, 0, -1)
+                if WORKER_ID not in members:
+                    client.rpush(q, WORKER_ID)
+                    client.zadd(ttl_set, {WORKER_ID: time.time() + TIMEOUT})
+                    members = client.lrange(q, 0, -1)
+                head = members[0] if members else None
+                if head != WORKER_ID:
+                    ready = False
+                    if head is not None:
+                        expire = client.zscore(ttl_set, head)
+                        if expire is not None and float(expire) < time.time():
+                            client.lrem(q, 0, head)
+                            client.zrem(ttl_set, head)
+                            rotate(grp)
+                else:
+                    client.zadd(ttl_set, {WORKER_ID: time.time() + TIMEOUT})
+            if ready:
+                return
+            time.sleep(1)
+
     def rotate(group: dict[str, Any]) -> None:
         q = f"{group['name']}:share"
         ttl_set = f"{q}:ttl"
@@ -278,6 +352,10 @@ def run_server(
         if head:
             client.zrem(ttl_set, head)
             client.rpush(q, head)
+
+    def rotate_all(groups: list[dict[str, Any]]) -> None:
+        for grp in groups:
+            rotate(grp)
 
     def add_timeout(queue: str, doc_json: str) -> str:
         key = json.dumps({"q": queue, "d": doc_json})
@@ -298,8 +376,13 @@ def run_server(
         doc_json = client.lpop(f"{QUEUE_NAME}:check")
         if not doc_json:
             return False
-        add_timeout(f"{QUEUE_NAME}:check", doc_json)
         document = json.loads(doc_json)
+        if document.get("uid") and str(document.get("uid")) != MODULE_UID:
+            logging.warning("uid mismatch")
+            client.lpush(f"{QUEUE_NAME}:check", doc_json)
+            time.sleep(UID_RETRY_SECONDS)
+            return True
+        add_timeout(f"{QUEUE_NAME}:check", doc_json)
         file_path = file_path_from_meili_doc(document)
         metadata_dir_path = metadata_dir_path_from_doc(document)
         should_run = check_fn(file_path, document, metadata_dir_path)
@@ -342,6 +425,12 @@ def run_server(
             return False
         key = add_timeout(f"{QUEUE_NAME}:run", doc_json)
         document = json.loads(doc_json)
+        if document.get("uid") and str(document.get("uid")) != MODULE_UID:
+            logging.warning("uid mismatch")
+            remove_timeout(f"{QUEUE_NAME}:run", doc_json)
+            client.lpush(f"{QUEUE_NAME}:run", doc_json)
+            time.sleep(UID_RETRY_SECONDS)
+            return True
         file_path = file_path_from_meili_doc(document)
         metadata_dir_path = metadata_dir_path_from_doc(document)
         with log_to_file_and_stdout(metadata_dir_path / "log.txt"):
@@ -367,22 +456,26 @@ def run_server(
     while True:
         while process_check():
             pass
-        groups = RESOURCE_SHARE_GROUPS or [{"name": "", "seconds": 0}]
-        for group in groups:
-            if group["name"]:
-                wait_turn(group)
-            if load_fn:
-                load_fn()
-            start = time.time()
-            while True:
-                while process_check():
-                    pass
-                processed = process_run()
-                if not processed and not group["name"]:
-                    break
-                if group["name"] and time.time() - start >= int(group["seconds"]):
-                    break
-            if unload_fn:
-                unload_fn()
-            if group["name"]:
-                rotate(group)
+        groups = [g for g in RESOURCE_SHARE_GROUPS if g.get("name")]
+        if not groups:
+            groups = [{"name": "", "seconds": 0}]
+        if groups[0]["name"]:
+            wait_turn_all(groups)
+        if load_fn:
+            load_fn()
+        slice_seconds = (
+            min(int(g.get("seconds", 0)) for g in groups) if groups[0]["name"] else 0
+        )
+        start = time.time()
+        while True:
+            while process_check():
+                pass
+            processed = process_run()
+            if not processed and not groups[0]["name"]:
+                break
+            if groups[0]["name"] and time.time() - start >= slice_seconds:
+                break
+        if unload_fn:
+            unload_fn()
+        if groups[0]["name"]:
+            rotate_all(groups)

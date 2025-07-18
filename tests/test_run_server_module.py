@@ -5,6 +5,8 @@ import time
 
 
 def test_run_server_processes_tasks(monkeypatch):
+    monkeypatch.setenv("MODULE_UID", "uid1")
+    monkeypatch.setenv("MODULES", "- name: mod\n  uid: uid1")
     rs = importlib.reload(
         importlib.import_module("features.F4.home_index_module.run_server")
     )
@@ -90,6 +92,8 @@ def test_run_server_processes_tasks(monkeypatch):
 
 
 def test_run_server_respects_resource_share(monkeypatch):
+    monkeypatch.setenv("MODULE_UID", "uid1")
+    monkeypatch.setenv("MODULES", "- name: mod\n  uid: uid1")
     rs = importlib.import_module("features.F4.home_index_module.run_server")
 
     class DummyRedis:
@@ -163,6 +167,8 @@ def test_run_server_respects_resource_share(monkeypatch):
     dummy = DummyRedis()
     monkeypatch.setenv("RESOURCE_SHARES", "- name: gpu\n  seconds: 1")
     monkeypatch.setenv("WORKER_ID", "worker1")
+    monkeypatch.setenv("MODULE_UID", "uid1")
+    monkeypatch.setenv("MODULES", "- name: mod\n  uid: uid1")
     rs = importlib.reload(
         importlib.import_module("features.F4.home_index_module.run_server")
     )

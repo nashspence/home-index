@@ -4,7 +4,10 @@ services:
     environment:
       MODULES: |
         - name: example-module
+          uid: "00000000-0000-0000-0000-000000000001"
         - name: timeout-module
+          uid: "00000000-0000-0000-0000-000000000002"
+      # additional modules are pushed manually by tests
       METADATA_DIRECTORY: /home-index/metadata
       REDIS_HOST: http://redis:6379
       RETRY_UNTIL_READY_SECONDS: 180
@@ -21,6 +24,7 @@ services:
       - meilisearch
       - example-module
       - timeout-module
+      - crash-module
       - redis
   meilisearch:
     image: getmeili/meilisearch:v1.15
@@ -40,10 +44,21 @@ services:
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
       - QUEUE_NAME=example-module
+      - MODULE_UID=${EXAMPLE_UID:-00000000-0000-0000-0000-000000000001}
+      - MODULES: |
+          - name: example-module
+            uid: "00000000-0000-0000-0000-000000000001"
+          - name: timeout-module
+            uid: "00000000-0000-0000-0000-000000000002"
+          - name: crash-module
+            uid: "00000000-0000-0000-0000-000000000003"
       - REDIS_HOST=http://redis:6379
-      - TIMEOUT=${EXAMPLE_TIMEOUT:-300}
+      - TIMEOUT=${EXAMPLE_TIMEOUT:-30}
       - SLEEP=${EXAMPLE_SLEEP:-0}
       - CHECK_SLEEP=${EXAMPLE_CHECK_SLEEP:-0}
+      - RESOURCE_SHARES=${EXAMPLE_RESOURCE_SHARES:-}
+      - WORKER_ID=${EXAMPLE_WORKER_ID:-}
+      - UID_RETRY_SECONDS=${UID_RETRY_SECONDS:-600}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
@@ -56,10 +71,43 @@ services:
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
       - QUEUE_NAME=timeout-module
+      - MODULE_UID=${TIMEOUT_UID:-00000000-0000-0000-0000-000000000002}
+      - MODULES: |
+          - name: example-module
+            uid: "00000000-0000-0000-0000-000000000001"
+          - name: timeout-module
+            uid: "00000000-0000-0000-0000-000000000002"
+          - name: crash-module
+            uid: "00000000-0000-0000-0000-000000000003"
       - REDIS_HOST=http://redis:6379
-      - TIMEOUT=${TIMEOUT:-300}
+      - TIMEOUT=${TIMEOUT:-30}
       - SLEEP=${MODULE_SLEEP:-0}
       - CHECK_SLEEP=${CHECK_SLEEP:-0}
+      - RESOURCE_SHARES=${TIMEOUT_RESOURCE_SHARES:-}
+      - WORKER_ID=${TIMEOUT_WORKER_ID:-}
+      - UID_RETRY_SECONDS=${UID_RETRY_SECONDS:-600}
+    volumes:
+      - ./input:/files:ro
+      - ./output:/home-index
+  crash-module:
+    build:
+      context: ./crash_module/
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: ${MODULE_BASE_IMAGE}
+    environment:
+      - METADATA_DIRECTORY=/home-index/metadata
+      - QUEUE_NAME=crash-module
+      - MODULE_UID=${CRASH_UID:-00000000-0000-0000-0000-000000000003}
+      - MODULES: |
+          - name: crash-module
+            uid: "00000000-0000-0000-0000-000000000003"
+      - REDIS_HOST=http://redis:6379
+      - TIMEOUT=${CRASH_TIMEOUT:-30}
+      - RESOURCE_SHARES=${CRASH_RESOURCE_SHARES:-}
+      - WORKER_ID=${CRASH_WORKER_ID:-}
+      - CRASH=${CRASH:-0}
+      - UID_RETRY_SECONDS=${UID_RETRY_SECONDS:-600}
     volumes:
       - ./input:/files:ro
       - ./output:/home-index
