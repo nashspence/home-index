@@ -998,6 +998,7 @@ async def sync_documents():
         files_logger.info("commit changes to meilisearch")
         await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
         await sync_content_files(files_docs_by_hash)
+        files_logger.info("completed file sync")
     except:
         files_logger.exception("sync failed")
         raise

@@ -1,11 +1,26 @@
+from __future__ import annotations
+
 import shutil
-import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
 
 from apscheduler.triggers.cron import CronTrigger
 from typing import cast
+
+from shared import compose, search_meili, wait_for
+
+
+def _expected_interval(cron: str) -> float:
+    trigger = CronTrigger(**_parse_cron(cron))
+    now = datetime.now(trigger.timezone)
+    first = trigger.get_next_fire_time(None, now)
+    if first is None:
+        raise ValueError("CronTrigger failed to produce first fire time")
+    second = trigger.get_next_fire_time(first, first)
+    if second is None:
+        raise ValueError("CronTrigger failed to produce second fire time")
+    return (cast(datetime, second) - cast(datetime, first)).total_seconds()
 
 
 def _parse_cron(cron: str) -> dict[str, str]:
@@ -30,117 +45,318 @@ def _parse_cron(cron: str) -> dict[str, str]:
     raise ValueError("cron must have 5 or 6 fields")
 
 
-def _expected_interval(cron: str) -> float:
-    trigger = CronTrigger(**_parse_cron(cron))
-    now = datetime.now(trigger.timezone)
-    first = trigger.get_next_fire_time(None, now)
-    if first is None:
-        raise ValueError("CronTrigger failed to produce first fire time")
-    second = trigger.get_next_fire_time(first, first)
-    if second is None:
-        raise ValueError("CronTrigger failed to produce second fire time")
-    first_dt = cast(datetime, first)
-    second_dt = cast(datetime, second)
-    return (second_dt - first_dt).total_seconds()
+def _compose_paths() -> tuple[Path, Path, Path]:
+    compose_file = Path(__file__).with_name("docker-compose.yml")
+    workdir = compose_file.parent
+    output_dir = workdir / "output"
+    return compose_file, workdir, output_dir
 
 
-def _run_once(
-    compose_file: Path, workdir: Path, output_dir: Path, env_file: Path, cron: str
-) -> None:
+def _prepare_dirs(workdir: Path, output_dir: Path, *, with_input: bool = True) -> None:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
     (output_dir / "modules_config.json").write_text('{"modules": []}')
+    input_dir = workdir / "input"
+    if input_dir.exists():
+        shutil.rmtree(input_dir)
+    if with_input:
+        shutil.copytree(Path(__file__).with_name("input"), input_dir)
+    else:
+        input_dir.mkdir()
+
+
+def _write_env(env_file: Path, cron: str) -> None:
     env_file.write_text(f"CRON_EXPRESSION={cron}\n")
 
-    subprocess.run(
-        [
-            "docker",
-            "compose",
-            "--env-file",
-            str(env_file),
-            "-f",
-            str(compose_file),
-            "up",
-            "-d",
-        ],
-        check=True,
-        cwd=workdir,
-    )
-    try:
-        start = time.time()
-        expected_interval = _expected_interval(cron)
-        # Allow ample time for container startup and at least two sync cycles.
-        deadline = start + expected_interval * 3 + 120
-        timestamps: list[str] = []
-        while True:
-            time.sleep(0.5)
-            if (output_dir / "files.log").exists():
-                logs = (output_dir / "files.log").read_text().splitlines()
-                timestamps = [
-                    line.split(" [", 1)[0] for line in logs if "start file sync" in line
-                ]
-                if len(timestamps) >= 3:
-                    break
-            if time.time() > deadline:
-                raise AssertionError("Timed out waiting for sync logs")
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "stop",
-            ],
-            check=True,
-            cwd=workdir,
-        )
-        times = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S,%f") for t in timestamps[-2:]]
-        observed = (times[1] - times[0]).total_seconds()
-        assert observed >= expected_interval - 1
-        by_id = output_dir / "metadata" / "by-id"
-        assert any(by_id.iterdir())
-    except Exception:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "logs",
-                "--no-color",
-            ],
-            check=False,
-            cwd=workdir,
-        )
-        raise
-    finally:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--env-file",
-                str(env_file),
-                "-f",
-                str(compose_file),
-                "down",
-                "--volumes",
-                "--rmi",
-                "local",
-            ],
-            check=False,
-            cwd=workdir,
-        )
+
+def _read_start_times(output_dir: Path) -> list[datetime]:
+    if not (output_dir / "files.log").exists():
+        return []
+    lines = (output_dir / "files.log").read_text().splitlines()
+    stamps = [line.split(" [", 1)[0] for line in lines if "start file sync" in line]
+    return [datetime.strptime(s, "%Y-%m-%d %H:%M:%S,%f") for s in stamps]
 
 
-def test_indexing_runs_on_schedule(tmp_path: Path) -> None:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
+def _wait_for_start_lines(output_dir: Path, count: int) -> list[datetime]:
+    deadline = time.time() + 120
+    while True:
+        times = _read_start_times(output_dir)
+        if len(times) >= count:
+            return times
+        if time.time() > deadline:
+            raise AssertionError("Timed out waiting for sync logs")
+        time.sleep(0.5)
+
+
+def _wait_for_log(output_dir: Path, text: str, start: int = 0) -> int:
+    deadline = time.time() + 120
+    while True:
+        if (output_dir / "files.log").exists():
+            lines = (output_dir / "files.log").read_text().splitlines()
+            for idx, line in enumerate(lines[start:], start=start):
+                if text in line:
+                    return idx
+        if time.time() > deadline:
+            raise AssertionError(f"Timed out waiting for log containing: {text}")
+        time.sleep(0.5)
+
+
+def test_s1_initial_run_existing_files_indexed(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
     env_file = tmp_path / ".env"
-    for cron in ["* * * * * *", "*/2 * * * * *"]:
-        _run_once(compose_file, workdir, output_dir, env_file, cron)
+    cron = "* * * * * *"
+    _write_env(env_file, cron)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        wait_for(lambda: (output_dir / "files.log").exists(), message="files.log")
+        times = _wait_for_start_lines(output_dir, 2)
+        by_id = output_dir / "metadata" / "by-id"
+        wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+        assert search_meili(compose_file, workdir, "")
+        interval = (times[1] - times[0]).total_seconds()
+        expected = _expected_interval(cron)
+        assert abs(interval - expected) <= 1
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s2_new_file_appears_mid_run(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    cron = "* * * * * *"
+    _write_env(env_file, cron)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        _wait_for_start_lines(output_dir, 1)
+        first_done = _wait_for_log(output_dir, "completed file sync")
+        by_id = output_dir / "metadata" / "by-id"
+        wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+        existing = {p.name for p in by_id.iterdir()}
+        (workdir / "input" / "new.txt").write_text("new")
+        _wait_for_start_lines(output_dir, 2)
+        _wait_for_log(output_dir, "completed file sync", start=first_done + 1)
+        wait_for(
+            lambda: len(set(p.name for p in by_id.iterdir()) - existing) >= 1,
+            message="new file indexed",
+        )
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s3_file_contents_change(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    cron = "* * * * * *"
+    _write_env(env_file, cron)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        _wait_for_start_lines(output_dir, 1)
+        first_done = _wait_for_log(output_dir, "completed file sync")
+        by_id = output_dir / "metadata" / "by-id"
+        wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+        existing = {p.name for p in by_id.iterdir()}
+        hello = workdir / "input" / "hello.txt"
+        hello.write_text("changed")
+        _wait_for_start_lines(output_dir, 2)
+        _wait_for_log(output_dir, "completed file sync", start=first_done + 1)
+        wait_for(
+            lambda: len(set(p.name for p in by_id.iterdir()) - existing) >= 1,
+            message="new hash",
+        )
+        assert existing <= {p.name for p in by_id.iterdir()}
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s4_regular_cadence_honoured(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    cron = "*/2 * * * * *"
+    _write_env(env_file, cron)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        times = _wait_for_start_lines(output_dir, 3)
+        compose(compose_file, workdir, "stop", env_file=env_file)
+        interval = (times[-1] - times[-2]).total_seconds()
+        expected = _expected_interval(cron)
+        assert abs(interval - expected) <= 1
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s5_long_running_sync_never_overlaps(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    cron = "* * * * * *"
+    _write_env(env_file, cron)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        first_start_index = len(_read_start_times(output_dir))
+        _wait_for_start_lines(output_dir, 1)
+        done_idx = _wait_for_log(output_dir, "completed file sync")
+        _wait_for_start_lines(output_dir, 2)
+        assert done_idx < _wait_for_log(
+            output_dir, "start file sync", start=first_start_index + 1
+        )
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s6_change_schedule(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    cron1 = "* * * * * *"
+    _write_env(env_file, cron1)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        _wait_for_start_lines(output_dir, 2)
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+    cron2 = "*/2 * * * * *"
+    _write_env(env_file, cron2)
+    initial_count = len(_read_start_times(output_dir))
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        times = _wait_for_start_lines(output_dir, initial_count + 2)
+        interval = (times[-1] - times[-2]).total_seconds()
+        expected = _expected_interval(cron2)
+        assert abs(interval - expected) <= 1
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s7_restart_with_same_schedule(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    cron = "* * * * * *"
+    _write_env(env_file, cron)
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        _wait_for_start_lines(output_dir, 2)
+        initial_lines = (output_dir / "files.log").read_text().splitlines()
+        initial_count = len(_read_start_times(output_dir))
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+    compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    try:
+        _wait_for_start_lines(output_dir, initial_count + 2)
+        final_lines = (output_dir / "files.log").read_text().splitlines()
+        assert len(final_lines) > len(initial_lines)
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
+
+
+def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
+    compose_file, workdir, output_dir = _compose_paths()
+    env_file = tmp_path / ".env"
+    _write_env(env_file, "bad cron")
+    _prepare_dirs(workdir, output_dir)
+    compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
+    try:
+        time.sleep(3)
+        ps = compose(compose_file, workdir, "ps", env_file=env_file, check=False)
+        assert b"Exit" in ps.stdout or b"exited" in ps.stdout.lower()
+        logs = compose(
+            compose_file, workdir, "logs", "--no-color", env_file=env_file, check=False
+        )
+        assert b"Invalid cron expression" in logs.stdout
+    finally:
+        compose(
+            compose_file,
+            workdir,
+            "down",
+            "--volumes",
+            "--rmi",
+            "local",
+            env_file=env_file,
+            check=False,
+        )
