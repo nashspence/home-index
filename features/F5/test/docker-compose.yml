@@ -3,7 +3,7 @@ services:
     image: ${IMAGE}
     environment:
       MODULES: |
-        - name: chunk-module
+        - name: text-module
       METADATA_DIRECTORY: /home-index/metadata
       REDIS_HOST: http://redis:6379
       RETRY_UNTIL_READY_SECONDS: 180
@@ -21,7 +21,7 @@ services:
       - "5678:5678"
     depends_on:
       - meilisearch
-      - chunk-module
+      - text-module
       - redis
   meilisearch:
     image: getmeili/meilisearch:v1.15
@@ -32,7 +32,7 @@ services:
       - ./output/meili:/meili_data
     ports:
       - "7700:7700"
-  chunk-module:
+  text-module:
     build:
       context: ../chunk_module
       dockerfile: Dockerfile
@@ -40,7 +40,7 @@ services:
         BASE_IMAGE: ${MODULE_BASE_IMAGE}
     environment:
       - METADATA_DIRECTORY=/home-index/metadata
-      - QUEUE_NAME=chunk-module
+      - QUEUE_NAME=text-module
       - REDIS_HOST=http://redis:6379
       - TIMEOUT=300
     volumes:
