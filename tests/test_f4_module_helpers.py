@@ -56,6 +56,24 @@ def test_set_next_modules_assigns_module_names(
     assert docs["2"]["next"] == "m1"
 
 
+def test_set_next_modules_force_offline(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    modules = _reload_modules(monkeypatch, tmp_path)
+
+    modules.module_values = [
+        {"name": "m1"},
+    ]
+    modules.modules = {"m1": modules.module_values[0]}
+
+    docs = {"1": {"id": "1", "next": ""}}
+
+    monkeypatch.setattr(modules, "doc_is_online", lambda doc: False)
+
+    modules.set_next_modules(docs, force_offline=True)
+    assert docs["1"]["next"] == "m1"
+
+
 def test_update_doc_from_module_updates_and_saves(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

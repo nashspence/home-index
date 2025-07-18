@@ -139,7 +139,7 @@ def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(path_links, "by_path_directory", lambda: links)
 
     monkeypatch.setattr(archive, "update_archive_flags", lambda d: None)
-    monkeypatch.setattr(modules_f4, "set_next_modules", lambda d: None)
+    monkeypatch.setattr(modules_f4, "set_next_modules", lambda d, **kw: None)
 
     added: dict[str, Any] = {}
     deleted: dict[str, Any] = {}

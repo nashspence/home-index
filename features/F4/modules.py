@@ -204,11 +204,13 @@ async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
     return document
 
 
-def set_next_modules(files_docs_by_hash: dict[str, dict[str, Any]]) -> None:
+def set_next_modules(
+    files_docs_by_hash: dict[str, dict[str, Any]], *, force_offline: bool = False
+) -> None:
     if not module_values:
         return
     for doc in files_docs_by_hash.values():
-        if doc_is_online(doc):
+        if force_offline or doc_is_online(doc):
             doc["next"] = module_values[0]["name"]
         else:
             doc["next"] = ""
