@@ -748,8 +748,8 @@ def index_files(
     unmounted_archive_docs_by_hash,
     unmounted_archive_hashes_by_relpath,
 ):
-    files_docs_by_hash = unmounted_archive_docs_by_hash
-    files_hashes_by_relpath = unmounted_archive_hashes_by_relpath
+    files_docs_by_hash: dict[str, dict[str, Any]] = {}
+    files_hashes_by_relpath: dict[str, str] = {}
 
     files_logger.info(" * recursively walk files")
     file_paths = []
@@ -760,7 +760,10 @@ def index_files(
         ):
             continue
         for f in files:
-            file_paths.append(root_path / f)
+            path = root_path / f
+            if archive.is_status_marker(path):
+                continue
+            file_paths.append(path)
 
     def handle_hash_at_path(args):
         path, hash_val, stat = args
@@ -832,9 +835,23 @@ def index_files(
                 ):
                     handle_hash_at_path(completed.result())
 
+    # Add documents for drives that are currently offline
+    for doc in unmounted_archive_docs_by_hash.values():
+        if doc["id"] in files_docs_by_hash:
+            continue
+        paths = list(doc.get("paths", {}).keys())
+        if not paths:
+            continue
+        sample = path_from_relpath(paths[0])
+        drive = archive.drive_name_from_path(sample)
+        if drive and not (archive.archive_directory() / drive).exists():
+            files_docs_by_hash[doc["id"]] = copy.deepcopy(doc)
+            for relpath in paths:
+                files_hashes_by_relpath[relpath] = doc["id"]
+
     if files_docs_by_hash:
         files_logger.info(" * set next modules")
-        set_next_modules(files_docs_by_hash)
+        set_next_modules(files_docs_by_hash, force_offline=is_modules_changed)
 
     return files_docs_by_hash, files_hashes_by_relpath
 
@@ -973,6 +990,8 @@ async def sync_documents():
             files_docs_by_hash,
             files_hashes_by_relpath,
         )
+
+        archive.update_drive_markers(files_docs_by_hash)
 
         upserted_docs_by_hash.update(migrated_docs_by_hash)
 

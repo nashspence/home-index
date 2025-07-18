@@ -130,7 +130,9 @@ async def apply_ops(ops: FileOps) -> None:
             "next": "",
         }
         archive.update_archive_flags(doc)
-        modules_f4.set_next_modules({file_id: doc})
+        modules_f4.set_next_modules(
+            {file_id: doc}, force_offline=modules_f4.is_modules_changed
+        )
         metadata_store.write_doc_json(doc)
         path_links.link_path(item.path, file_id)
         docs_to_upsert[file_id] = doc
@@ -163,7 +165,9 @@ async def apply_ops(ops: FileOps) -> None:
         doc_data["type"] = hi.get_mime_type(dest)
         doc_data["version"] = hi.CURRENT_VERSION
         archive.update_archive_flags(doc_data)
-        modules_f4.set_next_modules({doc_id: doc_data})
+        modules_f4.set_next_modules(
+            {doc_id: doc_data}, force_offline=modules_f4.is_modules_changed
+        )
         metadata_store.write_doc_json(doc_data)
         docs_to_upsert[doc_id] = doc_data
 
@@ -194,7 +198,9 @@ async def apply_ops(ops: FileOps) -> None:
             doc_data_del["mtime"] = max(doc_data_del["paths"].values())
             doc_data_del["copies"] = len(doc_data_del["paths"])
             archive.update_archive_flags(doc_data_del)
-            modules_f4.set_next_modules({doc_id: doc_data_del})
+            modules_f4.set_next_modules(
+                {doc_id: doc_data_del}, force_offline=modules_f4.is_modules_changed
+            )
             metadata_store.write_doc_json(doc_data_del)
             docs_to_upsert[doc_id] = doc_data_del
 
