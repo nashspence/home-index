@@ -19,11 +19,9 @@ Mount (Linux):
 from __future__ import annotations
 
 import asyncio
-import importlib
 import json
 import os
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, cast
@@ -80,14 +78,6 @@ class FileOps(BaseModel):  # type: ignore[misc]
     add: List[AddItem] = []
     move: List[MoveItem] = []
     delete: List[str] = []
-
-
-def _get_hi() -> Any:
-    """Return the running ``main`` module without importing at type-check time."""
-    hi = sys.modules.get("main") or sys.modules.get("__main__")
-    if hi is None:
-        hi = importlib.import_module("main")
-    return hi
 
 
 # ------------------------------------------------------------------------

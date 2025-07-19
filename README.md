@@ -33,4 +33,4 @@ your files using a locally run language model backed by Meilisearch.
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Planned Maintenance
-None
+None – removed unused helper `_get_hi` in `features/F6/api.py` during maintenance
