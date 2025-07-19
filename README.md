@@ -33,4 +33,4 @@ your files using a locally run language model backed by Meilisearch.
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Planned Maintenance
-None
+- Expand unit test coverage for F6 API server
