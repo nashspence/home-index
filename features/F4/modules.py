@@ -8,10 +8,10 @@ import os
 import time
 from urllib.parse import urlparse
 from pathlib import Path
-import importlib
-import sys
 from typing import Any, Callable, Mapping, MutableMapping, TypeVar, cast
 from features.F3.archive import doc_is_online, update_archive_flags
+from features.F2 import search_index
+from features.F5 import chunking
 
 try:
     import redis
@@ -37,18 +37,6 @@ def by_id_directory() -> Path:
 def ensure_directories() -> None:
     for path in [metadata_directory(), by_id_directory()]:
         path.mkdir(parents=True, exist_ok=True)
-
-
-def _get_hi() -> Any:
-    try:
-        from home_index import main as hi
-    except Exception:  # pragma: no cover - compatibility
-        hi = sys.modules.get("main")
-        if hi is None:
-            hi = sys.modules.get("__main__")
-        if hi is None:
-            hi = importlib.import_module("main")
-    return hi
 
 
 def write_doc_json(doc: MutableMapping[str, Any]) -> None:
@@ -189,7 +177,6 @@ def metadata_dir_relpath_from_doc(name: str, document: Mapping[str, Any]) -> Pat
 
 
 async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
-    hi = cast(Any, _get_hi())
 
     next_name = ""
     current = document.get("next", "")
@@ -200,7 +187,7 @@ async def update_doc_from_module(document: dict[str, Any]) -> dict[str, Any]:
     document["next"] = next_name
     update_archive_flags(document)
     write_doc_json(document)
-    await hi.add_or_update_document(document)
+    await search_index.add_or_update_documents([document])
     return document
 
 
@@ -216,7 +203,7 @@ def set_next_modules(
             doc["next"] = ""
 
 
-async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
+async def process_done_queue(client: redis.Redis) -> bool:
     processed = False
     while True:
         result_json = client.lpop(DONE_QUEUE)
@@ -232,10 +219,10 @@ async def process_done_queue(client: redis.Redis, hi: Any) -> bool:
             document = result
             content = None
         if content is not None:
-            await hi.add_content_chunks(document, name, content=content)
+            await chunking.add_content_chunks(document, name, content=content)
         else:
-            await hi.add_content_chunks(document, name)
-        await hi.update_doc_from_module(document)
+            await chunking.add_content_chunks(document, name)
+        await update_doc_from_module(document)
     return processed
 
 
@@ -270,15 +257,6 @@ def process_timeouts(client: redis.Redis) -> bool:
 
 
 async def service_module_queue(name: str, client: redis.Redis | None = None) -> bool:
-    try:
-        from home_index import main as hi
-    except Exception:  # pragma: no cover - compatibility
-        hi = sys.modules.get("main")
-        if hi is None:
-            hi = sys.modules.get("__main__")
-        if hi is None:
-            hi = importlib.import_module("main")
-    hi = cast(Any, hi)
 
     try:
         if client is None:
@@ -286,7 +264,7 @@ async def service_module_queue(name: str, client: redis.Redis | None = None) -> 
 
         processed = False
 
-        documents = await hi.get_all_pending_jobs(name)
+        documents = await search_index.get_all_pending_jobs(name)
         check_tasks = set(client.lrange(f"{name}:check", 0, -1))
         run_tasks = set(client.lrange(f"{name}:run", 0, -1))
         processing_check = set(client.lrange(f"{name}:check:processing", 0, -1))
@@ -307,7 +285,7 @@ async def service_module_queue(name: str, client: redis.Redis | None = None) -> 
                 processed = True
 
         if processed:
-            await hi.wait_for_meili_idle()
+            await search_index.wait_for_meili_idle()
 
         return processed
     except Exception as e:  # pragma: no cover - unexpected
@@ -331,7 +309,7 @@ async def service_module_queues() -> None:
                 client = make_redis_client()
             if process_timeouts(client):
                 processed = True
-            if await process_done_queue(client, _get_hi()):
+            if await process_done_queue(client):
                 processed = True
             tasks = [
                 service_module_queue(module["name"], client) for module in module_values

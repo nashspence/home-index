@@ -3,9 +3,9 @@ import asyncio
 
 def test_update_meilisearch_adds_and_deletes_documents(monkeypatch):
     import importlib
-    import main as hi
+    from features.F1 import sync
 
-    importlib.reload(hi)
+    importlib.reload(sync)
 
     upsert = {"doc1": {"id": "doc1"}}
     files = {"doc1": {"id": "doc1"}}
@@ -28,18 +28,20 @@ def test_update_meilisearch_adds_and_deletes_documents(monkeypatch):
         recorded["count"] = True
         return 1
 
-    monkeypatch.setattr(hi, "get_all_documents", fake_get_all_documents)
-    monkeypatch.setattr(hi, "delete_docs_by_id", fake_delete)
-    monkeypatch.setattr(hi, "delete_chunk_docs_by_file_ids", fake_delete_chunks)
-    monkeypatch.setattr(hi, "add_or_update_documents", fake_add)
-    monkeypatch.setattr(hi, "get_document_count", fake_count)
+    monkeypatch.setattr(sync.search_index, "get_all_documents", fake_get_all_documents)
+    monkeypatch.setattr(sync.search_index, "delete_docs_by_id", fake_delete)
+    monkeypatch.setattr(
+        sync.search_index, "delete_chunk_docs_by_file_ids", fake_delete_chunks
+    )
+    monkeypatch.setattr(sync.search_index, "add_or_update_documents", fake_add)
+    monkeypatch.setattr(sync.search_index, "get_document_count", fake_count)
 
     async def dummy_wait():
         recorded["waited"] = True
 
-    monkeypatch.setattr(hi, "wait_for_meili_idle", dummy_wait)
+    monkeypatch.setattr(sync.search_index, "wait_for_meili_idle", dummy_wait)
 
-    asyncio.run(hi.update_meilisearch(upsert, files))
+    asyncio.run(sync.update_meilisearch(upsert, files))
 
     assert recorded["added"] == [{"id": "doc1"}]
     assert recorded["deleted"] == []

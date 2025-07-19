@@ -6,9 +6,13 @@ from pathlib import Path
 def test_service_module_queue_processes_segment_content(monkeypatch):
     import importlib
 
-    import main as hi
+    from features.F4 import modules as modules_f4
+    from features.F2 import search_index
+    from features.F5 import chunking
 
-    importlib.reload(hi)
+    importlib.reload(modules_f4)
+    importlib.reload(search_index)
+    importlib.reload(chunking)
 
     doc = {"id": "file1", "mtime": 1.0, "paths": {"a.txt": 1.0}, "next": ""}
 
@@ -102,22 +106,22 @@ def test_service_module_queue_processes_segment_content(monkeypatch):
 
     dummy = DummyRedis()
     # Reuse the dummy Redis client
-    monkeypatch.setattr(hi.modules_f4, "make_redis_client", lambda: dummy)
+    monkeypatch.setattr(modules_f4, "make_redis_client", lambda: dummy)
 
-    monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
-    monkeypatch.setattr(hi, "add_or_update_chunk_documents", fake_add_chunks)
-    monkeypatch.setattr(hi, "update_doc_from_module", fake_update_doc)
+    monkeypatch.setattr(search_index, "get_all_pending_jobs", fake_get_jobs)
+    monkeypatch.setattr(search_index, "add_or_update_chunk_documents", fake_add_chunks)
+    monkeypatch.setattr(modules_f4, "update_doc_from_module", fake_update_doc)
     monkeypatch.setattr(
-        hi,
+        search_index,
         "delete_chunk_docs_by_file_id_and_module",
         fake_delete,
     )
-    monkeypatch.setattr(hi, "wait_for_meili_idle", fake_wait)
-    hi.module_values = []
+    monkeypatch.setattr(search_index, "wait_for_meili_idle", fake_wait)
+    modules_f4.module_values = []
 
-    result = asyncio.run(hi.service_module_queue("mod", dummy))
-    asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
-    asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
+    result = asyncio.run(modules_f4.service_module_queue("mod", dummy))
+    asyncio.run(modules_f4.process_done_queue(dummy))
+    asyncio.run(modules_f4.process_done_queue(dummy))
 
     assert result is True
     assert recorded["lpop"]
@@ -128,9 +132,11 @@ def test_service_module_queue_processes_segment_content(monkeypatch):
 def test_service_module_queue_handles_update_only(monkeypatch):
     import importlib
 
-    import main as hi
+    from features.F4 import modules as modules_f4
+    from features.F2 import search_index
 
-    importlib.reload(hi)
+    importlib.reload(modules_f4)
+    importlib.reload(search_index)
 
     doc = {"id": "file2", "mtime": 1.0, "paths": {"b.txt": 1.0}, "next": ""}
 
@@ -178,12 +184,12 @@ def test_service_module_queue_handles_update_only(monkeypatch):
             pass
 
     dummy = DummyRedis()
-    monkeypatch.setattr(hi.modules_f4, "make_redis_client", lambda: dummy)
+    monkeypatch.setattr(modules_f4, "make_redis_client", lambda: dummy)
 
-    monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
-    monkeypatch.setattr(hi, "update_doc_from_module", fake_update_doc)
+    monkeypatch.setattr(search_index, "get_all_pending_jobs", fake_get_jobs)
+    monkeypatch.setattr(modules_f4, "update_doc_from_module", fake_update_doc)
     monkeypatch.setattr(
-        hi,
+        search_index,
         "add_or_update_chunk_documents",
         lambda docs: recorded.setdefault("chunks", docs),
     )
@@ -191,11 +197,11 @@ def test_service_module_queue_handles_update_only(monkeypatch):
     async def dummy_wait():
         recorded["waited"] = True
 
-    monkeypatch.setattr(hi, "wait_for_meili_idle", dummy_wait)
-    hi.module_values = []
+    monkeypatch.setattr(search_index, "wait_for_meili_idle", dummy_wait)
+    modules_f4.module_values = []
 
-    result = asyncio.run(hi.service_module_queue("mod", dummy))
-    asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
+    result = asyncio.run(modules_f4.service_module_queue("mod", dummy))
+    asyncio.run(modules_f4.process_done_queue(dummy))
 
     assert result is True
     assert recorded.get("chunks") is None
@@ -206,9 +212,13 @@ def test_service_module_queue_handles_update_only(monkeypatch):
 def test_service_module_queue_processes_content(monkeypatch):
     import importlib
 
-    import main as hi
+    from features.F4 import modules as modules_f4
+    from features.F2 import search_index
+    from features.F5 import chunking
 
-    importlib.reload(hi)
+    importlib.reload(modules_f4)
+    importlib.reload(search_index)
+    importlib.reload(chunking)
 
     doc = {
         "id": "file3",
@@ -268,21 +278,21 @@ def test_service_module_queue_processes_content(monkeypatch):
             pass
 
     dummy = DummyRedis()
-    monkeypatch.setattr(hi.modules_f4, "make_redis_client", lambda: dummy)
+    monkeypatch.setattr(modules_f4, "make_redis_client", lambda: dummy)
 
-    monkeypatch.setattr(hi, "get_all_pending_jobs", fake_get_jobs)
-    monkeypatch.setattr(hi, "update_doc_from_module", fake_update_doc)
-    monkeypatch.setattr(hi, "add_or_update_chunk_documents", fake_chunks)
+    monkeypatch.setattr(search_index, "get_all_pending_jobs", fake_get_jobs)
+    monkeypatch.setattr(modules_f4, "update_doc_from_module", fake_update_doc)
+    monkeypatch.setattr(search_index, "add_or_update_chunk_documents", fake_chunks)
     monkeypatch.setattr(
-        hi,
+        search_index,
         "delete_chunk_docs_by_file_id_and_module",
         fake_delete,
     )
-    monkeypatch.setattr(hi, "wait_for_meili_idle", lambda: None)
-    hi.module_values = []
+    monkeypatch.setattr(search_index, "wait_for_meili_idle", lambda: None)
+    modules_f4.module_values = []
 
-    result = asyncio.run(hi.service_module_queue("mod", dummy))
-    asyncio.run(hi.modules_f4.process_done_queue(dummy, hi))
+    result = asyncio.run(modules_f4.service_module_queue("mod", dummy))
+    asyncio.run(modules_f4.process_done_queue(dummy))
 
     assert result is True
     assert recorded.get("deleted") == ("file3", "mod")
@@ -295,10 +305,16 @@ def test_sync_content_files_generates_chunks(monkeypatch, tmp_path):
     import importlib
 
     monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta"))
-    import main as hi
+    import features.F5.chunking as chunking
+    from features.F4 import modules as modules_f4
 
-    importlib.reload(hi)
-    monkeypatch.setattr(hi, "BY_ID_DIRECTORY", Path(tmp_path / "meta" / "by-id"))
+    importlib.reload(chunking)
+    importlib.reload(modules_f4)
+    monkeypatch.setattr(
+        chunking.metadata_store,
+        "by_id_directory",
+        lambda: Path(tmp_path / "meta" / "by-id"),
+    )
 
     doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": ""}
     docs = {"file4": doc}
@@ -314,10 +330,10 @@ def test_sync_content_files_generates_chunks(monkeypatch, tmp_path):
     async def fake_update(docu):
         recorded["updated"] = docu
 
-    monkeypatch.setattr(hi, "add_content_chunks", fake_add_content_chunks)
-    monkeypatch.setattr(hi, "update_doc_from_module", fake_update)
+    monkeypatch.setattr(chunking, "add_content_chunks", fake_add_content_chunks)
+    monkeypatch.setattr(modules_f4, "update_doc_from_module", fake_update)
 
-    asyncio.run(hi.sync_content_files(docs))
+    asyncio.run(chunking.sync_content_files(docs))
 
     assert recorded.get("chunks")
     assert recorded["updated"]["id"] == "file4"

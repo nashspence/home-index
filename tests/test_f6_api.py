@@ -114,9 +114,11 @@ def test_ops_provider_methods(monkeypatch, tmp_path: Path):
 def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    import main as hi
+    from features.F2 import search_index
+    from features.F1 import sync
 
-    hi = importlib.reload(hi)
+    importlib.reload(search_index)
+    importlib.reload(sync)
 
     index_dir = tmp_path / "index"
     meta_dir = tmp_path / "meta"
@@ -156,12 +158,12 @@ def test_apply_ops_add_move_delete(monkeypatch, tmp_path: Path):
     async def waited():
         deleted["waited"] = True
 
-    monkeypatch.setattr(hi, "add_or_update_documents", add_docs)
-    monkeypatch.setattr(hi, "delete_docs_by_id", del_docs)
-    monkeypatch.setattr(hi, "delete_chunk_docs_by_file_ids", del_chunks)
-    monkeypatch.setattr(hi, "wait_for_meili_idle", waited)
-    monkeypatch.setattr(hi, "get_mime_type", lambda p: "text/plain")
-    monkeypatch.setattr(hi, "CURRENT_VERSION", 1)
+    monkeypatch.setattr(search_index, "add_or_update_documents", add_docs)
+    monkeypatch.setattr(search_index, "delete_docs_by_id", del_docs)
+    monkeypatch.setattr(search_index, "delete_chunk_docs_by_file_ids", del_chunks)
+    monkeypatch.setattr(search_index, "wait_for_meili_idle", waited)
+    monkeypatch.setattr(sync, "get_mime_type", lambda p: "text/plain")
+    monkeypatch.setattr(sync.migrations, "CURRENT_VERSION", 1)
 
     tmp_file = tmp_path / "tmp"
     tmp_file.write_text("a")

@@ -35,19 +35,19 @@ def test_metadata_persists_if_the_archive_directory_is_temporarily_missing(
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
-    import main as hi
+    from features.F1 import sync
 
-    importlib.reload(hi)
+    importlib.reload(sync)
 
-    md, mhr, ua_docs, ua_hashes, _ = hi.index_metadata()
+    md, mhr, ua_docs, ua_hashes, _ = sync.index_metadata()
     assert doc["id"] in ua_docs
 
-    files_docs, hashes = hi.index_files(md, mhr, ua_docs, ua_hashes)
+    files_docs, hashes = sync.index_files(md, mhr, ua_docs, ua_hashes)
     assert doc["id"] in files_docs
     assert files_docs[doc["id"]]["has_archive_paths"]
     assert files_docs[doc["id"]]["offline"]
 
-    hi.update_metadata(md, mhr, files_docs, hashes)
+    sync.update_metadata(md, mhr, files_docs, hashes)
     persisted = json.loads((by_id / doc["id"] / "document.json").read_text())
     assert persisted["has_archive_paths"]
     assert persisted["offline"]
@@ -74,10 +74,10 @@ def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(archive_dir))
 
-    import main as hi
+    from features.F1 import sync
     import importlib
 
-    importlib.reload(hi)
+    importlib.reload(sync)
 
     doc = {
         "id": "hash1",
@@ -88,11 +88,11 @@ def test_metadata_and_symlinks_are_purged_after_an_archive_file_is_removed(
         "next": "",
     }
 
-    hi.update_metadata({}, {}, {doc["id"]: doc}, {"archive/foo.txt": doc["id"]})
+    sync.update_metadata({}, {}, {doc["id"]: doc}, {"archive/foo.txt": doc["id"]})
     assert (by_id / doc["id"]).exists()
     assert (by_path / "archive" / "foo.txt").is_symlink()
 
-    hi.update_metadata({doc["id"]: doc}, {"archive/foo.txt": doc["id"]}, {}, {})
+    sync.update_metadata({doc["id"]: doc}, {"archive/foo.txt": doc["id"]}, {}, {})
 
     assert not (by_id / doc["id"]).exists()
     assert not (by_path / "archive" / "foo.txt").exists()

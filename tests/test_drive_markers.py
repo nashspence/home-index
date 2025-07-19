@@ -1,19 +1,33 @@
 import importlib
 from pathlib import Path
-from types import ModuleType
+from types import SimpleNamespace
 
 import pytest
 
 
 def _reload_hi(
     monkeypatch: "pytest.MonkeyPatch", index_dir: Path, meta_dir: Path
-) -> ModuleType:
+) -> SimpleNamespace:
     monkeypatch.setenv("INDEX_DIRECTORY", str(index_dir))
     monkeypatch.setenv("ARCHIVE_DIRECTORY", str(index_dir / "archive"))
     monkeypatch.setenv("METADATA_DIRECTORY", str(meta_dir))
     monkeypatch.setenv("BY_ID_DIRECTORY", str(meta_dir / "by-id"))
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(meta_dir / "by-path"))
-    return importlib.reload(__import__("main"))
+    from features.F1 import sync
+    from features.F3 import archive
+    from features.F2 import duplicate_finder
+    from features.F4 import modules as modules_f4
+
+    importlib.reload(sync)
+    importlib.reload(archive)
+    return SimpleNamespace(
+        archive=archive,
+        index_metadata=sync.index_metadata,
+        index_files=sync.index_files,
+        update_metadata=sync.update_metadata,
+        duplicate_finder=duplicate_finder,
+        modules_f4=modules_f4,
+    )
 
 
 def test_update_drive_markers_creates_ready(tmp_path, monkeypatch):

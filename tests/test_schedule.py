@@ -10,11 +10,11 @@ def test_cron_schedules_are_parsed_from_the_environment(monkeypatch, tmp_path):
     index_dir.mkdir()
     monkeypatch.setenv("INDEX_DIRECTORY", str(index_dir))
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * * 3")
-    import main as hi
+    from features.F1 import sync
     import importlib
 
-    importlib.reload(hi)
-    result = hi.parse_cron_env()
+    importlib.reload(sync)
+    result = sync.parse_cron_env()
     assert result == {
         "minute": "15",
         "hour": "2",
@@ -30,12 +30,12 @@ def test_malformed_cron_expressions_raise_valueerror(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
-    import main as hi
+    from features.F1 import sync
     import importlib
 
-    importlib.reload(hi)
+    importlib.reload(sync)
     with pytest.raises(ValueError):
-        hi.parse_cron_env()
+        sync.parse_cron_env()
 
 
 def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
@@ -67,7 +67,7 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
 
     importlib.reload(hi)
 
-    monkeypatch.setattr(hi, "BackgroundScheduler", lambda: DummyScheduler())
+    monkeypatch.setattr(hi.f1_sync, "BackgroundScheduler", lambda: DummyScheduler())
 
     import features.F6.server as f6_server
 
@@ -79,13 +79,14 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
     async def dummy_service_module_queues():
         added["ran"] = True
 
-    monkeypatch.setattr(hi, "service_module_queues", dummy_service_module_queues)
+    monkeypatch.setattr(
+        hi.modules_f4, "service_module_queues", dummy_service_module_queues
+    )
 
     async def dummy_async():
         return None
 
-    monkeypatch.setattr(hi, "init_meili", dummy_async)
-    monkeypatch.setattr(hi, "sync_documents", dummy_async)
+    monkeypatch.setattr(hi.f1_sync, "init_meili_and_sync", dummy_async)
 
     import asyncio
 
