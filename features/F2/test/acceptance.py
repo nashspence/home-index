@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from features.F2 import duplicate_finder
-from shared import compose, search_meili, wait_for
+from shared import compose, dump_logs, search_meili, wait_for
 
 
 def _compose_paths() -> tuple[Path, Path, Path]:
@@ -86,6 +86,9 @@ def test_s1_initial_sync_with_duplicates(tmp_path: Path) -> None:
         assert link_a.is_symlink() and link_b.is_symlink() and link_c.is_symlink()
         assert link_a.resolve() == link_b.resolve()
         assert link_c.resolve().name == uniq_docs[0]["id"]
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -117,6 +120,9 @@ def test_s2_document_fields_populated(tmp_path: Path) -> None:
         assert dup["copies"] == 2
         assert dup["type"] == "text/plain"
         assert isinstance(dup["mtime"], float)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -129,6 +135,9 @@ def test_s3_search_by_single_criterion(tmp_path: Path) -> None:
         _run_once(compose_file, workdir, output_dir)
         docs = search_meili(compose_file, workdir, "copies = 1")
         assert all(doc["copies"] == 1 for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -146,6 +155,9 @@ def test_s4_search_by_multiple_criteria(tmp_path: Path) -> None:
             f'size = {size} AND type = "text/plain"',
         )
         assert any(doc["id"] == uniq_docs[0]["id"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -169,6 +181,9 @@ def test_s5_add_new_duplicate(tmp_path: Path) -> None:
         assert doc["copies"] == 2
         assert {"c.txt", "c2.txt"} <= set(doc["paths"].keys())
         assert len([d for d in by_id_dir.iterdir() if d.is_dir()]) == 2
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -187,6 +202,9 @@ def test_s6_delete_one_duplicate(tmp_path: Path) -> None:
         docs = search_meili(compose_file, workdir, f'id = "{dup_id}"')
         assert docs[0]["copies"] == 1
         assert not (by_path_dir / "b.txt").exists()
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -208,6 +226,9 @@ def test_s7_delete_last_remaining_copy(tmp_path: Path) -> None:
             search_meili(compose_file, workdir, f'id = "{uniq_id}"', timeout=5)
         assert not (by_path_dir / "c.txt").exists()
         assert uniq_id not in {p.name for p in by_id_dir.iterdir()}
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -231,6 +252,9 @@ def test_s8_file_content_changes(tmp_path: Path) -> None:
         assert (by_id_dir / new_id).exists()
         assert (by_id_dir / old_id).exists()
         assert (by_path_dir / "b.txt").resolve().name == new_id
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -254,6 +278,9 @@ def test_s9_symlink_integrity(tmp_path: Path) -> None:
 
         for link, target in zip(links, targets, strict=True):
             assert link.resolve() == target
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
@@ -271,6 +298,9 @@ def test_s10_search_returns_latest_metadata(tmp_path: Path) -> None:
         docs = search_meili(compose_file, workdir, "copies > 1")
         assert any("extra.txt" in doc.get("paths_list", []) for doc in docs)
         assert any(doc["id"] == uniq_docs[0]["id"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False

@@ -8,7 +8,7 @@ from typing import Any, Callable
 import pytest
 
 from features.F2 import duplicate_finder
-from shared import compose, search_meili, wait_for
+from shared import compose, dump_logs, search_meili, wait_for
 
 
 def _run_once(
@@ -139,16 +139,22 @@ def test_s1_drive_online(tmp_path: Path) -> None:
         drive.mkdir(parents=True)
         (drive / "foo.txt").write_text("hi")
 
-    ids = _run_once(
-        compose_file, workdir, output_dir, ["archive/drive1/foo.txt"], setup
-    )
-    file_id = ids[0]
-    marker = workdir / "input" / "archive" / "drive1-status-ready"
-    assert marker.exists()
-    docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
-    assert all(not doc["offline"] for doc in docs)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        ids = _run_once(
+            compose_file, workdir, output_dir, ["archive/drive1/foo.txt"], setup
+        )
+        file_id = ids[0]
+        marker = workdir / "input" / "archive" / "drive1-status-ready"
+        assert marker.exists()
+        docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
+        assert all(not doc["offline"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s2_drive_unplugged(tmp_path: Path) -> None:
@@ -160,21 +166,27 @@ def test_s2_drive_unplugged(tmp_path: Path) -> None:
         archive.mkdir()
         (archive / "drive1-status-ready").write_text(ts)
 
-    file_id = "hash1"
-    _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive1/foo.txt"],
-        setup,
-        override_ids={"archive/drive1/foo.txt": file_id},
-    )
-    marker = workdir / "input" / "archive" / "drive1-status-ready"
-    assert marker.read_text() == ts
-    docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
-    assert all(doc["offline"] for doc in docs)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        file_id = "hash1"
+        _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive1/foo.txt"],
+            setup,
+            override_ids={"archive/drive1/foo.txt": file_id},
+        )
+        marker = workdir / "input" / "archive" / "drive1-status-ready"
+        assert marker.read_text() == ts
+        docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
+        assert all(doc["offline"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s3_drive_reattach_with_file(tmp_path: Path) -> None:
@@ -187,22 +199,28 @@ def test_s3_drive_reattach_with_file(tmp_path: Path) -> None:
         (drive / "foo.txt").write_text("hi")
         (input_dir / "archive" / "drive1-status-ready").write_text(ts)
 
-    file_id = "hash1"
-    _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive1/foo.txt"],
-        setup,
-        override_ids={"archive/drive1/foo.txt": file_id},
-    )
-    marker = workdir / "input" / "archive" / "drive1-status-ready"
-    ts_new = marker.read_text()
-    assert ts_new != ts
-    docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
-    assert all(not doc["offline"] for doc in docs)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        file_id = "hash1"
+        _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive1/foo.txt"],
+            setup,
+            override_ids={"archive/drive1/foo.txt": file_id},
+        )
+        marker = workdir / "input" / "archive" / "drive1-status-ready"
+        ts_new = marker.read_text()
+        assert ts_new != ts
+        docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
+        assert all(not doc["offline"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s4_drive_reattach_without_file(tmp_path: Path) -> None:
@@ -214,21 +232,27 @@ def test_s4_drive_reattach_without_file(tmp_path: Path) -> None:
         drive.mkdir(parents=True)
         (input_dir / "archive" / "drive1-status-ready").write_text(ts)
 
-    file_id = "hash1"
-    _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        [],
-        setup,
-    )
-    marker = workdir / "input" / "archive" / "drive1-status-ready"
-    ts_new = marker.read_text()
-    assert ts_new != ts
-    with pytest.raises(AssertionError):
-        search_meili(compose_file, workdir, f'id = "{file_id}"', timeout=5)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        file_id = "hash1"
+        _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            [],
+            setup,
+        )
+        marker = workdir / "input" / "archive" / "drive1-status-ready"
+        ts_new = marker.read_text()
+        assert ts_new != ts
+        with pytest.raises(AssertionError):
+            search_meili(compose_file, workdir, f'id = "{file_id}"', timeout=5)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s5_file_copied_online(tmp_path: Path) -> None:
@@ -239,23 +263,29 @@ def test_s5_file_copied_online(tmp_path: Path) -> None:
         drive.mkdir(parents=True)
         (drive / "bar.txt").write_text("hi")
 
-    ids = _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive1/bar.txt"],
-        setup,
-        next_map={"archive/drive1/bar.txt": "mod"},
-    )
-    file_id = ids[0]
-    ready = workdir / "input" / "archive" / "drive1-status-ready"
-    pending = workdir / "input" / "archive" / "drive1-status-pending"
-    assert pending.exists()
-    assert not ready.exists()
-    docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
-    assert all(not doc["offline"] for doc in docs)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        ids = _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive1/bar.txt"],
+            setup,
+            next_map={"archive/drive1/bar.txt": "mod"},
+        )
+        file_id = ids[0]
+        ready = workdir / "input" / "archive" / "drive1-status-ready"
+        pending = workdir / "input" / "archive" / "drive1-status-pending"
+        assert pending.exists()
+        assert not ready.exists()
+        docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
+        assert all(not doc["offline"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s6_file_exists_on_both_paths(tmp_path: Path) -> None:
@@ -267,22 +297,28 @@ def test_s6_file_exists_on_both_paths(tmp_path: Path) -> None:
         (drive / "baz.txt").write_text("hi")
         (input_dir / "baz.txt").write_text("hi")
 
-    _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive1/baz.txt", "baz.txt"],
-        setup,
-    )
-    doc_id = duplicate_finder.compute_hash(workdir / "input" / "baz.txt")
-    by_id = output_dir / "metadata" / "by-id" / doc_id
-    assert by_id.exists()
-    docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
-    assert all(not doc["offline"] for doc in docs)
-    ready = workdir / "input" / "archive" / "drive1-status-ready"
-    assert ready.exists()
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive1/baz.txt", "baz.txt"],
+            setup,
+        )
+        doc_id = duplicate_finder.compute_hash(workdir / "input" / "baz.txt")
+        by_id = output_dir / "metadata" / "by-id" / doc_id
+        assert by_id.exists()
+        docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
+        assert all(not doc["offline"] for doc in docs)
+        ready = workdir / "input" / "archive" / "drive1-status-ready"
+        assert ready.exists()
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s7_online_copy_deleted_archive_offline(tmp_path: Path) -> None:
@@ -316,20 +352,26 @@ def test_s7_online_copy_deleted_archive_offline(tmp_path: Path) -> None:
         relative_target2 = os.path.relpath(doc_dir, link2.parent)
         link2.symlink_to(relative_target2, target_is_directory=True)
 
-    _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        [],
-        setup,
-        override_ids={},
-    )
-    marker = workdir / "input" / "archive" / "drive1-status-ready"
-    assert marker.read_text() == ts
-    docs = search_meili(compose_file, workdir, 'id = "hash1"')
-    assert all(doc["offline"] for doc in docs)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            [],
+            setup,
+            override_ids={},
+        )
+        marker = workdir / "input" / "archive" / "drive1-status-ready"
+        assert marker.read_text() == ts
+        docs = search_meili(compose_file, workdir, 'id = "hash1"')
+        assert all(doc["offline"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s8_archive_drive_renamed(tmp_path: Path) -> None:
@@ -343,22 +385,28 @@ def test_s8_archive_drive_renamed(tmp_path: Path) -> None:
         drive.mkdir(parents=True)
         (drive / "foo.txt").write_text("hi")
 
-    _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive2/foo.txt"],
-        setup,
-        override_ids={"archive/drive2/foo.txt": "hash1"},
-    )
-    old_marker = workdir / "input" / "archive" / "drive1-status-ready"
-    new_marker = workdir / "input" / "archive" / "drive2-status-ready"
-    assert not old_marker.exists()
-    assert new_marker.exists()
-    link = output_dir / "metadata" / "by-path" / "archive" / "drive2" / "foo.txt"
-    assert link.is_symlink()
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive2/foo.txt"],
+            setup,
+            override_ids={"archive/drive2/foo.txt": "hash1"},
+        )
+        old_marker = workdir / "input" / "archive" / "drive1-status-ready"
+        new_marker = workdir / "input" / "archive" / "drive2-status-ready"
+        assert not old_marker.exists()
+        assert new_marker.exists()
+        link = output_dir / "metadata" / "by-path" / "archive" / "drive2" / "foo.txt"
+        assert link.is_symlink()
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s9_multiple_drives_independent(tmp_path: Path) -> None:
@@ -371,26 +419,32 @@ def test_s9_multiple_drives_independent(tmp_path: Path) -> None:
         archive = input_dir / "archive"
         (archive / "drive2-status-ready").write_text("old")
 
-    ids = _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive1/a.txt", "archive/drive2/b.txt"],
-        setup,
-        override_ids={"archive/drive2/b.txt": "hash2"},
-    )
-    id1 = ids[0]
-    id2 = "hash2"
-    ready1 = workdir / "input" / "archive" / "drive1-status-ready"
-    ready2 = workdir / "input" / "archive" / "drive2-status-ready"
-    assert ready1.exists()
-    assert ready2.read_text() == "old"
-    docs1 = search_meili(compose_file, workdir, f'id = "{id1}"')
-    docs2 = search_meili(compose_file, workdir, f'id = "{id2}"')
-    assert all(not doc["offline"] for doc in docs1)
-    assert all(doc["offline"] for doc in docs2)
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+    try:
+        ids = _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive1/a.txt", "archive/drive2/b.txt"],
+            setup,
+            override_ids={"archive/drive2/b.txt": "hash2"},
+        )
+        id1 = ids[0]
+        id2 = "hash2"
+        ready1 = workdir / "input" / "archive" / "drive1-status-ready"
+        ready2 = workdir / "input" / "archive" / "drive2-status-ready"
+        assert ready1.exists()
+        assert ready2.read_text() == "old"
+        docs1 = search_meili(compose_file, workdir, f'id = "{id1}"')
+        docs2 = search_meili(compose_file, workdir, f'id = "{id2}"')
+        assert all(not doc["offline"] for doc in docs1)
+        assert all(doc["offline"] for doc in docs2)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s10_archive_directory_changed(tmp_path: Path) -> None:
@@ -401,38 +455,52 @@ def test_s10_archive_directory_changed(tmp_path: Path) -> None:
         drive.mkdir(parents=True)
         (drive / "foo.txt").write_text("hi")
 
-    ids = _run_once(
-        compose_file,
-        workdir,
-        output_dir,
-        ["archive/drive1/foo.txt"],
-        setup,
-    )
-    file_id = ids[0]
+    try:
+        ids = _run_once(
+            compose_file,
+            workdir,
+            output_dir,
+            ["archive/drive1/foo.txt"],
+            setup,
+        )
+        file_id = ids[0]
 
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
-    input_dir = workdir / "input"
-    (input_dir / "archive").rename(input_dir / "archive2")
-    env_file = tmp_path / ".env"
-    env_file.write_text("ARCHIVE_DIRECTORY=/files/archive2\n")
+        input_dir = workdir / "input"
+        (input_dir / "archive").rename(input_dir / "archive2")
+        env_file = tmp_path / ".env"
+        env_file.write_text("ARCHIVE_DIRECTORY=/files/archive2\n")
 
-    _run_sync(
-        compose_file,
-        workdir,
-        output_dir,
-        [file_id],
-        env_file=env_file,
-    )
+        _run_sync(
+            compose_file,
+            workdir,
+            output_dir,
+            [file_id],
+            env_file=env_file,
+        )
 
-    new_link = output_dir / "metadata" / "by-path" / "archive2" / "drive1" / "foo.txt"
-    old_link = output_dir / "metadata" / "by-path" / "archive" / "drive1" / "foo.txt"
-    assert new_link.is_symlink()
-    assert not old_link.exists()
-    marker = workdir / "input" / "archive2" / "drive1-status-ready"
-    assert marker.exists()
-    docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
-    assert all(not doc["offline"] for doc in docs)
+        new_link = (
+            output_dir / "metadata" / "by-path" / "archive2" / "drive1" / "foo.txt"
+        )
+        old_link = (
+            output_dir / "metadata" / "by-path" / "archive" / "drive1" / "foo.txt"
+        )
+        assert new_link.is_symlink()
+        assert not old_link.exists()
+        marker = workdir / "input" / "archive2" / "drive1-status-ready"
+        assert marker.exists()
+        docs = search_meili(compose_file, workdir, f'id = "{file_id}"')
+        assert all(not doc["offline"] for doc in docs)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
+        )
 
 
 def test_s11_status_files_ignored(tmp_path: Path) -> None:
@@ -443,10 +511,19 @@ def test_s11_status_files_ignored(tmp_path: Path) -> None:
         archive.mkdir()
         (archive / "Foo-status-ready").write_text("x")
 
-    _run_once(compose_file, workdir, output_dir, [], setup)
-    with pytest.raises(AssertionError):
-        search_meili(
-            compose_file, workdir, 'paths_list = "archive/Foo-status-ready"', timeout=5
+    try:
+        _run_once(compose_file, workdir, output_dir, [], setup)
+        with pytest.raises(AssertionError):
+            search_meili(
+                compose_file,
+                workdir,
+                'paths_list = "archive/Foo-status-ready"',
+                timeout=5,
+            )
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
+    finally:
+        compose(
+            compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False
         )
-
-    compose(compose_file, workdir, "down", "--volumes", "--rmi", "local", check=False)
