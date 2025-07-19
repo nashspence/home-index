@@ -2,6 +2,8 @@ import json
 import importlib
 import threading
 import time
+import logging
+import pytest
 
 
 def test_run_server_processes_tasks(monkeypatch):
@@ -240,3 +242,61 @@ def test_process_timeouts_requeues_expired(monkeypatch):
     assert hi.modules_f4.process_timeouts(dummy) is True
     assert dummy.lists["mod:run"][0] == doc_json
     assert not dummy.lists["mod:run:processing"]
+
+
+def _reload_rs(monkeypatch: "pytest.MonkeyPatch"):
+    return importlib.reload(
+        importlib.import_module("features.F4.home_index_module.run_server")
+    )
+
+
+def test_parse_cfg_and_paths(monkeypatch, tmp_path):
+    monkeypatch.setenv(
+        "RESOURCE_SHARES",
+        "- name: gpu\n  seconds: 1\n- name: lic\n  seconds: 2",
+    )
+    monkeypatch.setenv("MODULES", "- name: mod\n  uid: uid1")
+    monkeypatch.setenv("QUEUE_NAME", "mod")
+    monkeypatch.setenv("MODULE_UID", "uid1")
+    monkeypatch.setenv("FILES_DIRECTORY", str(tmp_path / "files"))
+    monkeypatch.setenv("BY_ID_DIRECTORY", str(tmp_path / "meta"))
+
+    rs = _reload_rs(monkeypatch)
+    monkeypatch.setattr(rs, "yaml", None)
+
+    assert rs.parse_resource_shares() == [
+        {"name": "gpu", "seconds": 1},
+        {"name": "lic", "seconds": 2},
+    ]
+    assert rs._parse_modules_cfg() == [{"name": "mod", "uid": "uid1"}]
+    rs._verify_module_uid()
+
+    doc = {"id": "1", "paths": {"a.txt": 1.0}}
+    assert rs.file_path_from_meili_doc(doc) == tmp_path / "files" / "a.txt"
+    path = rs.metadata_dir_path_from_doc(doc)
+    assert path == tmp_path / "meta" / "1" / "mod"
+    assert path.is_dir()
+
+
+def test_verify_module_uid_raises(monkeypatch):
+    monkeypatch.setenv("MODULES", "- name: mod\n  uid: uid1")
+    monkeypatch.setenv("MODULE_UID", "uidX")
+    monkeypatch.setenv("QUEUE_NAME", "mod")
+
+    rs = _reload_rs(monkeypatch)
+    with pytest.raises(SystemExit):
+        rs._verify_module_uid()
+
+
+def test_log_to_file_and_stdout(tmp_path, monkeypatch, capsys):
+    rs = _reload_rs(monkeypatch)
+    logger = logging.getLogger()
+    for h in list(logger.handlers):
+        logger.removeHandler(h)
+    logger.setLevel(logging.INFO)
+    log_file = tmp_path / "log.txt"
+    with rs.log_to_file_and_stdout(log_file):
+        logger.info("hello")
+    captured = capsys.readouterr()
+    assert "hello" in log_file.read_text()
+    assert "hello" in captured.err
