@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from features.F2 import duplicate_finder
-from shared import compose, search_chunks, search_meili, wait_for
+from shared import compose, dump_logs, search_chunks, search_meili, wait_for
 
 
 # utilities ---------------------------------------------------------------
@@ -144,6 +144,9 @@ def test_s1_initial_build(tmp_path: Path) -> None:
             filter_expr=f'file_id = "{doc_id}"',
         )
         assert any(r["file_id"] == doc_id for r in results)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -172,6 +175,9 @@ def test_s2_new_file_added(tmp_path: Path) -> None:
             filter_expr=f'file_id = "{new_id}"',
         )
         assert any(r["file_id"] == new_id for r in results)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -195,6 +201,9 @@ def test_s3_file_contents_change(tmp_path: Path) -> None:
         )
         wait_for(new_chunk.exists, timeout=300, message="new chunks")
         assert (output_dir / "metadata" / "by-id" / orig_id).exists()
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -224,6 +233,9 @@ def test_s4_chunk_schema_complete(tmp_path: Path) -> None:
         for c in chunks:
             assert required <= set(c)
             assert all(c[f] is not None for f in required)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -250,6 +262,9 @@ def test_s5_sorted_paged_search(tmp_path: Path) -> None:
         indexes = [r["index"] for r in results]
         assert indexes == sorted(indexes)
         assert indexes[0] >= 2
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -272,6 +287,9 @@ def test_s6_chunk_size_change_triggers_rebuild(tmp_path: Path) -> None:
         start_count1 = log_file.read_text().count("start")
         settings1 = json.loads((output_dir / "chunk_settings.json").read_text())
         assert settings1["TOKENS_PER_CHUNK"] == 1000
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -287,6 +305,9 @@ def test_s6_chunk_size_change_triggers_rebuild(tmp_path: Path) -> None:
         assert log_file.read_text().count("start") == start_count1
         settings2 = json.loads((output_dir / "chunk_settings.json").read_text())
         assert settings2["TOKENS_PER_CHUNK"] == 10
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -309,6 +330,9 @@ def test_s7_model_change_reembeds_only(tmp_path: Path) -> None:
         start_count1 = log_file.read_text().count("start")
         settings1 = json.loads((output_dir / "chunk_settings.json").read_text())
         assert settings1["EMBED_MODEL_NAME"] == "intfloat/e5-small-v2"
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -322,6 +346,9 @@ def test_s7_model_change_reembeds_only(tmp_path: Path) -> None:
         assert log_file.read_text().count("start") == start_count1
         settings2 = json.loads((output_dir / "chunk_settings.json").read_text())
         assert settings2["EMBED_MODEL_NAME"] == "intfloat/e5-base"
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -341,6 +368,9 @@ def test_s8_warm_restart_no_change(tmp_path: Path) -> None:
         mtime1 = chunk_file.stat().st_mtime
         log_file = chunk_file.with_name("log.txt")
         start_count1 = log_file.read_text().count("start")
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -352,6 +382,9 @@ def test_s8_warm_restart_no_change(tmp_path: Path) -> None:
         assert chunk_file.stat().st_mtime == mtime1
         log_file = chunk_file.with_name("log.txt")
         assert log_file.read_text().count("start") == start_count1
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -368,6 +401,9 @@ def test_s9_deletion_reflected(tmp_path: Path) -> None:
     _start(compose_file, workdir, env_file)
     try:
         _wait_initial(compose_file, workdir, doc_id, env_file)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -379,6 +415,9 @@ def test_s9_deletion_reflected(tmp_path: Path) -> None:
             search_meili(compose_file, workdir, f'id = "{doc_id}"', timeout=5)
         metadata_dir = output_dir / "metadata" / "by-id" / doc_id
         wait_for(lambda: not metadata_dir.exists(), message="metadata removed")
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)
 
@@ -400,5 +439,8 @@ def test_s10_hybrid_filter(tmp_path: Path) -> None:
             filter_expr="module = 'text-module'",
         )
         assert results and all(r["module"] == "text-module" for r in results)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         _stop(compose_file, workdir, env_file)

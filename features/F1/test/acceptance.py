@@ -8,7 +8,7 @@ from pathlib import Path
 from apscheduler.triggers.cron import CronTrigger
 from typing import cast
 
-from shared import compose, search_meili, wait_for
+from shared import compose, dump_logs, search_meili, wait_for
 
 
 def _expected_interval(cron: str) -> float:
@@ -118,6 +118,9 @@ def test_s1_initial_run_existing_files_indexed(tmp_path: Path) -> None:
         interval = (times[1] - times[0]).total_seconds()
         expected = _expected_interval(cron)
         assert abs(interval - expected) <= 1
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -151,6 +154,9 @@ def test_s2_new_file_appears_mid_run(tmp_path: Path) -> None:
             lambda: len(set(p.name for p in by_id.iterdir()) - existing) >= 1,
             message="new file indexed",
         )
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -186,6 +192,9 @@ def test_s3_file_contents_change(tmp_path: Path) -> None:
             message="new hash",
         )
         assert existing <= {p.name for p in by_id.iterdir()}
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -212,6 +221,9 @@ def test_s4_regular_cadence_honoured(tmp_path: Path) -> None:
         interval = (times[-1] - times[-2]).total_seconds()
         expected = _expected_interval(cron)
         assert abs(interval - expected) <= 1
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -240,6 +252,9 @@ def test_s5_long_running_sync_never_overlaps(tmp_path: Path) -> None:
         assert done_idx < _wait_for_log(
             output_dir, "start file sync", start=first_start_index + 1
         )
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -262,6 +277,9 @@ def test_s6_change_schedule(tmp_path: Path) -> None:
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
         _wait_for_start_lines(output_dir, 2)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -282,6 +300,9 @@ def test_s6_change_schedule(tmp_path: Path) -> None:
         interval = (times[-1] - times[-2]).total_seconds()
         expected = _expected_interval(cron2)
         assert abs(interval - expected) <= 1
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -306,6 +327,9 @@ def test_s7_restart_with_same_schedule(tmp_path: Path) -> None:
         _wait_for_start_lines(output_dir, 2)
         initial_lines = (output_dir / "files.log").read_text().splitlines()
         initial_count = len(_read_start_times(output_dir))
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -322,6 +346,9 @@ def test_s7_restart_with_same_schedule(tmp_path: Path) -> None:
         _wait_for_start_lines(output_dir, initial_count + 2)
         final_lines = (output_dir / "files.log").read_text().splitlines()
         assert len(final_lines) > len(initial_lines)
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
@@ -349,6 +376,9 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
             compose_file, workdir, "logs", "--no-color", env_file=env_file, check=False
         )
         assert b"Invalid cron expression" in logs.stdout
+    except Exception:
+        dump_logs(compose_file, workdir)
+        raise
     finally:
         compose(
             compose_file,
