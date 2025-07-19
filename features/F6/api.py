@@ -102,7 +102,13 @@ async def apply_ops(ops: FileOps) -> None:
     """
     # Lazy import to avoid cycles and keep mypy happy
     from features.F1 import sync
-    from features.F2 import duplicate_finder, metadata_store, path_links, search_index
+    from features.F2 import (
+        duplicate_finder,
+        metadata_store,
+        migrations,
+        path_links,
+        search_index,
+    )
     from features.F3 import archive
     from features.F4 import modules as modules_f4
 
@@ -126,7 +132,7 @@ async def apply_ops(ops: FileOps) -> None:
             "size": stat.st_size,
             "type": sync.get_mime_type(target),
             "copies": 1,
-            "version": sync.migrations.CURRENT_VERSION,
+            "version": migrations.CURRENT_VERSION,
             "next": "",
         }
         archive.update_archive_flags(doc)
@@ -163,7 +169,7 @@ async def apply_ops(ops: FileOps) -> None:
         doc_data["mtime"] = max(doc_data["paths"].values())
         doc_data["copies"] = len(doc_data["paths"])
         doc_data["type"] = sync.get_mime_type(dest)
-        doc_data["version"] = sync.migrations.CURRENT_VERSION
+        doc_data["version"] = migrations.CURRENT_VERSION
         archive.update_archive_flags(doc_data)
         modules_f4.set_next_modules(
             {doc_id: doc_data}, force_offline=modules_f4.is_modules_changed

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from itertools import chain
-from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, cast
 
 from meilisearch_python_sdk import AsyncClient
 
@@ -21,8 +19,8 @@ MEILISEARCH_CHUNK_INDEX_NAME = os.environ.get(
 )
 
 client: AsyncClient | None = None
-index = None
-chunk_index = None
+index: Any | None = None
+chunk_index: Any | None = None
 
 
 async def init_meili() -> None:
@@ -134,6 +132,7 @@ async def init_meili() -> None:
 
     try:
         files_logger.debug("meili update index attrs")
+        assert index is not None
         await index.update_filterable_attributes(filterable)
         await index.update_sortable_attributes(
             [
@@ -163,22 +162,24 @@ async def get_document_count() -> int:
     if not index:
         raise RuntimeError("meili index did not init")
     stats = await index.get_stats()
-    return stats.number_of_documents
+    return cast(int, stats.number_of_documents)
 
 
 async def add_or_update_documents(docs: Iterable[Mapping[str, Any]]) -> None:
     if not index:
         raise RuntimeError("meili index did not init")
-    for i in range(0, len(docs), MEILISEARCH_BATCH_SIZE):
-        batch = list(docs)[i : i + MEILISEARCH_BATCH_SIZE]
+    docs_list = list(docs)
+    for i in range(0, len(docs_list), MEILISEARCH_BATCH_SIZE):
+        batch = docs_list[i : i + MEILISEARCH_BATCH_SIZE]
         await index.update_documents(batch)
 
 
 async def add_or_update_chunk_documents(docs: Iterable[Mapping[str, Any]]) -> None:
     if not chunk_index:
         raise RuntimeError("meili chunk index did not init")
-    for i in range(0, len(docs), MEILISEARCH_BATCH_SIZE):
-        batch = list(docs)[i : i + MEILISEARCH_BATCH_SIZE]
+    docs_list = list(docs)
+    for i in range(0, len(docs_list), MEILISEARCH_BATCH_SIZE):
+        batch = docs_list[i : i + MEILISEARCH_BATCH_SIZE]
         await chunk_index.update_documents(batch)
 
 
@@ -239,7 +240,7 @@ async def delete_chunk_docs_by_file_id_and_module(file_id: str, module: str) -> 
 async def get_document(doc_id: str) -> Mapping[str, Any]:
     if not index:
         raise RuntimeError("meili index did not init")
-    return await index.get_document(doc_id)
+    return cast(Mapping[str, Any], await index.get_document(doc_id))
 
 
 async def get_all_documents() -> list[dict[str, Any]]:

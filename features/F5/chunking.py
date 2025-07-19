@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, cast
 
 from features.F2 import metadata_store
 from features.F5 import chunk_utils
@@ -71,4 +71,4 @@ async def sync_content_files(docs_by_hash: Mapping[str, Mapping[str, Any]]) -> N
             chunk_path = module_dir / chunk_utils.CHUNK_FILENAME
             if content_path.exists() and not chunk_path.exists():
                 await add_content_chunks(doc, module_dir.name)
-        await modules_f4.update_doc_from_module(doc)
+        await modules_f4.update_doc_from_module(cast(dict[str, Any], doc))
