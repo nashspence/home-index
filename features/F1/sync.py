@@ -8,9 +8,10 @@ import shutil
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping, MutableMapping, Callable, Awaitable, Coroutine, cast
 
 from apscheduler.schedulers.background import BackgroundScheduler
+import mimetypes
 
 from features.F1 import scheduler
 from features.F2 import duplicate_finder, metadata_store, migrations, path_links
@@ -63,7 +64,7 @@ parse_cron_env = scheduler.parse_cron_env
 # --- sync helpers -----------------------------------------------------------
 
 
-def write_doc_json(doc: Mapping[str, Any]) -> None:
+def write_doc_json(doc: MutableMapping[str, Any]) -> None:
     metadata_store.write_doc_json(doc)
 
 
@@ -84,7 +85,7 @@ def get_mime_type(file_path: Path) -> str:
         import magic
 
         magic_mime = magic.Magic(mime=True)
-    mime_type = magic_mime.from_file(str(file_path))
+    mime_type = cast(str, magic_mime.from_file(str(file_path)))
     if mime_type == "application/octet-stream":
         if is_apple_double(file_path):
             return "multipart/appledouble"
@@ -96,7 +97,13 @@ def get_mime_type(file_path: Path) -> str:
 # --- indexing ---------------------------------------------------------------
 
 
-def index_metadata():
+def index_metadata() -> tuple[
+    dict[str, dict[str, Any]],
+    dict[str, str],
+    dict[str, dict[str, Any]],
+    dict[str, str],
+    dict[str, dict[str, Any]],
+]:
     metadata_docs_by_hash = {}
     metadata_hashes_by_relpath = {}
     unmounted_archive_docs_by_hash = {}
@@ -108,14 +115,14 @@ def index_metadata():
         dir / "document.json" for dir in (metadata_store.by_id_directory()).iterdir()
     ]
 
-    def read_doc_json(doc_json_path):
+    def read_doc_json(doc_json_path: Path) -> dict[str, Any] | None:
         if not doc_json_path.exists():
             shutil.rmtree(doc_json_path.parent)
             return None
         with doc_json_path.open("r") as file:
-            return json.load(file)
+            return cast(dict[str, Any], json.load(file))
 
-    def handle_doc(doc):
+    def handle_doc(doc: dict[str, Any] | None) -> None:
         if not doc:
             return
         if migrations.migrate_doc(doc):
@@ -182,11 +189,11 @@ def index_metadata():
 
 
 def index_files(
-    metadata_docs_by_hash,
-    metadata_hashes_by_relpath,
-    unmounted_archive_docs_by_hash,
-    unmounted_archive_hashes_by_relpath,
-):
+    metadata_docs_by_hash: dict[str, dict[str, Any]],
+    metadata_hashes_by_relpath: dict[str, str],
+    unmounted_archive_docs_by_hash: dict[str, dict[str, Any]],
+    unmounted_archive_hashes_by_relpath: dict[str, str],
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     files_docs_by_hash: dict[str, dict[str, Any]] = {}
     files_hashes_by_relpath: dict[str, str] = {}
 
@@ -204,7 +211,7 @@ def index_files(
                 continue
             file_paths.append(path)
 
-    def handle_hash_at_path(args):
+    def handle_hash_at_path(args: tuple[Path, str, os.stat_result]) -> None:
         path, hash_val, stat = args
         relpath = str(path.relative_to(INDEX_DIRECTORY))
 
@@ -273,11 +280,11 @@ def index_files(
 
 
 def update_metadata(
-    metadata_docs_by_hash,
-    metadata_hashes_by_relpath,
-    files_docs_by_hash,
-    files_hashes_by_relpath,
-):
+    metadata_docs_by_hash: dict[str, dict[str, Any]],
+    metadata_hashes_by_relpath: dict[str, str],
+    files_docs_by_hash: dict[str, dict[str, Any]],
+    files_hashes_by_relpath: dict[str, str],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     files_logger.info(" * check for upserted documents")
     upserted_docs_by_hash = {
         hash_val: files_doc
@@ -304,14 +311,14 @@ def update_metadata(
         files_hashes_by_relpath.keys()
     )
 
-    def handle_deleted_relpath(relpath):
+    def handle_deleted_relpath(relpath: str) -> None:
         metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
         by_id_path = metadata_store.by_id_directory() / metadata_doc["id"]
         if metadata_doc["id"] not in files_docs_by_hash and by_id_path.exists():
             shutil.rmtree(by_id_path)
         path_links.unlink_path(relpath)
 
-    def handle_upserted_doc(doc):
+    def handle_upserted_doc(doc: dict[str, Any]) -> None:
         write_doc_json(doc)
         for relpath in doc["paths"].keys():
             path_links.link_path(relpath, doc["id"])
@@ -345,7 +352,10 @@ def update_metadata(
     return upserted_docs_by_hash, files_docs_by_hash
 
 
-async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
+async def update_meilisearch(
+    upserted_docs_by_hash: dict[str, dict[str, Any]],
+    files_docs_by_hash: Mapping[str, Mapping[str, Any]],
+) -> None:
     files_logger.info(" * get all meilisearch documents")
     all_meili_docs = await search_index.get_all_documents()
     meili_hashes = {doc["id"] for doc in all_meili_docs}
@@ -356,7 +366,10 @@ async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
     files_logger.info(" * check for missing meilisearch documents")
     missing_meili_hashes = set(files_docs_by_hash.keys()) - meili_hashes
     upserted_docs_by_hash.update(
-        {hash_val: files_docs_by_hash[hash_val] for hash_val in missing_meili_hashes}
+        {
+            hash_val: cast(dict[str, Any], files_docs_by_hash[hash_val])
+            for hash_val in missing_meili_hashes
+        }
     )
 
     if deleted_hashes:
@@ -374,7 +387,7 @@ async def update_meilisearch(upserted_docs_by_hash, files_docs_by_hash):
     files_logger.info(" * counted %d documents in meilisearch", total_docs_in_meili)
 
 
-async def sync_documents():
+async def sync_documents() -> None:
     try:
         files_logger.info("---------------------------------------------------")
         files_logger.info("start file sync")
@@ -419,22 +432,24 @@ async def sync_documents():
 # --- scheduler orchestration -----------------------------------------------
 
 
-def run_async_in_loop(func, *args):
+def run_async_in_loop(
+    func: Callable[..., Coroutine[Any, Any, Any]], *args: Any
+) -> None:
     asyncio.run(func(*args))
 
 
-def run_in_process(func, *args):
+def run_in_process(func: Callable[..., Coroutine[Any, Any, Any]], *args: Any) -> None:
     process = Process(target=run_async_in_loop, args=(func,) + args)
     process.start()
     process.join()
 
 
-async def init_meili_and_sync():
+async def init_meili_and_sync() -> None:
     await search_index.init_meili()
     await sync_documents()
 
 
-async def schedule_and_run(api_coro, *, debug: bool) -> None:
+async def schedule_and_run(api_coro: Awaitable[Any], *, debug: bool) -> None:
     sched = BackgroundScheduler()
     scheduler.attach_sync_job(
         sched,
