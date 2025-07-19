@@ -2,19 +2,19 @@ import importlib
 
 
 def test_migrate_doc_adds_paths_list():
-    import main as hi
+    from features.F2 import migrations
 
-    importlib.reload(hi)
+    importlib.reload(migrations)
 
     doc = {"id": "1", "paths": {"a.txt": 1.0}}
-    assert hi.migrate_doc(doc)
+    assert migrations.migrate_doc(doc)
     assert doc["paths_list"] == ["a.txt"]
-    assert doc["version"] == hi.CURRENT_VERSION
+    assert doc["version"] == migrations.CURRENT_VERSION
 
     doc2 = {
         "id": "2",
         "paths": {"b.txt": 1.0},
         "paths_list": ["b.txt"],
-        "version": hi.CURRENT_VERSION,
+        "version": migrations.CURRENT_VERSION,
     }
-    assert not hi.migrate_doc(doc2)
+    assert not migrations.migrate_doc(doc2)

@@ -78,11 +78,9 @@ def test_update_doc_from_module_updates_and_saves(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     modules = _reload_modules(monkeypatch, tmp_path)
-    import main as hi
+    from features.F2 import search_index
 
-    importlib.reload(hi)
-    hi.modules_f4 = modules
-    hi.update_doc_from_module = modules.update_doc_from_module
+    importlib.reload(search_index)
 
     modules.module_values = [
         {"name": "m1"},
@@ -98,7 +96,9 @@ def test_update_doc_from_module_updates_and_saves(
     async def fake_add(doc: dict[str, Any]) -> None:
         recorded["added"] = doc
 
-    monkeypatch.setattr(hi, "add_or_update_document", fake_add)
+    monkeypatch.setattr(
+        search_index, "add_or_update_documents", lambda docs: fake_add(docs[0])
+    )
     monkeypatch.setattr(
         modules, "update_archive_flags", lambda d: recorded.setdefault("flags", True)
     )

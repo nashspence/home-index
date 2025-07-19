@@ -20,11 +20,11 @@ def test_index_files_ignores_content(tmp_path, monkeypatch):
     monkeypatch.setenv("BY_ID_DIRECTORY", str(by_id))
     monkeypatch.setenv("BY_PATH_DIRECTORY", str(by_path))
 
-    import main as hi
+    from features.F1 import sync
 
-    importlib.reload(hi)
+    importlib.reload(sync)
 
-    doc_id = hi.duplicate_finder.compute_hash(file_path)
+    doc_id = sync.duplicate_finder.compute_hash(file_path)
     doc = {
         "id": doc_id,
         "paths": {"a.txt": file_path.stat().st_mtime},
@@ -38,7 +38,7 @@ def test_index_files_ignores_content(tmp_path, monkeypatch):
     doc_dir.mkdir()
     (doc_dir / "document.json").write_text(json.dumps(doc))
 
-    md, mhr, ua_docs, ua_hashes, _ = hi.index_metadata()
-    files_docs, hashes = hi.index_files(md, mhr, ua_docs, ua_hashes)
+    md, mhr, ua_docs, ua_hashes, _ = sync.index_metadata()
+    files_docs, hashes = sync.index_files(md, mhr, ua_docs, ua_hashes)
 
     assert "mod.content" not in files_docs[doc_id]

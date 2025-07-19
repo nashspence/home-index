@@ -101,8 +101,8 @@ async def apply_ops(ops: FileOps) -> None:
     changed to accept a temp file path instead of base64.
     """
     # Lazy import to avoid cycles and keep mypy happy
-    hi = cast(Any, _get_hi())
-    from features.F2 import duplicate_finder, metadata_store, path_links
+    from features.F1 import sync
+    from features.F2 import duplicate_finder, metadata_store, path_links, search_index
     from features.F3 import archive
     from features.F4 import modules as modules_f4
 
@@ -124,9 +124,9 @@ async def apply_ops(ops: FileOps) -> None:
             "paths_list": [item.path],
             "mtime": mtime,
             "size": stat.st_size,
-            "type": hi.get_mime_type(target),
+            "type": sync.get_mime_type(target),
             "copies": 1,
-            "version": hi.CURRENT_VERSION,
+            "version": sync.migrations.CURRENT_VERSION,
             "next": "",
         }
         archive.update_archive_flags(doc)
@@ -162,8 +162,8 @@ async def apply_ops(ops: FileOps) -> None:
         doc_data["paths_list"] = sorted(doc_data["paths"].keys())
         doc_data["mtime"] = max(doc_data["paths"].values())
         doc_data["copies"] = len(doc_data["paths"])
-        doc_data["type"] = hi.get_mime_type(dest)
-        doc_data["version"] = hi.CURRENT_VERSION
+        doc_data["type"] = sync.get_mime_type(dest)
+        doc_data["version"] = sync.migrations.CURRENT_VERSION
         archive.update_archive_flags(doc_data)
         modules_f4.set_next_modules(
             {doc_id: doc_data}, force_offline=modules_f4.is_modules_changed
@@ -206,12 +206,12 @@ async def apply_ops(ops: FileOps) -> None:
 
     # ---------- SEARCH INDEX -------------------------------------------
     if docs_to_upsert:
-        await hi.add_or_update_documents(list(docs_to_upsert.values()))
+        await search_index.add_or_update_documents(list(docs_to_upsert.values()))
     if ids_to_delete:
-        await hi.delete_docs_by_id(ids_to_delete)
-        await hi.delete_chunk_docs_by_file_ids(ids_to_delete)
+        await search_index.delete_docs_by_id(ids_to_delete)
+        await search_index.delete_chunk_docs_by_file_ids(ids_to_delete)
     if docs_to_upsert or ids_to_delete:
-        await hi.wait_for_meili_idle()
+        await search_index.wait_for_meili_idle()
 
 
 # ------------------------------------------------------------------------
