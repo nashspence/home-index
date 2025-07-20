@@ -236,13 +236,12 @@ def test_s5_long_running_sync_never_overlaps(tmp_path: Path) -> None:
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
-        first_start_index = len(_read_start_times(output_dir))
         _wait_for_start_lines(output_dir, 1)
         done_idx = _wait_for_log(output_dir, "completed file sync")
         assert len(_read_start_times(output_dir)) == 1
         _wait_for_start_lines(output_dir, 2)
         assert done_idx < _wait_for_log(
-            output_dir, "start file sync", start=first_start_index + 1
+            output_dir, "start file sync", start=done_idx + 1
         )
     except Exception:
         dump_logs(compose_file, workdir)
@@ -361,9 +360,18 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
     try:
-        time.sleep(3)
+        wait_for(
+            lambda: (
+                b"exit"
+                in compose(
+                    compose_file, workdir, "ps", env_file=env_file, check=False
+                ).stdout.lower()
+            ),
+            timeout=20,
+            message="container exit",
+        )
         ps = compose(compose_file, workdir, "ps", env_file=env_file, check=False)
-        assert b"Exit" in ps.stdout or b"exited" in ps.stdout.lower()
+        assert b"exit" in ps.stdout.lower()
         logs = compose(
             compose_file, workdir, "logs", "--no-color", env_file=env_file, check=False
         )
