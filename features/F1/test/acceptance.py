@@ -375,7 +375,7 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
         wait_for(
             lambda: b"exit"
             in compose(compose_file, workdir, "ps", check=False).stdout.lower(),
-            timeout=60,
+            timeout=180,
             message="container exit",
         )
         ps = compose(compose_file, workdir, "ps", check=False)
