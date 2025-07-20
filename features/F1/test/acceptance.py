@@ -287,7 +287,7 @@ def test_s6_change_schedule(tmp_path: Path) -> None:
     initial_count = len(_read_start_times(output_dir))
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
-        times = _wait_for_start_lines(output_dir, initial_count + 2)
+        times = _wait_for_start_lines(output_dir, initial_count + 3)
         interval = (times[-1] - times[-2]).total_seconds()
         expected = _expected_interval(cron2)
         assert abs(interval - expected) <= 1
@@ -367,7 +367,6 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
                 workdir,
                 "logs",
                 "--no-color",
-                env_file=env_file,
                 check=False,
             ).stdout.lower(),
             timeout=180,
@@ -375,17 +374,13 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
         )
         wait_for(
             lambda: b"exit"
-            in compose(
-                compose_file, workdir, "ps", env_file=env_file, check=False
-            ).stdout.lower(),
+            in compose(compose_file, workdir, "ps", check=False).stdout.lower(),
             timeout=60,
             message="container exit",
         )
-        ps = compose(compose_file, workdir, "ps", env_file=env_file, check=False)
+        ps = compose(compose_file, workdir, "ps", check=False)
         assert b"exit" in ps.stdout.lower()
-        logs = compose(
-            compose_file, workdir, "logs", "--no-color", env_file=env_file, check=False
-        )
+        logs = compose(compose_file, workdir, "logs", "--no-color", check=False)
         assert b"invalid cron expression" in logs.stdout.lower()
     except Exception:
         dump_logs(compose_file, workdir)
