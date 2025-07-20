@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -96,9 +98,10 @@ def compose_paths(test_file: str | Path) -> tuple[Path, Path, Path]:
     test_file:
         Path to the acceptance test file using the compose setup.
     """
-    path = Path(test_file)
-    compose_file = path.with_name("docker-compose.yml")
-    workdir = compose_file.parent
+    src = Path(test_file).resolve().parent
+    workdir = Path(tempfile.mkdtemp(prefix=src.name + "_"))
+    shutil.copytree(src, workdir, dirs_exist_ok=True)
+    compose_file = workdir / "docker-compose.yml"
     output_dir = workdir / "output"
     return compose_file, workdir, output_dir
 
