@@ -8,7 +8,14 @@ import subprocess
 import time
 import pytest
 
-from shared import compose, dump_logs, search_meili, search_chunks, wait_for
+from shared import (
+    compose,
+    compose_paths,
+    dump_logs,
+    search_meili,
+    search_chunks,
+    wait_for,
+)
 from features.F2 import duplicate_finder
 
 
@@ -76,13 +83,6 @@ def _run_files(
             check=False,
         )
     return version_files
-
-
-def _compose_paths() -> tuple[Path, Path, Path]:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
-    return compose_file, workdir, output_dir
 
 
 def _run_again(
@@ -407,7 +407,7 @@ def _run_share_group_rotation(
 
 
 def test_s1_initial_enrichment(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     drive = workdir / "input" / "archive" / "drive1"
     drive.mkdir(parents=True)
@@ -425,7 +425,7 @@ def test_s1_initial_enrichment(tmp_path: Path) -> None:
 
 
 def test_s2_plug_in_archive_drive(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     drive = workdir / "input" / "archive" / "drive1"
     drive.mkdir(parents=True)
@@ -443,7 +443,7 @@ def test_s2_plug_in_archive_drive(tmp_path: Path) -> None:
 
 
 def test_s3_remove_drive_mid_run(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     drive = workdir / "input" / "archive" / "drive1"
     drive.mkdir(parents=True)
@@ -466,7 +466,7 @@ def test_s3_remove_drive_mid_run(tmp_path: Path) -> None:
 
 
 def test_s4_uid_order_change() -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_path = Path(tempfile.mkdtemp()) / ".env"
     _run_once(compose_file, workdir, output_dir, env_path)
     doc_id = _get_doc_id(workdir, output_dir)
@@ -483,7 +483,7 @@ def test_s4_uid_order_change() -> None:
 
 
 def test_s5_status_files_ignored() -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     (workdir / "input" / "Foo-status-ready").write_text("x")
     env_file = Path(tempfile.mkdtemp()) / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)
@@ -494,7 +494,7 @@ def test_s5_status_files_ignored() -> None:
 
 
 def test_s6_non_archive_files_unaffected(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     drive = workdir / "input" / "archive" / "drive1"
     drive.mkdir(parents=True)
@@ -517,7 +517,7 @@ def test_s6_non_archive_files_unaffected(tmp_path: Path) -> None:
 
 
 def test_s7_legacy_docs_still_searchable(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)
     doc_id = _get_doc_id(workdir, output_dir)
@@ -721,19 +721,19 @@ def _run_check_timeout(
 
 
 def test_s8_run_timeout(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _run_timeout(compose_file, workdir, output_dir, env_file)
 
 
 def test_s9_check_timeout(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _run_check_timeout(compose_file, workdir, output_dir, env_file)
 
 
 def test_s10_restart_no_change() -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = Path(tempfile.mkdtemp()) / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)
     doc_id = _get_doc_id(workdir, output_dir)
@@ -746,7 +746,7 @@ def test_s10_restart_no_change() -> None:
 
 
 def test_s11_queue_item_uid_mismatch(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     doc_id = _run_uid_mismatch(compose_file, workdir, output_dir, env_file)
     docs = search_meili(compose_file, workdir, f'id = "{doc_id}"')
@@ -754,7 +754,7 @@ def test_s11_queue_item_uid_mismatch(tmp_path: Path) -> None:
 
 
 def test_s12_wrong_module_uid(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     env_file.write_text(
         f"COMMIT_SHA={os.environ.get('COMMIT_SHA', 'main')}\nEXAMPLE_UID=bad\n"
@@ -793,7 +793,7 @@ def test_s12_wrong_module_uid(tmp_path: Path) -> None:
 
 
 def test_s13_parallel_modules_crash_isolation(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     doc_id, logs = _run_crash_isolation(compose_file, workdir, output_dir, env_file)
     version_file = (
@@ -804,7 +804,7 @@ def test_s13_parallel_modules_crash_isolation(tmp_path: Path) -> None:
 
 
 def test_s14_share_group_rotation() -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = Path(tempfile.mkdtemp()) / ".env"
     logs_example, logs_timeout = _run_share_group_rotation(
         compose_file, workdir, output_dir, env_file
@@ -822,7 +822,7 @@ def test_s14_share_group_rotation() -> None:
 
 
 def test_s15_meilisearch_update_propagation(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)
     doc_id = _get_doc_id(workdir, output_dir)

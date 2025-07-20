@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -88,6 +90,22 @@ def search_chunks(
         time.sleep(0.5)
 
 
+def compose_paths(test_file: str | Path) -> tuple[Path, Path, Path]:
+    """Return common compose paths for acceptance tests.
+
+    Parameters
+    ----------
+    test_file:
+        Path to the acceptance test file using the compose setup.
+    """
+    src = Path(test_file).resolve().parent
+    workdir = Path(tempfile.mkdtemp(prefix=src.name + "_"))
+    shutil.copytree(src, workdir, dirs_exist_ok=True)
+    compose_file = workdir / "docker-compose.yml"
+    output_dir = workdir / "output"
+    return compose_file, workdir, output_dir
+
+
 def compose(
     compose_file: Path,
     workdir: Path,
@@ -107,7 +125,7 @@ def compose(
             key, _, val = line.partition("=")
             env[key] = val
     cmd += ["-f", str(compose_file), *args]
-    return subprocess.run(cmd, check=check, cwd=workdir, env=env)
+    return subprocess.run(cmd, check=check, cwd=workdir, env=env, capture_output=True)
 
 
 def wait_for(

@@ -8,7 +8,7 @@ from typing import Any, Callable
 import pytest
 
 from features.F2 import duplicate_finder
-from shared import compose, dump_logs, search_meili, wait_for
+from shared import compose, compose_paths, dump_logs, search_meili, wait_for
 
 
 def _run_once(
@@ -96,13 +96,6 @@ def _run_once(
     return doc_ids
 
 
-def _compose_paths() -> tuple[Path, Path, Path]:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
-    return compose_file, workdir, output_dir
-
-
 def _run_sync(
     compose_file: Path,
     workdir: Path,
@@ -132,7 +125,7 @@ def _run_sync(
 
 
 def test_s1_drive_online(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         drive = input_dir / "archive" / "drive1"
@@ -158,7 +151,7 @@ def test_s1_drive_online(tmp_path: Path) -> None:
 
 
 def test_s2_drive_unplugged(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     ts = "2025-01-01T00:00:00Z"
 
     def setup(input_dir: Path) -> None:
@@ -190,7 +183,7 @@ def test_s2_drive_unplugged(tmp_path: Path) -> None:
 
 
 def test_s3_drive_reattach_with_file(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     ts = "2025-01-01T00:00:00Z"
 
     def setup(input_dir: Path) -> None:
@@ -224,7 +217,7 @@ def test_s3_drive_reattach_with_file(tmp_path: Path) -> None:
 
 
 def test_s4_drive_reattach_without_file(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     ts = "2025-01-01T00:00:00Z"
 
     def setup(input_dir: Path) -> None:
@@ -256,7 +249,7 @@ def test_s4_drive_reattach_without_file(tmp_path: Path) -> None:
 
 
 def test_s5_file_copied_online(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         drive = input_dir / "archive" / "drive1"
@@ -289,7 +282,7 @@ def test_s5_file_copied_online(tmp_path: Path) -> None:
 
 
 def test_s6_file_exists_on_both_paths(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         drive = input_dir / "archive" / "drive1"
@@ -322,7 +315,7 @@ def test_s6_file_exists_on_both_paths(tmp_path: Path) -> None:
 
 
 def test_s7_online_copy_deleted_archive_offline(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     ts = "2025-01-01T00:00:00Z"
 
     def setup(input_dir: Path) -> None:
@@ -375,7 +368,7 @@ def test_s7_online_copy_deleted_archive_offline(tmp_path: Path) -> None:
 
 
 def test_s8_archive_drive_renamed(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         archive = input_dir / "archive"
@@ -410,7 +403,7 @@ def test_s8_archive_drive_renamed(tmp_path: Path) -> None:
 
 
 def test_s9_multiple_drives_independent(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         drive1 = input_dir / "archive" / "drive1"
@@ -448,7 +441,7 @@ def test_s9_multiple_drives_independent(tmp_path: Path) -> None:
 
 
 def test_s10_archive_directory_changed(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         drive = input_dir / "archive" / "drive1"
@@ -504,7 +497,7 @@ def test_s10_archive_directory_changed(tmp_path: Path) -> None:
 
 
 def test_s11_status_files_ignored(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
 
     def setup(input_dir: Path) -> None:
         archive = input_dir / "archive"

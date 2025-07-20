@@ -85,7 +85,11 @@ def update_drive_markers(docs: Mapping[str, Mapping[str, Any]]) -> None:
     Markers are updated for all referenced drives. Offline drives retain their
     timestamp unless work is queued for them (e.g. after a module update).
     """
-    drives_present = {d.name for d in archive_directory().iterdir() if d.is_dir()}
+    root = archive_directory()
+    if not root.exists():
+        return
+
+    drives_present = {d.name for d in root.iterdir() if d.is_dir()}
     drives_referenced: set[str] = set()
     pending_map: dict[str, bool] = {}
     for doc in docs.values():
@@ -98,7 +102,7 @@ def update_drive_markers(docs: Mapping[str, Mapping[str, Any]]) -> None:
             if doc.get("next"):
                 pending_map[drive] = True
 
-    for marker in archive_directory().iterdir():
+    for marker in root.iterdir():
         if is_status_marker(marker):
             name = marker.name
             if name.endswith(STATUS_READY_SUFFIX):

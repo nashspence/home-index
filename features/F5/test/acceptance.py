@@ -9,17 +9,17 @@ from typing import Any
 import pytest
 
 from features.F2 import duplicate_finder
-from shared import compose, dump_logs, search_chunks, search_meili, wait_for
+from shared import (
+    compose,
+    compose_paths,
+    dump_logs,
+    search_chunks,
+    search_meili,
+    wait_for,
+)
 
 
 # utilities ---------------------------------------------------------------
-
-
-def _compose_paths() -> tuple[Path, Path, Path]:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
-    return compose_file, workdir, output_dir
 
 
 def _write_env(env_file: Path, extra: dict[str, str] | None = None) -> None:
@@ -128,7 +128,7 @@ def _wait_initial(
 
 
 def test_s1_initial_build(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)
@@ -152,7 +152,7 @@ def test_s1_initial_build(tmp_path: Path) -> None:
 
 
 def test_s2_new_file_added(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)
@@ -183,7 +183,7 @@ def test_s2_new_file_added(tmp_path: Path) -> None:
 
 
 def test_s3_file_contents_change(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)
@@ -209,7 +209,7 @@ def test_s3_file_contents_change(tmp_path: Path) -> None:
 
 
 def test_s4_chunk_schema_complete(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)
@@ -241,7 +241,7 @@ def test_s4_chunk_schema_complete(tmp_path: Path) -> None:
 
 
 def test_s5_sorted_paged_search(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file, {"TOKENS_PER_CHUNK": "20", "CHUNK_OVERLAP": "0"})
@@ -270,7 +270,7 @@ def test_s5_sorted_paged_search(tmp_path: Path) -> None:
 
 
 def test_s6_chunk_size_change_triggers_rebuild(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file, {"TOKENS_PER_CHUNK": "1000", "CHUNK_OVERLAP": "0"})
@@ -313,7 +313,7 @@ def test_s6_chunk_size_change_triggers_rebuild(tmp_path: Path) -> None:
 
 
 def test_s7_model_change_reembeds_only(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file, {"EMBED_MODEL_NAME": "intfloat/e5-small-v2"})
@@ -354,7 +354,7 @@ def test_s7_model_change_reembeds_only(tmp_path: Path) -> None:
 
 
 def test_s8_warm_restart_no_change(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)
@@ -390,7 +390,7 @@ def test_s8_warm_restart_no_change(tmp_path: Path) -> None:
 
 
 def test_s9_deletion_reflected(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)
@@ -423,7 +423,7 @@ def test_s9_deletion_reflected(tmp_path: Path) -> None:
 
 
 def test_s10_hybrid_filter(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _prepare_dirs(workdir, output_dir)
     _write_env(env_file)

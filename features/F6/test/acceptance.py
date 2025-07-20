@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from features.F2 import duplicate_finder
-from shared import compose, dump_logs, search_meili, wait_for
+from shared import compose, compose_paths, dump_logs, search_meili, wait_for
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -50,13 +50,6 @@ def _move_dav(src: str, dest: str) -> None:
     urllib.request.urlopen(req)
 
 
-def _compose_paths() -> tuple[Path, Path, Path]:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
-    return compose_file, workdir, output_dir
-
-
 def _start_stack(
     compose_file: Path, workdir: Path, output_dir: Path, env_file: Path
 ) -> None:
@@ -91,7 +84,7 @@ def _stop_stack(compose_file: Path, workdir: Path, env_file: Path) -> None:
 
 
 def test_s1_add_file(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _start_stack(compose_file, workdir, output_dir, env_file)
     try:
@@ -113,7 +106,7 @@ def test_s1_add_file(tmp_path: Path) -> None:
 
 
 def test_s2_move_file_json(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _start_stack(compose_file, workdir, output_dir, env_file)
     try:
@@ -145,7 +138,7 @@ def test_s2_move_file_json(tmp_path: Path) -> None:
 
 
 def test_s3_delete_file(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _start_stack(compose_file, workdir, output_dir, env_file)
     try:
@@ -176,7 +169,7 @@ def test_s3_delete_file(tmp_path: Path) -> None:
 
 
 def test_s4_batch_operations(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _start_stack(compose_file, workdir, output_dir, env_file)
     try:
@@ -222,7 +215,7 @@ def test_s4_batch_operations(tmp_path: Path) -> None:
 
 
 def test_s5_rename_via_webdav(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _start_stack(compose_file, workdir, output_dir, env_file)
     try:
