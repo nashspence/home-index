@@ -4,9 +4,9 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 from apscheduler.triggers.cron import CronTrigger
-from typing import cast
 
 from shared import compose, compose_paths, dump_logs, search_meili, wait_for
 
@@ -361,12 +361,23 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
     compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
     try:
         wait_for(
-            lambda: (
-                b"exit"
-                in compose(
-                    compose_file, workdir, "ps", env_file=env_file, check=False
-                ).stdout.lower()
-            ),
+            lambda: b"invalid cron expression"
+            in compose(
+                compose_file,
+                workdir,
+                "logs",
+                "--no-color",
+                env_file=env_file,
+                check=False,
+            ).stdout.lower(),
+            timeout=180,
+            message="error log",
+        )
+        wait_for(
+            lambda: b"exit"
+            in compose(
+                compose_file, workdir, "ps", env_file=env_file, check=False
+            ).stdout.lower(),
             timeout=60,
             message="container exit",
         )
@@ -375,7 +386,7 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
         logs = compose(
             compose_file, workdir, "logs", "--no-color", env_file=env_file, check=False
         )
-        assert b"Invalid cron expression" in logs.stdout
+        assert b"invalid cron expression" in logs.stdout.lower()
     except Exception:
         dump_logs(compose_file, workdir)
         raise
