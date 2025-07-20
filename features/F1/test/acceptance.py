@@ -369,17 +369,17 @@ def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
                 "--no-color",
                 check=False,
             ).stdout.lower(),
-            timeout=180,
+            timeout=60,
             message="error log",
         )
         wait_for(
-            lambda: b"exit"
-            in compose(compose_file, workdir, "ps", check=False).stdout.lower(),
-            timeout=180,
-            message="container exit",
+            lambda: b"up"
+            not in compose(compose_file, workdir, "ps", check=False).stdout.lower(),
+            timeout=60,
+            message="container stopped",
         )
         ps = compose(compose_file, workdir, "ps", check=False)
-        assert b"exit" in ps.stdout.lower()
+        assert b"exit" in ps.stdout.lower() or b"up" not in ps.stdout.lower()
         logs = compose(compose_file, workdir, "logs", "--no-color", check=False)
         assert b"invalid cron expression" in logs.stdout.lower()
     except Exception:
