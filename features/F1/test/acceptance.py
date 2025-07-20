@@ -8,7 +8,7 @@ from pathlib import Path
 from apscheduler.triggers.cron import CronTrigger
 from typing import cast
 
-from shared import compose, dump_logs, search_meili, wait_for
+from shared import compose, compose_paths, dump_logs, search_meili, wait_for
 
 
 def _expected_interval(cron: str) -> float:
@@ -43,13 +43,6 @@ def _parse_cron(cron: str) -> dict[str, str]:
             "day_of_week": parts[5],
         }
     raise ValueError("cron must have 5 or 6 fields")
-
-
-def _compose_paths() -> tuple[Path, Path, Path]:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
-    return compose_file, workdir, output_dir
 
 
 def _prepare_dirs(workdir: Path, output_dir: Path, *, with_input: bool = True) -> None:
@@ -103,7 +96,7 @@ def _wait_for_log(output_dir: Path, text: str, start: int = 0) -> int:
 
 
 def test_s1_initial_run_existing_files_indexed(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "* * * * * *"
     _write_env(env_file, cron)
@@ -135,7 +128,7 @@ def test_s1_initial_run_existing_files_indexed(tmp_path: Path) -> None:
 
 
 def test_s2_new_file_appears_mid_run(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "* * * * * *"
     _write_env(env_file, cron)
@@ -171,7 +164,7 @@ def test_s2_new_file_appears_mid_run(tmp_path: Path) -> None:
 
 
 def test_s3_file_contents_change(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "* * * * * *"
     _write_env(env_file, cron)
@@ -209,7 +202,7 @@ def test_s3_file_contents_change(tmp_path: Path) -> None:
 
 
 def test_s4_regular_cadence_honoured(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "*/2 * * * * *"
     _write_env(env_file, cron)
@@ -238,7 +231,7 @@ def test_s4_regular_cadence_honoured(tmp_path: Path) -> None:
 
 
 def test_s5_long_running_sync_never_overlaps(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "* * * * * *"
     _write_env(env_file, cron)
@@ -269,7 +262,7 @@ def test_s5_long_running_sync_never_overlaps(tmp_path: Path) -> None:
 
 
 def test_s6_change_schedule(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron1 = "* * * * * *"
     _write_env(env_file, cron1)
@@ -317,7 +310,7 @@ def test_s6_change_schedule(tmp_path: Path) -> None:
 
 
 def test_s7_restart_with_same_schedule(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "* * * * * *"
     _write_env(env_file, cron)
@@ -363,7 +356,7 @@ def test_s7_restart_with_same_schedule(tmp_path: Path) -> None:
 
 
 def test_s8_invalid_cron_blocks_startup(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _write_env(env_file, "bad cron")
     _prepare_dirs(workdir, output_dir)

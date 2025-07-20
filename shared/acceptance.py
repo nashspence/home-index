@@ -88,6 +88,21 @@ def search_chunks(
         time.sleep(0.5)
 
 
+def compose_paths(test_file: str | Path) -> tuple[Path, Path, Path]:
+    """Return common compose paths for acceptance tests.
+
+    Parameters
+    ----------
+    test_file:
+        Path to the acceptance test file using the compose setup.
+    """
+    path = Path(test_file)
+    compose_file = path.with_name("docker-compose.yml")
+    workdir = compose_file.parent
+    output_dir = workdir / "output"
+    return compose_file, workdir, output_dir
+
+
 def compose(
     compose_file: Path,
     workdir: Path,

@@ -8,14 +8,7 @@ from typing import Any
 import pytest
 
 from features.F2 import duplicate_finder
-from shared import compose, dump_logs, search_meili, wait_for
-
-
-def _compose_paths() -> tuple[Path, Path, Path]:
-    compose_file = Path(__file__).with_name("docker-compose.yml")
-    workdir = compose_file.parent
-    output_dir = workdir / "output"
-    return compose_file, workdir, output_dir
+from shared import compose, compose_paths, dump_logs, search_meili, wait_for
 
 
 def _prepare_env(workdir: Path, output_dir: Path) -> Path:
@@ -71,7 +64,7 @@ def _sync(compose_file: Path, workdir: Path, output_dir: Path) -> None:
 
 
 def test_s1_initial_sync_with_duplicates(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         by_id_dir, by_path_dir, _, _, uniq_docs = _run_once(
             compose_file, workdir, output_dir
@@ -96,7 +89,7 @@ def test_s1_initial_sync_with_duplicates(tmp_path: Path) -> None:
 
 
 def test_s2_document_fields_populated(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         _, _, info, dup_docs, uniq_docs = _run_once(compose_file, workdir, output_dir)
 
@@ -130,7 +123,7 @@ def test_s2_document_fields_populated(tmp_path: Path) -> None:
 
 
 def test_s3_search_by_single_criterion(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         _run_once(compose_file, workdir, output_dir)
         docs = search_meili(compose_file, workdir, "copies = 1")
@@ -145,7 +138,7 @@ def test_s3_search_by_single_criterion(tmp_path: Path) -> None:
 
 
 def test_s4_search_by_multiple_criteria(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         _, _, info, _, uniq_docs = _run_once(compose_file, workdir, output_dir)
         size = info["c.txt"][0]
@@ -165,7 +158,7 @@ def test_s4_search_by_multiple_criteria(tmp_path: Path) -> None:
 
 
 def test_s5_add_new_duplicate(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         by_id_dir, by_path_dir, _, _, uniq_docs = _run_once(
             compose_file, workdir, output_dir
@@ -191,7 +184,7 @@ def test_s5_add_new_duplicate(tmp_path: Path) -> None:
 
 
 def test_s6_delete_one_duplicate(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         _, by_path_dir, _, dup_docs, _ = _run_once(compose_file, workdir, output_dir)
         dup_id = dup_docs[0]["id"]
@@ -212,7 +205,7 @@ def test_s6_delete_one_duplicate(tmp_path: Path) -> None:
 
 
 def test_s7_delete_last_remaining_copy(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         by_id_dir, by_path_dir, _, _, uniq_docs = _run_once(
             compose_file, workdir, output_dir
@@ -236,7 +229,7 @@ def test_s7_delete_last_remaining_copy(tmp_path: Path) -> None:
 
 
 def test_s8_file_content_changes(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         by_id_dir, by_path_dir, _, dup_docs, _ = _run_once(
             compose_file, workdir, output_dir
@@ -262,7 +255,7 @@ def test_s8_file_content_changes(tmp_path: Path) -> None:
 
 
 def test_s9_symlink_integrity(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         by_id_dir, by_path_dir, _, _, _ = _run_once(compose_file, workdir, output_dir)
 
@@ -288,7 +281,7 @@ def test_s9_symlink_integrity(tmp_path: Path) -> None:
 
 
 def test_s10_search_returns_latest_metadata(tmp_path: Path) -> None:
-    compose_file, workdir, output_dir = _compose_paths()
+    compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         _, _, _, _, uniq_docs = _run_once(compose_file, workdir, output_dir)
 
