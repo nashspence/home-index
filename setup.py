@@ -9,7 +9,7 @@ setup(
     url="https://github.com/nashspence/home-index",
     py_modules=["main"],
     packages=find_namespace_packages(
-        where=".", include=["features*"], exclude=["*.test*"]
+        where=".", include=["features*", "shared*"], exclude=["*.test*"]
     ),
     package_dir={"": "."},
     install_requires=[
