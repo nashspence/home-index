@@ -31,7 +31,7 @@ async def main() -> None:
         await f1_sync.init_meili_and_sync()
         modules_f4.save_modules_state()
     await asyncio.gather(
-        f1_sync.schedule_and_run(f6_server.serve_api(), debug=DEBUG),
+        f1_sync.schedule_and_run(f6_server.serve_api, debug=DEBUG),
         modules_f4.service_module_queues(),
     )
 
