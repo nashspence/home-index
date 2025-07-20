@@ -125,7 +125,7 @@ def compose(
             key, _, val = line.partition("=")
             env[key] = val
     cmd += ["-f", str(compose_file), *args]
-    return subprocess.run(cmd, check=check, cwd=workdir, env=env)
+    return subprocess.run(cmd, check=check, cwd=workdir, env=env, capture_output=True)
 
 
 def wait_for(
