@@ -4,7 +4,7 @@ Home Index is a personal file search engine that syncs and enriches metadata.
 
 ## Features
 
-- [F1 "I want scheduled file sync"](docs/F1.md)
+- [F1 "I want scheduled file sync"](features/F1/specification.md)
 - [F2 "I want to search for unique files by metadata"](docs/F2.md)
 - [F3 "I want metadata for files on offline media"](docs/F3.md)
 - [F4 "I want modules to enrich files"](docs/F4.md)

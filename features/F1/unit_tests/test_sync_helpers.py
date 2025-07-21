@@ -1,5 +1,14 @@
 import os
+import importlib
 from pathlib import Path
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def reload_sync(stub_dependencies):
+    import features.F1.sync as sync
+
+    importlib.reload(sync)
 
 
 # --- _safe_mkdir -------------------------------------------------------------

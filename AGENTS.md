@@ -16,7 +16,7 @@ S7_OPEN_PR
 ## S0\_HARD\_PROHIBITIONS
 
 * MUST\_NOT deviate from S1\_PROMPT\_CLASSIFICATION\_AND\_FLOW.
-* MUST\_NOT modify any feature spec at `docs/Fx.md` unless prompt indicates GOAL_WORK (S1.1).
+* MUST\_NOT modify any feature spec at `features/Fx/specification.md` unless prompt indicates GOAL_WORK (S1.1).
 * MUST\_NOT build dev‑ or release‑containers, run acceptance tests, or `pip install -r requirements.txt` locally.
 * Work only with required libraries, run unit tests if present, then PUSH and rely on CI.
 
@@ -36,7 +36,7 @@ CATEGORIES:
 
 ### S1.1\_GOAL\_WORK  ("Tighten acceptance on F1", "Revise F2 docs")
 
-1. Read relevant feature specs (`docs/Fx.md`).
+1. Read relevant feature specs (`features/Fx/specification.md`).
 2. Make changes to specs as per prompt – link `Acceptance` inputs and outputs to the corresponding acceptance test files.
 3. Edit / add acceptance tests as per spec.
 4. Implement / fix code as per spec
@@ -46,7 +46,7 @@ CATEGORIES:
 
 ### S1.2\_FEATURE\_WORK  ("Fix bug on F1", "Implement F2")
 
-1. Read relevant feature specification (`docs/Fx.md`, section `Acceptance`).
+1. Read relevant feature specification (`features/Fx/specification.md`, section `Acceptance`).
 2. Implement / fix code as per spec
 3. Edit / add acceptance tests as per spec
 4. Update Planned\_Maintenance in README.md (S5.2).
@@ -71,11 +71,11 @@ Ask clarifying questions. DO\_NOT open PR.
 
 * Location: README.md → Features section.
 * List describes a consistent, domain‑aware user.
-* Each entry links to `docs/Fx.md`.
+* Each entry links to `features/Fx/specification.md`.
 
 ### S2.2\_FEATURE\_SPECIFICATIONS
 
-* One markdown file per feature in `docs/`, named `Fx.md`.
+* One markdown file per feature in `features/Fx/`, named `specification.md`.
 * Always user facing, attempt to abstract out implementation details as much as possible.
 * Link `Acceptance` inputs and outputs to the corresponding acceptance test files. Write test code with this goal in mind.
 
@@ -84,7 +84,10 @@ Ask clarifying questions. DO\_NOT open PR.
 ```text
 repo/
 ├── features/ F1,F2,…
-│   └── F?/test/docker-compose.yml
+│   └── F?/
+│       ├── specification.md
+│       ├── acceptance_tests/docker-compose.yml
+│       └── unit_tests/
 ├── shared/
 ├── tests/
 ├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh)
@@ -102,16 +105,16 @@ repo/
 
 ### S3.1\_ACCEPTANCE\_TESTS
 
-* ONE `features/Fx/test/docker-compose.yml` per feature.
+* ONE `features/Fx/acceptance_tests/docker-compose.yml` per feature.
 * Vary scenarios via env vars + input files; keep all inputs/outputs in test dir.
-* Each acceptance scenario lives in `features/Fx/test/sY.py` with a function named `fXsY`.
+* Each acceptance scenario lives in `features/Fx/acceptance_tests/sY.py` with a function named `fXsY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Test script starts & stops `<repo>:ci` via compose.
 * On failure output test logs + relevant release‑env container logs.
 
 ### S3.2\_UNIT\_TESTS (optional)
 
-* Location: tests/.
+* Location: tests/ or `features/Fx/unit_tests/`.
 * Executed by `check.sh` inside dev container (local & CI).
 * Mock / stub / dummy everything except (a) code under test (b) Python built‑ins.
 
