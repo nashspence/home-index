@@ -31,6 +31,3 @@ your files using a locally run language model backed by Meilisearch.
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
-
-## Planned Maintenance
-- None
