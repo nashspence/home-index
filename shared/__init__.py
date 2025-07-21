@@ -1,10 +1,3 @@
-from .embedding import (
-    EMBED_MODEL_NAME,
-    EMBED_DEVICE,
-    EMBED_DIM,
-    init_embedder,
-    embed_texts,
-)
 from .acceptance import (
     compose,
     compose_paths,
@@ -15,11 +8,6 @@ from .acceptance import (
 )
 
 __all__ = [
-    "EMBED_MODEL_NAME",
-    "EMBED_DEVICE",
-    "EMBED_DIM",
-    "init_embedder",
-    "embed_texts",
     "dump_logs",
     "search_meili",
     "search_chunks",
