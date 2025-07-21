@@ -104,7 +104,7 @@ repo/
 
 * ONE `features/Fx/test/docker-compose.yml` per feature.
 * Vary scenarios via env vars + input files; keep all inputs/outputs in test dir.
-* Each acceptance scenario lives in its own module file with a function named `fXsY`.
+* Each acceptance scenario lives in `features/Fx/test/sY.py` with a function named `fXsY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Test script starts & stops `<repo>:ci` via compose.
 * On failure output test logs + relevant release‑env container logs.
