@@ -14,6 +14,11 @@ elif [ -f "../venv/bin/activate" ]; then
   source "../venv/bin/activate"
 fi
 
+# Install formatting, linting and test tools if they are not already
+# present. This script is also used by `.devcontainer/postStart.sh` so
+# the dependency list is maintained in one place.
+"$(dirname "$0")/.devcontainer/install_dev_tools.sh"
+
 black --check .
 ruff check .
 mypy --ignore-missing-imports --strict --explicit-package-bases \

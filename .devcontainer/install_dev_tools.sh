@@ -11,4 +11,3 @@ pip install --quiet \
     uvicorn==0.35.0 \
     aiofiles==23.2.1 \
     httpx==0.28.1
-./check.sh

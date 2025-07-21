@@ -16,7 +16,7 @@ S6_RELEASE
 
 * MUST\_NOT modify any feature spec at `features/Fx/specification.md` unless directly prompted.
 * MUST\_NOT build dev‑ or release‑containers or run acceptance tests locally.
-* MUST\_NOT commit without running agents-check.sh and fixing any warnings / errors.
+* MUST\_NOT commit without running check.sh and fixing any warnings / errors.
 
 ---
 
@@ -60,11 +60,10 @@ repo/
 │       └── unit_tests/
 ├── shared/
 ├── tests/
-├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh)
+├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh, install_dev_tools.sh)
 ├── .github/workflows/(test.yml, release.yml)
 ├── Dockerfile
 ├── docker-compose.yml
-├── agents-check.sh
 ├── check.sh
 └── README.md
 ```
@@ -106,8 +105,7 @@ repo/
 
 ### S4.1\_STYLE\_AND\_LINTING
 
-* `check.sh` runs formatters, linters, type‑checkers + unit tests.
-* `agents-check.sh` installs deps then calls `check.sh`; MUST run before every push.
+* `check.sh` installs deps then runs formatters, linters, type-checkers + unit tests; MUST run before every push.
 * Use strictest toolchain possible: ruff, mypy, black, isort, TypeScript(strict)+ESLint+Prettier.
 
 ### S4.2\_DEV\_CONTAINER
