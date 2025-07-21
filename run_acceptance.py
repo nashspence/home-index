@@ -31,7 +31,7 @@ subprocess.run(
         "docker",
         "build",
         "-f",
-        "Dockerfile.module",
+        "features/F4/home_index_module/Dockerfile",
         "-t",
         module_image,
         "--build-arg",

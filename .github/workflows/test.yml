@@ -20,7 +20,7 @@ jobs:
       - run: docker exec ${REPO}-devcontainer ./check.sh
 
       - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
-      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile.module -t ${REPO}-module:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
+      - run: docker exec ${REPO}-devcontainer docker build -f features/F4/home_index_module/Dockerfile -t ${REPO}-module:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
 
       - run: |
           set -euo pipefail
