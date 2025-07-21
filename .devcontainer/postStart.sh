@@ -18,15 +18,10 @@ PATH="/workspace/venv/bin:$PATH"
     redis==5.0.4 \
     PyYAML==6.0.1 \
     xxhash==3.5.0 \
-    fastapi==0.116.1 \
-    asgiwebdav==1.5.0 \
-    uvicorn==0.35.0 \
-    aiofiles==23.2.1 \
-    httpx==0.28.1 \
     types-PyYAML==6.0.12 \
     sentence-transformers==4.1.0 \
     transformers==4.53.0
 
 # Install the development tools used by `check.sh`.
-./scripts/install_dev_tools.sh
+./.devcontainer/install_dev_tools.sh
 source /workspace/venv/bin/activate

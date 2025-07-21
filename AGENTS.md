@@ -60,11 +60,10 @@ repo/
 │       └── unit_tests/
 ├── shared/
 ├── tests/
-├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh)
+├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh, install_dev_tools.sh)
 ├── .github/workflows/(test.yml, release.yml)
 ├── Dockerfile
 ├── docker-compose.yml
-├── scripts/install_dev_tools.sh
 ├── check.sh
 └── README.md
 ```

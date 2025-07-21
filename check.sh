@@ -17,7 +17,7 @@ fi
 # Install formatting, linting and test tools if they are not already
 # present. This script is also used by `.devcontainer/postStart.sh` so
 # the dependency list is maintained in one place.
-"$(dirname "$0")/scripts/install_dev_tools.sh"
+"$(dirname "$0")/.devcontainer/install_dev_tools.sh"
 
 black --check .
 ruff check .
