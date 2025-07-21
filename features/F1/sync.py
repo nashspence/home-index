@@ -386,6 +386,17 @@ async def update_meilisearch(
     total_docs_in_meili = await search_index.get_document_count()
     files_logger.info(" * counted %d documents in meilisearch", total_docs_in_meili)
 
+    # Ensure module queues are refreshed immediately after sync
+    if modules_f4.module_values and upserted_docs_by_hash:
+        await asyncio.gather(
+            *[
+                modules_f4.service_module_queue(
+                    mod["name"], docs=upserted_docs_by_hash.values()
+                )
+                for mod in modules_f4.module_values
+            ]
+        )
+
 
 async def sync_documents() -> None:
     try:

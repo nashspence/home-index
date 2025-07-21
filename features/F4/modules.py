@@ -6,11 +6,12 @@ import logging
 import logging.handlers
 import os
 import time
-from urllib.parse import urlparse
 from pathlib import Path
-from typing import Any, Callable, Mapping, MutableMapping, TypeVar, cast
-from features.F3.archive import doc_is_online, update_archive_flags
+from typing import Any, Callable, Iterable, Mapping, MutableMapping, TypeVar, cast
+from urllib.parse import urlparse
+
 from features.F2 import search_index
+from features.F3.archive import doc_is_online, update_archive_flags
 from features.F5 import chunking
 
 try:
@@ -256,7 +257,11 @@ def process_timeouts(client: redis.Redis) -> bool:
     return processed
 
 
-async def service_module_queue(name: str, client: redis.Redis | None = None) -> bool:
+async def service_module_queue(
+    name: str,
+    client: redis.Redis | None = None,
+    docs: Iterable[Mapping[str, Any]] | None = None,
+) -> bool:
 
     try:
         if client is None:
@@ -264,12 +269,23 @@ async def service_module_queue(name: str, client: redis.Redis | None = None) -> 
 
         processed = False
 
-        documents = await search_index.get_all_pending_jobs(name)
+        if docs is None:
+            documents = await search_index.get_all_pending_jobs(name)
+        else:
+            documents = [cast(dict[str, Any], d) for d in docs if d.get("next") == name]
         check_tasks = set(client.lrange(f"{name}:check", 0, -1))
         run_tasks = set(client.lrange(f"{name}:run", 0, -1))
         processing_check = set(client.lrange(f"{name}:check:processing", 0, -1))
         processing_run = set(client.lrange(f"{name}:run:processing", 0, -1))
-        for document in sorted(documents, key=lambda x: x["mtime"], reverse=True):
+
+        def sort_key(doc: Mapping[str, Any]) -> tuple[int, str]:
+            tier = 0 if doc.get("has_archive_paths") and not doc.get("offline") else 1
+            first_path = ""
+            if isinstance(doc.get("paths_list"), list) and doc["paths_list"]:
+                first_path = str(doc["paths_list"][0])
+            return tier, first_path
+
+        for document in sorted(documents, key=sort_key):
             doc_with_uid = dict(document)
             cfg = modules.get(name, {})
             if "uid" in cfg:

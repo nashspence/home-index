@@ -208,6 +208,15 @@ async def apply_ops(ops: FileOps) -> None:
         await search_index.delete_chunk_docs_by_file_ids(ids_to_delete)
     if docs_to_upsert or ids_to_delete:
         await search_index.wait_for_meili_idle()
+        if modules_f4.module_values and docs_to_upsert:
+            await asyncio.gather(
+                *[
+                    modules_f4.service_module_queue(
+                        mod["name"], docs=docs_to_upsert.values()
+                    )
+                    for mod in modules_f4.module_values
+                ]
+            )
 
 
 # ------------------------------------------------------------------------
