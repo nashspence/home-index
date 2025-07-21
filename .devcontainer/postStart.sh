@@ -25,6 +25,8 @@ PATH="/workspace/venv/bin:$PATH"
     httpx==0.28.1 \
     types-PyYAML==6.0.12 \
     sentence-transformers==4.1.0 \
-    transformers==4.53.0 \
-    black==25.1.0 ruff==0.12.0 mypy==1.10.0 pytest==8.4.1
+    transformers==4.53.0
+
+# Install the development tools used by `check.sh`.
+./scripts/install_dev_tools.sh
 source /workspace/venv/bin/activate

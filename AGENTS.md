@@ -64,6 +64,7 @@ repo/
 ├── .github/workflows/(test.yml, release.yml)
 ├── Dockerfile
 ├── docker-compose.yml
+├── scripts/install_dev_tools.sh
 ├── check.sh
 └── README.md
 ```
