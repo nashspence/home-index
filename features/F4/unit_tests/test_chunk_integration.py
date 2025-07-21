@@ -14,7 +14,7 @@ def test_service_module_queue_processes_segment_content(monkeypatch):
     importlib.reload(search_index)
     importlib.reload(chunking)
 
-    doc = {"id": "file1", "mtime": 1.0, "paths": {"a.txt": 1.0}, "next": ""}
+    doc = {"id": "file1", "mtime": 1.0, "paths": {"a.txt": 1.0}, "next": "mod"}
 
     async def fake_get_jobs(name):
         return [doc]
@@ -119,7 +119,7 @@ def test_service_module_queue_processes_segment_content(monkeypatch):
     monkeypatch.setattr(search_index, "wait_for_meili_idle", fake_wait)
     modules_f4.module_values = []
 
-    result = asyncio.run(modules_f4.service_module_queue("mod", dummy))
+    result = asyncio.run(modules_f4.service_module_queue("mod", dummy, [doc]))
     asyncio.run(modules_f4.process_done_queue(dummy))
     asyncio.run(modules_f4.process_done_queue(dummy))
 
@@ -138,7 +138,7 @@ def test_service_module_queue_handles_update_only(monkeypatch):
     importlib.reload(modules_f4)
     importlib.reload(search_index)
 
-    doc = {"id": "file2", "mtime": 1.0, "paths": {"b.txt": 1.0}, "next": ""}
+    doc = {"id": "file2", "mtime": 1.0, "paths": {"b.txt": 1.0}, "next": "mod"}
 
     async def fake_get_jobs(name):
         return [doc]
@@ -200,7 +200,7 @@ def test_service_module_queue_handles_update_only(monkeypatch):
     monkeypatch.setattr(search_index, "wait_for_meili_idle", dummy_wait)
     modules_f4.module_values = []
 
-    result = asyncio.run(modules_f4.service_module_queue("mod", dummy))
+    result = asyncio.run(modules_f4.service_module_queue("mod", dummy, [doc]))
     asyncio.run(modules_f4.process_done_queue(dummy))
 
     assert result is True
@@ -224,7 +224,7 @@ def test_service_module_queue_processes_content(monkeypatch):
         "id": "file3",
         "mtime": 1.0,
         "paths": {"c.txt": 1.0},
-        "next": "",
+        "next": "mod",
     }
 
     async def fake_get_jobs(name):
@@ -291,7 +291,7 @@ def test_service_module_queue_processes_content(monkeypatch):
     monkeypatch.setattr(search_index, "wait_for_meili_idle", lambda: None)
     modules_f4.module_values = []
 
-    result = asyncio.run(modules_f4.service_module_queue("mod", dummy))
+    result = asyncio.run(modules_f4.service_module_queue("mod", dummy, [doc]))
     asyncio.run(modules_f4.process_done_queue(dummy))
 
     assert result is True
@@ -316,7 +316,7 @@ def test_sync_content_files_generates_chunks(monkeypatch, tmp_path):
         lambda: Path(tmp_path / "meta" / "by-id"),
     )
 
-    doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": ""}
+    doc = {"id": "file4", "paths": {"d.txt": 1.0}, "next": "mod"}
     docs = {"file4": doc}
     mod_dir = Path(tmp_path / "meta" / "by-id" / "file4" / "mod")
     mod_dir.mkdir(parents=True)

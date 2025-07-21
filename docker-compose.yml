@@ -6,9 +6,11 @@ services:
     container_name: home-index
     depends_on:
       - meilisearch
+      - redis
     environment:
       - DEBUG=True
       - MEILISEARCH_HOST=http://meilisearch:7700
+      - REDIS_HOST=http://redis:6379
       - TZ=America/Los_Angeles
     restart: unless-stopped
     volumes:
@@ -25,3 +27,10 @@ services:
       - "7700:7700"
     volumes:
       - ./docker-data/meilisearch:/meili_data
+
+  redis:
+    image: redis:7
+    command: redis-server --loglevel verbose --appendonly yes
+    restart: unless-stopped
+    volumes:
+      - ./docker-data/redis:/data
