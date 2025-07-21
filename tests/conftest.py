@@ -189,6 +189,8 @@ def stub_dependencies(monkeypatch):
 
     for name, module in modules.items():
         sys.modules.setdefault(name, module)
+    for mod in ["features.F1", "features.F1.scheduler", "features.F1.sync"]:
+        sys.modules.pop(mod, None)
     yield
     for name in modules:
         sys.modules.pop(name, None)

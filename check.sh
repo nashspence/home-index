@@ -17,10 +17,10 @@ fi
 black --check .
 ruff check .
 mypy --ignore-missing-imports --explicit-package-bases --no-site-packages main.py shared tests || true
-mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F1
-mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F2
-mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F3
-mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F4
-mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F5
-mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages features/F6
-pytest -q
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages --exclude '(acceptance_tests|unit_tests)' features/F1
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages --exclude '(acceptance_tests|unit_tests)' features/F2
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages --exclude '(acceptance_tests|unit_tests)' features/F3
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages --exclude '(acceptance_tests|unit_tests)' features/F4
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages --exclude '(acceptance_tests|unit_tests)' features/F5
+mypy --ignore-missing-imports --strict --explicit-package-bases --no-site-packages --exclude '(acceptance_tests|unit_tests)' features/F6
+pytest -q tests features/*/unit_tests

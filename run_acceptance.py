@@ -50,5 +50,5 @@ env.setdefault("WAIT_FOR_DEBUGPY_CLIENT", "False")
 env.setdefault("DEBUGPY_HOST", "0.0.0.0")
 env.setdefault("DEBUGPY_PORT", "5678")
 
-for feature in sorted(Path("features").glob("F*/test/acceptance.py")):
+for feature in sorted(Path("features").glob("F*/acceptance_tests/acceptance.py")):
     subprocess.run(["pytest", "-q", str(feature)], env=env, check=True)
