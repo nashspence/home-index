@@ -5,7 +5,7 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def reload_sync(stub_dependencies):
+def reload_sync():
     import features.F1.sync as sync
 
     importlib.reload(sync)
