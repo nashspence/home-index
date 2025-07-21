@@ -14,7 +14,7 @@ S6_RELEASE
 
 ## S0\_HARD\_PROHIBITIONS
 
-* MUST\_NOT modify any feature spec at `features/Fx/specification.md` unless directly prompted.
+* MUST\_NOT modify any feature spec at `features/Fx/SPEC.md` unless directly prompted.
 * MUST\_NOT build dev‑ or release‑containers or run acceptance tests locally.
 * MUST\_NOT commit without running check.sh and fixing any warnings / errors.
 
@@ -22,7 +22,7 @@ S6_RELEASE
 
 ## S1\_EXPECTED\_PROMPT\_FLOW
 
-1. Read relevant feature specs (`features/Fx/specification.md`) if they exist (see S2.2).
+1. Read relevant feature specs (`features/Fx/SPEC.md`) if they exist (see S2.2).
 2. Make changes to specs if directed by the prompt (see S2.2).
 3. Edit / add prompt indicated acceptance test skeletons as per spec (see S3.2).
 4. Implement / fix prompt indicated code as per spec.
@@ -40,11 +40,11 @@ S6_RELEASE
 ### S2.1\_FEATURES\_LIST
 
 * Location: README.md → Features section.
-* Simple ordered list of feature titles `Fx <name>` linked to corresponding `features/Fx/specification.md`.
+* Simple ordered list of feature titles `Fx <name>` linked to corresponding `features/Fx/SPEC.md`.
 
 ### S2.2\_FEATURE\_SPECIFICATIONS
 
-* One markdown file per feature in `features/Fx/`, named `specification.md`.
+* One markdown file per feature in `features/Fx/`, named `SPEC.md`.
 * Contains an `Acceptance` section - which is always the master feature specification.
 * Always link each `Acceptance` scenario to corresponding acceptance test files.
 * Always match existing format and style when editing.
@@ -55,7 +55,8 @@ S6_RELEASE
 repo/
 ├── features/ F1,F2,…
 │   └── F?/
-│       ├── specification.md
+│       ├── SPEC.md
+│       ├── ADR.md
 │       ├── acceptance_tests/docker-compose.yml
 │       └── unit_tests/
 ├── shared/
@@ -67,6 +68,13 @@ repo/
 ├── check.sh
 └── README.md
 ```
+
+### S2.4_ADR_FILES
+
+* Every feature directory `features/Fx/` maintains `ADR.md`.
+* Record important implementation details chronologically.
+* Append new notes instead of rewriting old ones.
+* Use `### YYYY-MM-DD` headings for entries.
 
 ---
 
@@ -137,6 +145,7 @@ TYPING         → strict typing (S4.1)
 CLEANING       → remove dead code / files, refactor
 UNIT_COVERAGE  → full unit‑test coverage (S3.2)
 PERFORMANCE    → optimise
+ADR_HISTORY    → maintain features/Fx/ADR.md
 ```
 
 ---
