@@ -2,66 +2,36 @@
 
 ```
 S0_HARD_PROHIBITIONS
-S1_PROMPT_CLASSIFICATION_AND_FLOW
+S1_EXPECTED_PROMPT_FLOW
 S2_REPOSITORY_ARTIFACTS_REFERENCE
 S3_TESTING
 S4_DEVELOPMENT_ENVIRONMENT
-S5_MAINTENANCE_PASS
-S6_PUSH_CI_RELEASE
-S7_OPEN_PR
+S5_MAINTENANCE
+S6_RELEASE
 ```
 
 ---
 
 ## S0\_HARD\_PROHIBITIONS
 
-* MUST\_NOT deviate from S1\_PROMPT\_CLASSIFICATION\_AND\_FLOW.
-* MUST\_NOT modify any feature spec at `features/Fx/specification.md` unless prompt indicates GOAL_WORK (S1.1).
-* MUST\_NOT build dev‑ or release‑containers, run acceptance tests, or `pip install -r requirements.txt` locally.
-* Work only with required libraries, run unit tests if present, then PUSH and rely on CI.
+* MUST\_NOT modify any feature spec at `features/Fx/specification.md` unless directly prompted.
+* MUST\_NOT build dev‑ or release‑containers or run acceptance tests locally.
+* MUST\_NOT commit without running agents-check.sh and fixing any warnings / errors.
 
 ---
 
-## S1\_PROMPT\_CLASSIFICATION\_AND\_FLOW
+## S1\_EXPECTED\_PROMPT\_FLOW
 
-Input prompt MUST be classified into exactly ONE of the categories, then the matching workflow MUST be executed in order.
+1. Read relevant feature specs (`features/Fx/specification.md`) if they exist (see S2.2).
+2. Make changes to specs if directed by the prompt (see S2.2).
+3. Edit / add prompt indicated acceptance test skeletons as per spec (see S3.2).
+4. Implement / fix prompt indicated code as per spec.
+5. Add / update full unit test coverage for any added / modified code (see S3.2).
+6. Finish any unfinished relevant acceptance tests as per spec (see S3.1).
+7. Maintenance (see S5).
+8. PUSH, open PR.
 
-```
-CATEGORIES:
-  GOAL_WORK
-  FEATURE_WORK
-  MAINTENANCE_WORK
-  UNCLEAR
-```
-
-### S1.1\_GOAL\_WORK  ("Tighten acceptance on F1", "Revise F2 docs")
-
-1. Read relevant feature specs (`features/Fx/specification.md`).
-2. Make changes to specs as per prompt – link `Acceptance` inputs and outputs to the corresponding acceptance test files.
-3. Edit / add acceptance tests as per spec.
-4. Implement / fix code as per spec
-5. Update Features list in README.md.
-6. Update Planned\_Maintenance in README.md (S5.2).
-7. PUSH, open PR.
-
-### S1.2\_FEATURE\_WORK  ("Fix bug on F1", "Implement F2")
-
-1. Read relevant feature specification (`features/Fx/specification.md`, section `Acceptance`).
-2. Implement / fix code as per spec
-3. Edit / add acceptance tests as per spec
-4. Update Planned\_Maintenance in README.md (S5.2).
-5. PUSH, open PR.
-
-### S1.3\_MAINTENANCE\_WORK  ("Refactor repo", "Do maintenance")
-
-1. If Planned\_Maintenance not empty → pick & resolve ONE item; else deep‑scan repo, create tasks, resolve ONE.
-2. Run `agents-check.sh`; fix issues S4.1.
-3. Update Planned\_Maintenance S5.2.
-4. PUSH, open PR.
-
-### S1.4\_UNCLEAR
-
-Ask clarifying questions. DO\_NOT open PR.
+*If the prompt is vague, ask clarifying questions. DO\_NOT change code.*
 
 ---
 
@@ -70,14 +40,14 @@ Ask clarifying questions. DO\_NOT open PR.
 ### S2.1\_FEATURES\_LIST
 
 * Location: README.md → Features section.
-* List describes a consistent, domain‑aware user.
-* Each entry links to `features/Fx/specification.md`.
+* Simple ordered list of feature titles `Fx <name>` linked to corresponding `features/Fx/specification.md`.
 
 ### S2.2\_FEATURE\_SPECIFICATIONS
 
 * One markdown file per feature in `features/Fx/`, named `specification.md`.
-* Always user facing, attempt to abstract out implementation details as much as possible.
-* Link `Acceptance` inputs and outputs to the corresponding acceptance test files. Write test code with this goal in mind.
+* Contains an `Acceptance` section - which is always the master feature specification.
+* Always link each `Acceptance` scenario to corresponding acceptance test files.
+* Always match existing format and style when editing.
 
 ### S2.3\_REPOSITORY\_LAYOUT
 
@@ -105,18 +75,21 @@ repo/
 
 ### S3.1\_ACCEPTANCE\_TESTS
 
+* Acceptance test script starts & stops `<repo>:ci` via compose.
 * ONE `features/Fx/acceptance_tests/docker-compose.yml` per feature.
-* Vary scenarios via env vars + input files; keep all inputs/outputs in test dir.
+* Keep all inputs/outputs in `features/Fx/acceptance_tests/{input,output}` dirs.
+* Handle each acceptance scenario from the spec via env vars + input files
 * Each acceptance scenario lives in `features/Fx/acceptance_tests/sY.py` with a function named `fXsY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
-* Test script starts & stops `<repo>:ci` via compose.
+* Do NOT use mocks, stubs, or dummies unless absolutely necessary.
 * On failure output test logs + relevant release‑env container logs.
 
 ### S3.2\_UNIT\_TESTS (optional)
 
-* Location: tests/ or `features/Fx/unit_tests/`.
+* Location: `tests/` for shared code or `features/Fx/unit_tests/` for feature code.
 * Executed by `check.sh` inside dev container (local & CI).
 * Mock / stub / dummy everything except (a) code under test (b) Python built‑ins.
+* Always strive for complete coverage.
 
 ### S3.3\_CONTINUOUS\_INTEGRATION
 
@@ -135,7 +108,7 @@ repo/
 
 * `check.sh` runs formatters, linters, type‑checkers + unit tests.
 * `agents-check.sh` installs deps then calls `check.sh`; MUST run before every push.
-* Strict toolchain: ruff, mypy, black, isort, TypeScript(strict)+ESLint+Prettier.
+* Use strictest toolchain possible: ruff, mypy, black, isort, TypeScript(strict)+ESLint+Prettier.
 
 ### S4.2\_DEV\_CONTAINER
 
@@ -144,33 +117,29 @@ repo/
 ### S4.3\_DEPENDENCIES
 
 * Avoid manifest files.
-* Dev deps → install via venv in postStart.sh.
-* Runtime deps → install in root-level Dockerfile.
-* Remove unused deps; pin each dep to exact latest release.
+* Dev system deps → install Dockerfile.devcontainer.
+* Dev import deps → install via venv in postStart.sh.
+* All runtime deps → install in root-level Dockerfile.
+* Remove unused deps
+* Pin each dep to exact latest release.
 * Follow Docker best practices; keep images lean & secure.
 
 ---
 
-## S5\_MAINTENANCE\_PASS
+## S5\_MAINTENANCE
 
-Priority order:
+Double check all of the following:
 
 ```
-1 STRUCTURE      → repo layout (S2.3)
-2 ACCEPT_TESTS   → optimal I/O + tests (S3.1)
-3 DOCS           → update docs (S2.2)
-4 DOCKER_DEPS    → lean Docker & deps (S4.3)
-5 TYPING         → strict typing (S4.1)
-6 CLEANING       → remove dead code / files, refactor
-7 UNIT_COVERAGE  → full unit‑test coverage (S3.2)
-8 PERFORMANCE    → optimise
+STRUCTURE      → repo layout (S2.3)
+ACCEPT_TESTS   → optimal I/O + tests (S3.1)
+DOCS           → update docs (S2.2)
+DOCKER_DEPS    → lean Docker & deps (S4.3)
+TYPING         → strict typing (S4.1)
+CLEANING       → remove dead code / files, refactor
+UNIT_COVERAGE  → full unit‑test coverage (S3.2)
+PERFORMANCE    → optimise
 ```
-
-### S5.2\_PLANNED\_MAINTENANCE\_QUEUE
-
-* Location: README.md → Planned\_Maintenance section.
-* Update on every push.
-* Always remove completed/irrelevant items.
 
 ---
 
@@ -184,11 +153,3 @@ Priority order:
 ### S6.2\_RELEASE\_ENVIRONMENT
 
 * Maintain root Dockerfile & docker-compose.yml. Keep images lean, minimal, secure.
-
----
-
-## S7\_OPEN\_PR
-
-1. Confirm workflow for prompt category (S1) completed.
-2. Ensure Planned\_Maintenance is current.
-3. Open PR.
