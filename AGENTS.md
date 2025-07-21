@@ -37,7 +37,7 @@ CATEGORIES:
 ### S1.1\_GOAL\_WORK  ("Tighten acceptance on F1", "Revise F2 docs")
 
 1. Read relevant feature specs (`docs/Fx.md`).
-2. Make changes to specs as per prompt - try to link `Acceptance` inputs and outputs the exact corresponding code lines in the acceptance tests.
+2. Make changes to specs as per prompt – link `Acceptance` inputs and outputs to the corresponding acceptance test files.
 3. Edit / add acceptance tests as per spec.
 4. Implement / fix code as per spec
 5. Update Features list in README.md.
@@ -77,7 +77,7 @@ Ask clarifying questions. DO\_NOT open PR.
 
 * One markdown file per feature in `docs/`, named `Fx.md`.
 * Always user facing, attempt to abstract out implementation details as much as possible.
-* Link `Acceptance` inputs and outputs to exact corresponding code lines in the acceptance tests. Write test code with this goal in mind.
+* Link `Acceptance` inputs and outputs to the corresponding acceptance test files. Write test code with this goal in mind.
 
 ### S2.3\_REPOSITORY\_LAYOUT
 
@@ -104,6 +104,7 @@ repo/
 
 * ONE `features/Fx/test/docker-compose.yml` per feature.
 * Vary scenarios via env vars + input files; keep all inputs/outputs in test dir.
+* Each acceptance scenario lives in `features/Fx/test/sY.py` with a function named `fXsY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Test script starts & stops `<repo>:ci` via compose.
 * On failure output test logs + relevant release‑env container logs.
