@@ -32,7 +32,7 @@ jobs:
               -e COMMIT_SHA=${SHA} \
               -e MODULE_BASE_IMAGE=${REPO}-module:ci \
               ${REPO}-devcontainer \
-              bash -lc "source venv/bin/activate && pytest -q features/${f}/acceptance_tests/acceptance.py"
+              bash -lc "source venv/bin/activate && pytest -q features/${f}/tests/acceptance/test_acceptance.py"
           done
 
       - run: docker-compose -f .devcontainer/docker-compose.yml down -v

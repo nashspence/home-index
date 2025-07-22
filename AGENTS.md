@@ -57,8 +57,8 @@ repo/
 │   └── F?/
 │       ├── SPEC.md
 │       ├── ADR.md
-│       ├── acceptance_tests/docker-compose.yml
-│       └── unit_tests/
+│       ├── tests/acceptance/docker-compose.yml
+│       └── tests/unit/
 ├── shared/
 ├── tests/
 ├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh, install_dev_tools.sh)
@@ -83,17 +83,17 @@ repo/
 ### S3.1\_ACCEPTANCE\_TESTS
 
 * Acceptance test script starts & stops `<repo>:ci` via compose.
-* ONE `features/Fx/acceptance_tests/docker-compose.yml` per feature.
-* Keep all inputs/outputs in `features/Fx/acceptance_tests/{input,output}` dirs.
+* ONE `features/Fx/tests/acceptance/docker-compose.yml` per feature.
+* Keep all inputs/outputs in `features/Fx/tests/acceptance/{input,output}` dirs.
 * Handle each acceptance scenario from the spec via env vars + input files
-* Each acceptance scenario lives in `features/Fx/acceptance_tests/sY.py` with a function named `fXsY`.
+* Each acceptance scenario lives in `features/Fx/tests/acceptance/test_sY.py` with a function named `fXsY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Do NOT use mocks, stubs, or dummies unless absolutely necessary.
 * On failure output test logs + relevant release‑env container logs.
 
 ### S3.2\_UNIT\_TESTS (optional)
 
-* Location: `tests/` for shared code or `features/Fx/unit_tests/` for feature code.
+* Location: `tests/` for shared code or `features/Fx/tests/unit/` for feature code.
 * Executed by `check.sh` inside dev container (local & CI).
 * Mock / stub / dummy everything except (a) code under test (b) Python built‑ins.
 * Always strive for complete coverage.

@@ -22,6 +22,6 @@ fi
 black --check .
 ruff check .
 mypy --ignore-missing-imports --strict --explicit-package-bases \
-  --no-site-packages --exclude '(acceptance_tests|unit_tests)' \
+  --no-site-packages --exclude 'tests' \
   main.py shared features
-pytest -q features/*/unit_tests
+pytest -q features/*/tests/unit
