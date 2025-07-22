@@ -2,8 +2,7 @@
 set -euo pipefail
 
 run() {
-  echo
-  echo "---- $* ----"
+  printf '\n---- %s ----\n' "$*"
   "$@"
 }
 
