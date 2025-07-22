@@ -35,9 +35,25 @@ S6_RELEASE
 
 *If the prompt is vague, ask clarifying questions. DO\_NOT change code.*
 
-### S1.2\_SPECIAL_PROMPTS
+### S1.2\_SPECIAL\_PROMPTS
 
-- If the prompt contains just a URL that matches /^https:\/\/productionresultssa\d+\.blob\.core\.windows\.net\/actions-results\/.*$/ (PCRE‑style) then assume that URL is a link to a text file that contains raw Github Actions CI logs from a failed CI run. Download the file, analyse the logs to determine the reason for the failure, and fix the issue. It is most likely a failing CI step related to recent changes on your current branch.
+When the *entire* prompt is a single URL that matches
+
+```
+^https://productionresultssa\d+\.blob\.core\.windows\.net/actions-results/.*$
+```
+
+1. **Download the file** – it is a raw GitHub Actions log from a failed CI run.
+2. **Pinpoint the failure** by cross‑checking the log against the commands defined in `.github/workflows/test.yml` and `check.sh`.
+3. **Fix the problem** using *only*
+
+   * the information in the log,
+   * local runs of `check.sh`, and
+   * public documentation searches.
+     *Never run the full CI pipeline locally.*
+   * If the root cause is obvious, patch the code.
+   * If more detail is needed, add the minimal logging required and commit that.
+4. **Push and open a PR.**
 
 ---
 
