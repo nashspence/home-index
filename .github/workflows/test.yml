@@ -2,34 +2,50 @@ name: test
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    types:
-      - opened
-      - synchronize
-    branches:
-      - main
+    types: [opened, synchronize]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     env:
       REPO: ${{ github.event.repository.name }}
+      DOCKER_BUILDKIT: 1
+      BUILDKIT_PROGRESS: quiet
+      COMPOSE_PROGRESS: quiet
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install docker-compose
+      - name: Start dev-container
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
+          docker compose -f .devcontainer/docker-compose.yml up --build -d --quiet-pull > /dev/null
 
-      - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer postStart.sh
+      - name: postStart
+        run: docker exec ${REPO}-devcontainer postStart.sh > /dev/null
 
-      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
-      - run: docker exec ${REPO}-devcontainer docker build -f features/F4/home_index_module/Dockerfile -t ${REPO}-module:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
+      - name: Build primary image
+        run: |
+          docker exec ${REPO}-devcontainer \
+            docker build -q -f Dockerfile \
+            -t ${REPO}:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
 
-      - run: docker exec -e IMAGE=${REPO}:ci -e MODULE_BASE_IMAGE=${REPO}-module:ci -e COMMIT_SHA=$(git rev-parse HEAD) -e CI=true ${REPO}-devcontainer ./check.sh
+      - name: Build module image
+        run: |
+          docker exec ${REPO}-devcontainer \
+            docker build -q \
+            -f features/F4/home_index_module/Dockerfile \
+            -t ${REPO}-module:ci \
+            --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
 
-      - run: docker-compose -f .devcontainer/docker-compose.yml down -v
+      - name: Run checks
+        run: |
+          docker exec -e IMAGE=${REPO}:ci \
+            -e MODULE_BASE_IMAGE=${REPO}-module:ci \
+            -e COMMIT_SHA=$(git rev-parse HEAD) -e CI=true \
+            ${REPO}-devcontainer ./check.sh
+
+      - name: Stop dev-container
+        run: docker compose -f .devcontainer/docker-compose.yml down -v > /dev/null
