@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
@@ -66,8 +67,19 @@ def search_meili(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            print(
+                f"search_meili(index={index!r}, filter={filter_expr!r}) HTTP {e.code}: {body}",
+                file=sys.stderr,
+                flush=True,
+            )
         except Exception as e:
-            print(f"search_meili error: {e}", file=sys.stderr)
+            print(
+                f"search_meili(index={index!r}, filter={filter_expr!r}) error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
         if time.time() > deadline:
             raise AssertionError(
                 f"Timed out waiting for search results for: {filter_expr}"
@@ -102,8 +114,19 @@ def search_chunks(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            print(
+                f"search_chunks(filter={filter_expr!r}, query={query!r}) HTTP {e.code}: {body}",
+                file=sys.stderr,
+                flush=True,
+            )
         except Exception as e:
-            print(f"search_chunks error: {e}", file=sys.stderr)
+            print(
+                f"search_chunks(filter={filter_expr!r}, query={query!r}) error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
         if time.time() > deadline:
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
