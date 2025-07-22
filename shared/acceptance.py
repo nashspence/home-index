@@ -52,7 +52,8 @@ def search_meili(
 ) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
     deadline = time.time() + timeout
-    url = f"http://localhost:7700/indexes/{index}/search"
+    base_url = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700").rstrip("/")
+    url = f"{base_url}/indexes/{index}/search"
     while True:
         try:
             data = {"q": q, "filter": filter_expr}
@@ -66,8 +67,14 @@ def search_meili(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore") if hasattr(e, "read") else ""
+            print(
+                f"search_meili HTTPError {e.code} {e.reason}: {body}",
+                file=sys.stderr,
+            )
         except Exception as e:
-            print(f"search_meili error: {e}", file=sys.stderr)
+            print(f"search_meili error: {e!r}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError(
                 f"Timed out waiting for search results for: {filter_expr}"
@@ -83,7 +90,8 @@ def search_chunks(
 ) -> list[dict[str, Any]]:
     """Return chunk documents matching ``query`` from Meilisearch."""
     deadline = time.time() + timeout
-    url = "http://localhost:7700/indexes/file_chunks/search"
+    base_url = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700").rstrip("/")
+    url = f"{base_url}/indexes/file_chunks/search"
     while True:
         try:
             data = {
@@ -102,8 +110,14 @@ def search_chunks(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore") if hasattr(e, "read") else ""
+            print(
+                f"search_chunks HTTPError {e.code} {e.reason}: {body}",
+                file=sys.stderr,
+            )
         except Exception as e:
-            print(f"search_chunks error: {e}", file=sys.stderr)
+            print(f"search_chunks error: {e!r}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
