@@ -21,15 +21,15 @@ jobs:
 
       - name: Install docker-compose
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
+          ./.devcontainer/quiet.sh "apt-get update" sudo apt-get update
+          ./.devcontainer/quiet.sh "install docker-compose" sudo apt-get install -y docker-compose
 
-      - run: docker-compose -f .devcontainer/docker-compose.yml up --build -d
-      - run: docker exec ${REPO}-devcontainer postStart.sh
+      - run: ./.devcontainer/quiet.sh "docker-compose up" docker-compose -f .devcontainer/docker-compose.yml up --build -d
+      - run: ./.devcontainer/quiet.sh "postStart.sh" docker exec ${REPO}-devcontainer postStart.sh
 
-      - run: docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
-      - run: docker exec ${REPO}-devcontainer docker build -f features/F4/home_index_module/Dockerfile -t ${REPO}-module:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
+      - run: ./.devcontainer/quiet.sh "build main image" docker exec ${REPO}-devcontainer docker build -f Dockerfile -t ${REPO}:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
+      - run: ./.devcontainer/quiet.sh "build module image" docker exec ${REPO}-devcontainer docker build -f features/F4/home_index_module/Dockerfile -t ${REPO}-module:ci --build-arg COMMIT_SHA=$(git rev-parse HEAD) .
 
       - run: docker exec -e IMAGE=${REPO}:ci -e MODULE_BASE_IMAGE=${REPO}-module:ci -e COMMIT_SHA=$(git rev-parse HEAD) -e CI=true ${REPO}-devcontainer ./check.sh
 
-      - run: docker-compose -f .devcontainer/docker-compose.yml down -v
+      - run: ./.devcontainer/quiet.sh "docker-compose down" docker-compose -f .devcontainer/docker-compose.yml down -v
