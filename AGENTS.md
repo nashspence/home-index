@@ -37,7 +37,7 @@ S6_RELEASE
 
 ### S1.2\_SPECIAL_PROMPTS
 
-- If the prompt contains just a URL that starts with `https://productionresultssa1.blob.core.windows.net/actions-results/` then assume that URL is a link to a text file that contains raw Github Actions CI logs from a failed CI run. Download the file, analyse the logs to determine the reason for the failure, and fix the issue. It is most likely a failing CI step related to recent changes on your current branch.
+- If the prompt contains just a URL that matches /^https:\/\/productionresultssa\d+\.blob\.core\.windows\.net\/actions-results\/.*$/ (PCRE‑style) then assume that URL is a link to a text file that contains raw Github Actions CI logs from a failed CI run. Download the file, analyse the logs to determine the reason for the failure, and fix the issue. It is most likely a failing CI step related to recent changes on your current branch.
 
 ---
 
