@@ -13,12 +13,21 @@ from typing import Any, Callable
 
 
 def dump_logs(compose_file: Path, workdir: Path) -> None:
-    """Print logs from all compose containers."""
-    subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "logs", "--no-color"],
-        cwd=workdir,
-        check=False,
-    )
+    """Print logs from all compose containers in service order."""
+    for service in ("home-index", "meilisearch", "redis"):
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "logs",
+                "--no-color",
+                service,
+            ],
+            cwd=workdir,
+            check=False,
+        )
     sys.stdout.flush()
 
 
