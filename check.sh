@@ -17,7 +17,9 @@ fi
 # Install formatting, linting and test tools if they are not already
 # present. This script is also used by `.devcontainer/postStart.sh` so
 # the dependency list is maintained in one place.
-"$(dirname "$0")/.devcontainer/install_dev_tools.sh"
+if [ "${CI:-}" != "true" ]; then
+  "$(dirname "$0")/.devcontainer/install_dev_tools.sh"
+fi
 
 black --check .
 ruff check .
@@ -25,3 +27,7 @@ mypy --ignore-missing-imports --strict --explicit-package-bases \
   --no-site-packages --exclude 'tests' \
   main.py shared features
 pytest -q features/*/tests/unit
+
+if [ "${CI:-}" = "true" ]; then
+  pytest -q features/*/tests/acceptance
+fi
