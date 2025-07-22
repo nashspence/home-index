@@ -26,7 +26,7 @@ ruff check .
 mypy --ignore-missing-imports --strict --explicit-package-bases \
   --no-site-packages --exclude 'tests' \
   main.py shared features
-pytest -vv features/*/tests/unit
+pytest -q features/*/tests/unit
 
 if [ "${CI:-}" = "true" ]; then
   pytest -vv features/*/tests/acceptance
