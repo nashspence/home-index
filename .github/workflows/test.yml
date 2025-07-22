@@ -44,7 +44,8 @@ jobs:
         run: |
           docker exec -e IMAGE=${REPO}:ci \
             -e MODULE_BASE_IMAGE=${REPO}-module:ci \
-            -e COMMIT_SHA=$(git rev-parse HEAD) -e CI=true \
+            -e COMMIT_SHA=$(git rev-parse HEAD) \
+            -e GITHUB_ACTIONS \
             ${REPO}-devcontainer ./check.sh
 
       - name: Stop dev-container
