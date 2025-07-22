@@ -16,7 +16,8 @@ S6_RELEASE
 
 * MUST\_NOT modify any feature spec at `features/Fx/SPEC.md` unless directly prompted.
 * MUST\_NOT build dev‑ or release‑containers or run acceptance tests locally.
-* MUST\_NOT commit without running check.sh and fixing any warnings / errors.
+* MUST\_NOT try to re-create the docker containers locally by installing all of their dependencies.
+* MUST\_NOT commit without running `check.sh` and fixing any warnings / errors.
 
 ---
 
