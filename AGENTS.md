@@ -88,6 +88,7 @@ repo/
 
 ### S3.1\_ACCEPTANCE\_TESTS
 
+* Docker is **ABSOLUTELY NECESSARY** to run the acceptance tests. Do not even try without it.
 * Acceptance test script starts & stops `<repo>:ci` via compose.
 * ONE `features/Fx/tests/acceptance/docker-compose.yml` per feature.
 * Keep all inputs/outputs in `features/Fx/tests/acceptance/{input,output}` dirs.
