@@ -15,7 +15,7 @@ from typing import Any, Callable
 def dump_logs(compose_file: Path, workdir: Path) -> None:
     """Print logs from all compose containers in service order."""
     for service in ("home-index", "meilisearch", "redis"):
-        subprocess.run(
+        result = subprocess.run(
             [
                 "docker",
                 "compose",
@@ -27,7 +27,17 @@ def dump_logs(compose_file: Path, workdir: Path) -> None:
             ],
             cwd=workdir,
             check=False,
+            capture_output=True,
+            text=True,
         )
+        if result.returncode == 0:
+            if result.stdout:
+                print(result.stdout, end="")
+            continue
+        if "no such service" in result.stderr.lower():
+            continue
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
     sys.stdout.flush()
 
 
@@ -56,8 +66,8 @@ def search_meili(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"search_meili error: {e}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError(
                 f"Timed out waiting for search results for: {filter_expr}"
@@ -92,8 +102,8 @@ def search_chunks(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"search_chunks error: {e}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)
