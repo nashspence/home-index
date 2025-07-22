@@ -33,13 +33,14 @@ def dump_logs(compose_file: Path, workdir: Path) -> None:
         )
         if result.returncode == 0:
             if result.stdout:
-                print(result.stdout, end="")
+                print(result.stdout, end="", flush=True)
             continue
         if "no such service" in result.stderr.lower():
             continue
         if result.stderr:
-            print(result.stderr, file=sys.stderr, end="")
+            print(result.stderr, file=sys.stderr, end="", flush=True)
     sys.stdout.flush()
+    sys.stderr.flush()
 
 
 def search_meili(
@@ -82,7 +83,7 @@ def search_meili(
             )
         if time.time() > deadline:
             raise AssertionError(
-                f"Timed out waiting for search results for: {filter_expr}"
+                f"Timed out waiting for search results: index={index!r}, filter={filter_expr!r}"
             )
         time.sleep(0.5)
 
@@ -128,7 +129,9 @@ def search_chunks(
                 flush=True,
             )
         if time.time() > deadline:
-            raise AssertionError("Timed out waiting for search results")
+            raise AssertionError(
+                f"Timed out waiting for search results: filter={filter_expr!r}, query={query!r}"
+            )
         time.sleep(0.5)
 
 
