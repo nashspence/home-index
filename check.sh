@@ -6,20 +6,24 @@ IFS=$'\n\t'
 ###############################################################################
 # Helpers
 ###############################################################################
-# Standard runner: prints every argument as the heading
+# Standard runner
 run() {
+  local IFS=' '               # headings use spaces, not newlines
+  local heading="$*"
+
   if [[ ${GITHUB_ACTIONS:-} == "true" ]]; then
-    echo "::group::$*"
+    echo "::group::$heading"
   else
-    printf '\n\033[1m---- %s ----\033[0m\n' "$*"
+    printf '\n\033[1m---- %s ----\033[0m\n' "$heading"
   fi
+
   "$@"
   local status=$?
   [[ ${GITHUB_ACTIONS:-} == "true" ]] && echo "::endgroup::"
   return "$status"
 }
 
-# Named runner: first arg is the label, the rest is the command to run
+# Named runner: first arg is the label
 run_named() {
   local label=$1; shift
   if [[ ${GITHUB_ACTIONS:-} == "true" ]]; then
@@ -55,7 +59,10 @@ run ruff check .
 run mypy --ignore-missing-imports --strict --explicit-package-bases \
          --no-site-packages --exclude tests \
          main.py shared features
-run pytest -q features/*/tests/unit
+
+# Unit tests – concise header
+run_named "pytest unit (-q)" \
+          pytest -q features/*/tests/unit
 
 ###############################################################################
 # Acceptance tests (CI only)
@@ -64,7 +71,6 @@ if [[ ${CI:-false} == "true" ]]; then
   mapfile -t test_files < <(
     find features -path '*/tests/acceptance/test_*.py' | sort -V
   )
-  # Use a short label so the group header stays concise
   run_named "pytest acceptance (-vv -x)" \
             pytest -vv -x "${test_files[@]}"
 fi
