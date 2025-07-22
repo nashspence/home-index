@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -61,7 +62,8 @@ def search_chunks_custom(
     timeout: int = 300,
 ) -> list[dict[str, Any]]:
     deadline = time.time() + timeout
-    url = "http://localhost:7700/indexes/file_chunks/search"
+    base_url = os.environ.get("MEILISEARCH_HOST", "http://localhost:7700").rstrip("/")
+    url = f"{base_url}/indexes/file_chunks/search"
     while True:
         try:
             data: dict[str, Any] = {
@@ -86,8 +88,14 @@ def search_chunks_custom(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
-        except Exception:
-            pass
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore") if hasattr(e, "read") else ""
+            print(
+                f"search_chunks_custom HTTPError {e.code} {e.reason}: {body}",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            print(f"search_chunks_custom error: {e!r}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError("Timed out waiting for search results")
         time.sleep(0.5)

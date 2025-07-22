@@ -7,6 +7,7 @@ services:
       - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
       - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
       - WAIT_FOR_DEBUGPY_CLIENT=${WAIT_FOR_DEBUGPY_CLIENT:-False}
+      - MEILISEARCH_HOST=http://meilisearch:7700
     volumes:
       - ./input:/files:ro
       - ./output:/home-index

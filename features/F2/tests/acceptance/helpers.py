@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import shutil
+import os
 from pathlib import Path
 from typing import Any
 
 from features.F2 import duplicate_finder
 from shared import compose, search_meili, wait_for
+
+
+# Ensure local searches use the test Meilisearch instance
+os.environ.setdefault("MEILISEARCH_HOST", "http://localhost:7700")
 
 
 def _prepare_env(workdir: Path, output_dir: Path) -> Path:
