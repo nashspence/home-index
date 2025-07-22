@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
@@ -66,8 +67,11 @@ def search_meili(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            print(f"search_meili HTTP {e.code}: {body}", file=sys.stderr)
         except Exception as e:
-            print(f"search_meili error: {e}", file=sys.stderr)
+            print(f"search_meili error: {type(e).__name__}: {e}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError(
                 f"Timed out waiting for search results for: {filter_expr}"
