@@ -56,8 +56,8 @@ def search_meili(
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"search_meili error: {e}", file=sys.stderr)
         if time.time() > deadline:
             raise AssertionError(
                 f"Timed out waiting for search results for: {filter_expr}"
