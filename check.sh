@@ -43,7 +43,7 @@ for venv in "venv" "../venv"; do
   [[ -f "$venv/bin/activate" ]] && source "$venv/bin/activate" && break
 done
 
-if [[ ${CI:-false} != "true" ]]; then
+if [[ ${GITHUB_ACTIONS:-false} != "true" ]]; then
   run "$SCRIPT_DIR/.devcontainer/install_dev_tools.sh"
 fi
 
@@ -60,7 +60,7 @@ run pytest -q features/*/tests/unit
 ###############################################################################
 # Acceptance tests (CI only)
 ###############################################################################
-if [[ ${CI:-false} == "true" ]]; then
+if [[ ${GITHUB_ACTIONS:-false} == "true" ]]; then
   mapfile -t test_files < <(
     find features -path '*/tests/acceptance/test_*.py' | sort -V
   )
