@@ -1,40 +1,70 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# ci/check.sh – run formatting, linting, and tests locally or in CI
 set -euo pipefail
+IFS=$'\n\t'
 
+###############################################################################
+# Helpers
+###############################################################################
+# Standard runner: prints every argument as the heading
 run() {
-  printf '\n---- %s ----\n' "$*"
+  if [[ ${GITHUB_ACTIONS:-} == "true" ]]; then
+    echo "::group::$*"
+  else
+    printf '\n\033[1m---- %s ----\033[0m\n' "$*"
+  fi
   "$@"
+  local status=$?
+  [[ ${GITHUB_ACTIONS:-} == "true" ]] && echo "::endgroup::"
+  return "$status"
 }
 
-# Run from the repository root so formatting checks don't scan the whole
-# container filesystem.
-cd "$(dirname "$0")"
+# Named runner: first arg is the label, the rest is the command to run
+run_named() {
+  local label=$1; shift
+  if [[ ${GITHUB_ACTIONS:-} == "true" ]]; then
+    echo "::group::$label"
+  else
+    printf '\n\033[1m---- %s ----\033[0m\n' "$label"
+  fi
+  "$@"
+  local status=$?
+  [[ ${GITHUB_ACTIONS:-} == "true" ]] && echo "::endgroup::"
+  return "$status"
+}
 
-# Activate the development virtual environment if it exists so the
-# tools installed by `.devcontainer/postStart.sh` are on PATH.
-if [ -f "venv/bin/activate" ]; then
-  source "venv/bin/activate"
-elif [ -f "../venv/bin/activate" ]; then
-  # In the dev container the virtual environment is /workspace/venv
-  source "../venv/bin/activate"
+###############################################################################
+# Environment setup
+###############################################################################
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+cd "$SCRIPT_DIR"
+
+for venv in "venv" "../venv"; do
+  [[ -f "$venv/bin/activate" ]] && source "$venv/bin/activate" && break
+done
+
+if [[ ${CI:-false} != "true" ]]; then
+  run "$SCRIPT_DIR/.devcontainer/install_dev_tools.sh"
 fi
 
-# Install formatting, linting and test tools if they are not already
-# present. This script is also used by `.devcontainer/postStart.sh` so
-# the dependency list is maintained in one place.
-if [ "${CI:-}" != "true" ]; then
-  run "$(dirname "$0")/.devcontainer/install_dev_tools.sh"
-fi
-
+###############################################################################
+# Fast checks (always)
+###############################################################################
 run black --check .
 run ruff check .
 run mypy --ignore-missing-imports --strict --explicit-package-bases \
-  --no-site-packages --exclude 'tests' \
-  main.py shared features
+         --no-site-packages --exclude tests \
+         main.py shared features
 run pytest -q features/*/tests/unit
 
-if [ "${CI:-}" = "true" ]; then
-  mapfile -t test_files < <(find features -path '*/tests/acceptance/test_*.py' | sort -V)
-  printf '\n---- pytest -vv -x "${test_files[@]}" ----\n'
-  pytest -vv -x "${test_files[@]}"
+###############################################################################
+# Acceptance tests (CI only)
+###############################################################################
+if [[ ${CI:-false} == "true" ]]; then
+  mapfile -t test_files < <(
+    find features -path '*/tests/acceptance/test_*.py' | sort -V
+  )
+  # Use a short label so the group header stays concise
+  run_named "pytest acceptance (-vv -x)" \
+            pytest -vv -x "${test_files[@]}"
 fi
