@@ -35,25 +35,30 @@ S6_RELEASE
 
 *If the prompt is vague, ask clarifying questions. DO\_NOT change code.*
 
-### S1.2\_SPECIAL\_PROMPTS
+### S1.2\_FIX\_CI\_FAILURE\_PROMPT
 
-When the *entire* prompt is a single URL that matches
+If the *entire* prompt is a single URL that matches
 
 ```
 ^https://productionresultssa\d+\.blob\.core\.windows\.net/actions-results/.*$
 ```
 
-1. **Download the file** – it is a raw GitHub Actions log from a failed CI run.
-2. **Pinpoint the failure** by cross‑checking the log against the commands defined in `.github/workflows/test.yml` and `check.sh`.
-3. **Fix the problem** using *only*
+treat it as a raw GitHub Actions log from a failed CI run and follow this flow:
 
-   * the information in the log,
-   * local runs of `check.sh`, and
+1. **Download the log**.
+2. **Locate the failure** by comparing the log to the commands in `.github/workflows/test.yml` and `check.sh`.
+3. **Resolve the issue** using *only*
+
+   * the log itself,
+   * a local run of `check.sh`, and
    * public documentation searches.
-     *Never run the full CI pipeline locally.*
-   * If the root cause is obvious, patch the code.
-   * If more detail is needed, add the minimal logging required and commit that.
-4. **Push and open a PR.**
+     *Do not run the full CI pipeline locally.*
+   * If the cause is clear, patch the code.
+   * If not, add enough logging to conclusively expose the cause, then re‑run `check.sh`.
+4. **Improve log clarity** whenever current logging is unclear, misleading, or too noisy.
+5. **Fix warnings and non‑blocking errors** found in the logs as routine maintenance.
+6. **Push and open a PR.**
+
 
 ---
 
