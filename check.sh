@@ -35,6 +35,6 @@ run pytest -q features/*/tests/unit
 
 if [ "${CI:-}" = "true" ]; then
   mapfile -t test_files < <(find features -path '*/tests/acceptance/test_*.py' | sort -V)
-  print '\n---- pytest -vv -x "${test_files[@]}" ----\n'
+  printf '\n---- pytest -vv -x "${test_files[@]}" ----\n'
   pytest -vv -x "${test_files[@]}"
 fi
