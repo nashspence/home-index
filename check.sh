@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+run() {
+  printf '\n---- %s ----\n' "$*"
+  "$@"
+}
+
 # Run from the repository root so formatting checks don't scan the whole
 # container filesystem.
 cd "$(dirname "$0")"
@@ -18,16 +23,17 @@ fi
 # present. This script is also used by `.devcontainer/postStart.sh` so
 # the dependency list is maintained in one place.
 if [ "${CI:-}" != "true" ]; then
-  "$(dirname "$0")/.devcontainer/install_dev_tools.sh"
+  run "$(dirname "$0")/.devcontainer/install_dev_tools.sh"
 fi
 
-black --check .
-ruff check .
-mypy --ignore-missing-imports --strict --explicit-package-bases \
+run black --check .
+run ruff check .
+run mypy --ignore-missing-imports --strict --explicit-package-bases \
   --no-site-packages --exclude 'tests' \
   main.py shared features
-pytest -q features/*/tests/unit
+run pytest -q features/*/tests/unit
 
 if [ "${CI:-}" = "true" ]; then
-  pytest -q features/*/tests/acceptance
+  mapfile -t test_files < <(find features -path '*/tests/acceptance/test_*.py' | sort -V)
+  run pytest -vv -x "${test_files[@]}"
 fi
