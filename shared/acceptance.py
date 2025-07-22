@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
@@ -32,13 +33,40 @@ def dump_logs(compose_file: Path, workdir: Path) -> None:
         )
         if result.returncode == 0:
             if result.stdout:
-                print(result.stdout, end="")
+                print(result.stdout, end="", flush=True)
             continue
         if "no such service" in result.stderr.lower():
             continue
         if result.stderr:
-            print(result.stderr, file=sys.stderr, end="")
+            print(result.stderr, file=sys.stderr, end="", flush=True)
     sys.stdout.flush()
+    sys.stderr.flush()
+
+
+def wait_for_meili_index(index: str, *, timeout: int = 60) -> None:
+    """Wait until ``index`` exists in Meilisearch."""
+    url = f"http://localhost:7700/indexes/{index}"
+    deadline = time.time() + timeout
+    last_response = ""
+    while True:
+        try:
+            with urllib.request.urlopen(url) as resp:
+                if resp.status == 200:
+                    return
+                last_response = (
+                    f"HTTP {resp.status}: {resp.read().decode(errors='ignore')}"
+                )
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            last_response = f"HTTP {e.code}: {body}"
+        except Exception as e:
+            last_response = f"{type(e).__name__}: {e}"
+        if time.time() > deadline:
+            msg = f"Timed out waiting for index {index!r}"
+            if last_response:
+                msg += f" (last response: {last_response})"
+            raise AssertionError(msg)
+        time.sleep(0.5)
 
 
 def search_meili(
@@ -51,8 +79,10 @@ def search_meili(
     index: str = "files",
 ) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
+    wait_for_meili_index(index, timeout=timeout)
     deadline = time.time() + timeout
     url = f"http://localhost:7700/indexes/{index}/search"
+    last_response = ""
     while True:
         try:
             data = {"q": q, "filter": filter_expr}
@@ -62,16 +92,32 @@ def search_meili(
                 headers={"Content-Type": "application/json"},
             )
             with urllib.request.urlopen(req) as resp:
-                payload = json.load(resp)
+                body = resp.read().decode(errors="ignore")
+                last_response = f"HTTP {resp.status}: {body}"
+                payload = json.loads(body)
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
-        except Exception as e:
-            print(f"search_meili error: {e}", file=sys.stderr)
-        if time.time() > deadline:
-            raise AssertionError(
-                f"Timed out waiting for search results for: {filter_expr}"
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            last_response = f"HTTP {e.code}: {body}"
+            print(
+                f"search_meili(index={index!r}, filter={filter_expr!r}) HTTP {e.code}: {body}",
+                file=sys.stderr,
+                flush=True,
             )
+        except Exception as e:
+            last_response = f"{type(e).__name__}: {e}"
+            print(
+                f"search_meili(index={index!r}, filter={filter_expr!r}) error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
+        if time.time() > deadline:
+            msg = f"Timed out waiting for search results: index={index!r}, filter={filter_expr!r}"
+            if last_response:
+                msg += f" (last response: {last_response})"
+            raise AssertionError(msg)
         time.sleep(0.5)
 
 
@@ -82,8 +128,10 @@ def search_chunks(
     timeout: int = 300,
 ) -> list[dict[str, Any]]:
     """Return chunk documents matching ``query`` from Meilisearch."""
+    wait_for_meili_index("file_chunks", timeout=timeout)
     deadline = time.time() + timeout
     url = "http://localhost:7700/indexes/file_chunks/search"
+    last_response = ""
     while True:
         try:
             data = {
@@ -98,14 +146,32 @@ def search_chunks(
                 headers={"Content-Type": "application/json"},
             )
             with urllib.request.urlopen(req) as resp:
-                payload = json.load(resp)
+                body = resp.read().decode(errors="ignore")
+                last_response = f"HTTP {resp.status}: {body}"
+                payload = json.loads(body)
             docs = payload.get("hits") or payload.get("results") or []
             if docs:
                 return list(docs)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            last_response = f"HTTP {e.code}: {body}"
+            print(
+                f"search_chunks(filter={filter_expr!r}, query={query!r}) HTTP {e.code}: {body}",
+                file=sys.stderr,
+                flush=True,
+            )
         except Exception as e:
-            print(f"search_chunks error: {e}", file=sys.stderr)
+            last_response = f"{type(e).__name__}: {e}"
+            print(
+                f"search_chunks(filter={filter_expr!r}, query={query!r}) error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
         if time.time() > deadline:
-            raise AssertionError("Timed out waiting for search results")
+            msg = f"Timed out waiting for search results: filter={filter_expr!r}, query={query!r}"
+            if last_response:
+                msg += f" (last response: {last_response})"
+            raise AssertionError(msg)
         time.sleep(0.5)
 
 
