@@ -20,7 +20,9 @@ S6_RELEASE
 
 ---
 
-## S1\_EXPECTED\_PROMPT\_FLOW
+## S1\_SERVICING_A_PROMPT
+
+### S1.1\_EXPECTED\_FLOW
 
 1. Read relevant feature specs (`features/Fx/SPEC.md`) if they exist (see S2.2).
 2. Make changes to specs if directed by the prompt (see S2.2).
@@ -32,6 +34,10 @@ S6_RELEASE
 8. PUSH, open PR.
 
 *If the prompt is vague, ask clarifying questions. DO\_NOT change code.*
+
+### S1.2\_SPECIAL_PROMPTS
+
+- If the prompt contains just a URL that starts with `https://productionresultssa1.blob.core.windows.net/actions-results/` then assume that URL is a link to a text file that contains raw Github Actions CI logs from a failed CI run. Download the file, analyse the logs to determine the reason for the failure, and fix the issue. It is most likely a failing CI step related to recent changes on your current branch.
 
 ---
 
