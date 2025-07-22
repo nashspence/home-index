@@ -8,7 +8,7 @@ from shared import compose_paths
 from .helpers import _run_once, _get_doc_id, _run_again
 
 
-def f4s10() -> None:
+def test_f4s10() -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = Path(tempfile.mkdtemp()) / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)

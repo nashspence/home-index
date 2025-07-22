@@ -7,7 +7,7 @@ from shared import compose_paths, search_meili
 from .helpers import _run_once, _get_doc_id, _run_add_module
 
 
-def f4s7(tmp_path: Path) -> None:
+def test_f4s7(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     _run_once(compose_file, workdir, output_dir, env_file)

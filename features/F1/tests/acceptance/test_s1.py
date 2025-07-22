@@ -11,7 +11,7 @@ from .helpers import (
 )
 
 
-def f1s1(tmp_path: Path) -> None:
+def test_f1s1(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     cron = "* * * * * *"

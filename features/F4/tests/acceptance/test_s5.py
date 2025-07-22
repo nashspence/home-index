@@ -9,7 +9,7 @@ from .helpers import _run_once
 import pytest
 
 
-def f4s5() -> None:
+def test_f4s5() -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     (workdir / "input" / "Foo-status-ready").write_text("x")
     env_file = Path(tempfile.mkdtemp()) / ".env"

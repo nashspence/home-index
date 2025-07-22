@@ -9,7 +9,7 @@ from shared import compose_paths, dump_logs, search_meili, wait_for
 from .helpers import post_ops, put_file, start, stop
 
 
-def f6s4(tmp_path: Path) -> None:
+def test_f6s4(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     start(compose_file, workdir, output_dir, env_file)

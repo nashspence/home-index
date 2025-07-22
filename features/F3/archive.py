@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping
 
@@ -114,7 +114,9 @@ def update_drive_markers(docs: Mapping[str, Mapping[str, Any]]) -> None:
             if drive not in drives_referenced:
                 marker.unlink()
 
-    timestamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    timestamp = (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
     for drive in drives_referenced:
         pending = pending_map.get(drive, False)
         if drive in drives_present or pending:

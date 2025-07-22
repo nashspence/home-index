@@ -9,7 +9,7 @@ from shared import compose, compose_paths, wait_for
 from .helpers import _container_status
 
 
-def f4s12(tmp_path: Path) -> None:
+def test_f4s12(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     env_file.write_text(

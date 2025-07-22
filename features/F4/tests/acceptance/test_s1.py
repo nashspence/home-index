@@ -7,7 +7,7 @@ from shared import compose_paths
 from .helpers import _run_once
 
 
-def f4s1(tmp_path: Path) -> None:
+def test_f4s1(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     drive = workdir / "input" / "archive" / "drive1"
