@@ -2,7 +2,7 @@
 set -euo pipefail
 
 run() {
-  printf '\n\n---- %s ----' "$*"
+  printf '\n---- %s ----\n' "$*"
   "$@"
 }
 
@@ -35,6 +35,6 @@ run pytest -q features/*/tests/unit
 
 if [ "${CI:-}" = "true" ]; then
   mapfile -t test_files < <(find features -path '*/tests/acceptance/test_*.py' | sort -V)
-  echo '\n\n---- pytest -vv -x "${test_files[@]}" ----'
+  print '\n---- pytest -vv -x "${test_files[@]}" ----\n'
   pytest -vv -x "${test_files[@]}"
 fi
