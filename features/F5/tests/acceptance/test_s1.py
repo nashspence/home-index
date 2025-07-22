@@ -8,7 +8,7 @@ from .helpers import prepare_dirs, start, stop, write_env, wait_initial
 from features.F2 import duplicate_finder
 
 
-def f5s1(tmp_path: Path) -> None:
+def test_f5s1(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     prepare_dirs(workdir, output_dir)

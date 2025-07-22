@@ -8,7 +8,7 @@ from shared import compose_paths
 from .helpers import _run_share_group_rotation
 
 
-def f4s14() -> None:
+def test_f4s14() -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = Path(tempfile.mkdtemp()) / ".env"
     logs_example, logs_timeout = _run_share_group_rotation(

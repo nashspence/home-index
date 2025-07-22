@@ -86,7 +86,7 @@ repo/
 * ONE `features/Fx/tests/acceptance/docker-compose.yml` per feature.
 * Keep all inputs/outputs in `features/Fx/tests/acceptance/{input,output}` dirs.
 * Handle each acceptance scenario from the spec via env vars + input files
-* Each acceptance scenario lives in `features/Fx/tests/acceptance/test_sY.py` with a function named `fXsY`.
+* Each acceptance scenario lives in `features/Fx/tests/acceptance/test_sY.py` with a function named `test_fXsY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Do NOT use mocks, stubs, or dummies unless absolutely necessary.
 * On failure output test logs + relevant release‑env container logs.

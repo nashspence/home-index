@@ -8,7 +8,7 @@ from shared import compose, compose_paths, dump_logs, search_meili
 from .helpers import _run_once
 
 
-def f3s4(tmp_path: Path) -> None:
+def test_f3s4(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     ts = "2025-01-01T00:00:00Z"
 

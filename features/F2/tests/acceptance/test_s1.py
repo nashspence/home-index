@@ -7,7 +7,7 @@ from shared import compose, compose_paths, dump_logs
 from .helpers import _run_once
 
 
-def f2s1(tmp_path: Path) -> None:
+def test_f2s1(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     try:
         by_id_dir, by_path_dir, _, _, uniq_docs = _run_once(
