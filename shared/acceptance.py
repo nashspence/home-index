@@ -133,6 +133,7 @@ def search_meili(
     url = f"http://localhost:7700/indexes/{index}/search"
     last_response = ""
     while True:
+        wait_for_meili_idle(timeout=max(1, int(deadline - time.time())))
         try:
             data = {"q": q, "filter": filter_expr}
             req = urllib.request.Request(
@@ -183,6 +184,7 @@ def search_chunks(
     url = "http://localhost:7700/indexes/file_chunks/search"
     last_response = ""
     while True:
+        wait_for_meili_idle(timeout=max(1, int(deadline - time.time())))
         try:
             data = {
                 "q": f"query: {query}",
