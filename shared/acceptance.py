@@ -128,12 +128,12 @@ def search_meili(
 ) -> list[dict[str, Any]]:
     """Return documents matching ``filter_expr`` from Meilisearch."""
     wait_for_meili_index(index, timeout=timeout)
+    wait_for_meili_idle(timeout=timeout)
     deadline = time.time() + timeout
     url = f"http://localhost:7700/indexes/{index}/search"
     last_response = ""
     while True:
         try:
-            wait_for_meili_idle(timeout=timeout)
             data = {"q": q, "filter": filter_expr}
             req = urllib.request.Request(
                 url,
@@ -167,6 +167,7 @@ def search_meili(
             if last_response:
                 msg += f" (last response: {last_response})"
             raise AssertionError(msg)
+        wait_for_meili_idle(timeout=timeout)
         time.sleep(0.5)
 
 
@@ -178,12 +179,12 @@ def search_chunks(
 ) -> list[dict[str, Any]]:
     """Return chunk documents matching ``query`` from Meilisearch."""
     wait_for_meili_index("file_chunks", timeout=timeout)
+    wait_for_meili_idle(timeout=timeout)
     deadline = time.time() + timeout
     url = "http://localhost:7700/indexes/file_chunks/search"
     last_response = ""
     while True:
         try:
-            wait_for_meili_idle(timeout=timeout)
             data = {
                 "q": f"query: {query}",
                 "hybrid": {"semanticRatio": 1, "embedder": "e5-small"},
@@ -222,6 +223,7 @@ def search_chunks(
             if last_response:
                 msg += f" (last response: {last_response})"
             raise AssertionError(msg)
+        wait_for_meili_idle(timeout=timeout)
         time.sleep(0.5)
 
 
