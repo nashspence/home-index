@@ -5,6 +5,8 @@ from .acceptance import (
     search_meili,
     search_chunks,
     wait_for,
+    wait_for_meili_index,
+    wait_for_meili_idle,
 )
 
 __all__ = [
@@ -14,4 +16,6 @@ __all__ = [
     "compose_paths",
     "compose",
     "wait_for",
+    "wait_for_meili_index",
+    "wait_for_meili_idle",
 ]
