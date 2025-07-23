@@ -7,6 +7,7 @@ from features.F3 import archive
 from features.F4 import modules as modules_f4
 from features.F6 import server as f6_server
 from shared.logging_config import files_logger, setup_logging
+from shared.acceptance import acceptance_step
 
 DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
 COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
@@ -24,6 +25,7 @@ duplicate_finder = duplicate_finder
 
 async def main() -> None:
     setup_logging()
+    acceptance_step("log-subscriber-attached")
     files_logger.info("running commit %s", COMMIT_SHA)
     await f1_sync.init_meili_and_sync()
     if modules_f4.is_modules_changed:

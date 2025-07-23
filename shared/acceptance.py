@@ -10,6 +10,127 @@ import time
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
+import asyncio
+import pickle
+import struct
+
+# --- acceptance-test handshake ----------------------------------------------
+import logging
+from logging.handlers import SocketHandler
+import socket
+from shared.logging_config import files_logger
+
+ACCEPTANCE_LEVEL = logging.INFO + 5
+logging.addLevelName(ACCEPTANCE_LEVEL, "ACCEPTANCE")
+logging.Logger.acceptance = lambda self, m, *a, **k: self._log(  # type: ignore[attr-defined]
+    ACCEPTANCE_LEVEL, m, a, **k
+)
+
+_TEST = os.getenv("TEST", "").lower() == "true"
+_ACK = b"\x06"
+_sock: socket.socket | None = None
+
+
+class _AcceptServer:
+    def __init__(
+        self,
+        server: asyncio.AbstractServer,
+        q: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]],
+    ) -> None:
+        self._server = server
+        self._q = q
+
+    async def accept(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        return await self._q.get()
+
+    def close(self) -> None:
+        self._server.close()
+
+    async def wait_closed(self) -> None:
+        await self._server.wait_closed()
+
+
+async def _start_server() -> tuple[_AcceptServer, str, int]:
+    """Return a TCP server and its address for log collection."""
+    q: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = (
+        asyncio.Queue()
+    )
+
+    async def handler(r: asyncio.StreamReader, w: asyncio.StreamWriter) -> None:
+        q.put_nowait((r, w))
+
+    server = await asyncio.start_server(handler, host="127.0.0.1")
+    host, port = server.sockets[0].getsockname()
+    return _AcceptServer(server, q), host, port
+
+
+async def _next_record(reader: asyncio.StreamReader) -> logging.LogRecord:
+    size_bytes = await reader.readexactly(4)
+    (size,) = struct.unpack(">I", size_bytes)
+    data = await reader.readexactly(size)
+    return logging.makeLogRecord(pickle.loads(data))
+
+
+def _matches(rec: logging.LogRecord, spec: dict[str, Any]) -> bool:
+    """Return True if *rec* matches all fields in *spec*."""
+    for key, want in spec.items():
+        got = getattr(rec, key, None)
+        if callable(want):
+            if not want(got):
+                return False
+        elif got != want:
+            return False
+    return True
+
+
+async def assert_event_sequence(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    expected: list[dict[str, Any]],
+    timeout: float = 5,
+) -> None:
+    """ACK every log record and assert that *expected* specs appear in order."""
+    idx = 0
+    while idx < len(expected):
+        rec = await asyncio.wait_for(_next_record(reader), timeout)
+        writer.write(_ACK)
+        await writer.drain()
+        if _matches(rec, expected[idx]):
+            idx += 1
+
+
+def _connect_once() -> None:
+    """Install SocketHandler and cache the socket for ACK exchange."""
+    global _sock
+    if _sock or not _TEST:
+        return
+    host, port = os.getenv("TEST_LOG_TARGET", "127.0.0.1:9020").split(":")
+    handler = SocketHandler(host, int(port))
+    handler.addFilter(lambda r: r.levelno == ACCEPTANCE_LEVEL)
+    root_logger = logging.getLogger()
+    if root_logger.level > ACCEPTANCE_LEVEL:
+        root_logger.setLevel(ACCEPTANCE_LEVEL)
+    root_logger.addHandler(handler)
+    handler.createSocket()
+    _sock = handler.sock
+
+
+def acceptance_step(
+    event: str,
+    *,
+    logger: logging.Logger | None = None,
+    **payload: Any,
+) -> None:
+    """Log *event* at the acceptance level and wait for an ACK when testing."""
+    _connect_once()
+    (logger or files_logger).log(
+        ACCEPTANCE_LEVEL,
+        event,
+        extra={"event": event, **payload},
+    )
+    if _TEST:
+        assert _sock is not None
+        _sock.recv(1)
 
 
 def dump_logs(compose_file: Path, workdir: Path) -> None:

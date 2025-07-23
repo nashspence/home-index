@@ -57,8 +57,11 @@ def _prepare_dirs(workdir: Path, output_dir: Path, *, with_input: bool = True) -
         input_dir.mkdir()
 
 
-def _write_env(env_file: Path, cron: str) -> None:
-    env_file.write_text(f"CRON_EXPRESSION={cron}\n")
+def _write_env(env_file: Path, cron: str, **extra: str) -> None:
+    lines = [f"CRON_EXPRESSION={cron}"]
+    for k, v in extra.items():
+        lines.append(f"{k}={v}")
+    env_file.write_text("\n".join(lines) + "\n")
 
 
 def _read_start_times(output_dir: Path) -> list[datetime]:

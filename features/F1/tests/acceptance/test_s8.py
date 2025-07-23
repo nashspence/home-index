@@ -3,20 +3,30 @@ from __future__ import annotations
 from pathlib import Path
 
 from shared import compose, compose_paths, dump_logs, wait_for
+import pytest
 
-from .helpers import (
-    _write_env,
-    _prepare_dirs,
-)
+from .helpers import _write_env, _prepare_dirs
+from shared.acceptance import _start_server
+from shared.acceptance import assert_event_sequence
 
 
-def test_f1s8(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_f1s8(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
-    _write_env(env_file, "bad cron")
+    server, host, port = await _start_server()
+    _write_env(env_file, "bad cron", TEST="true", TEST_LOG_TARGET=f"{host}:{port}")
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
     try:
+        reader, writer = await server.accept()
+        await assert_event_sequence(
+            reader,
+            writer,
+            [{"event": "log-subscriber-attached"}],
+        )
+        writer.close()
+        await writer.wait_closed()
         wait_for(
             lambda: b"invalid cron expression"
             in compose(
@@ -63,3 +73,5 @@ def test_f1s8(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        server.close()
+        await server.wait_closed()
