@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import logging
 from shared import compose, compose_paths, dump_logs
 
 from .helpers import (
@@ -11,21 +12,30 @@ from .helpers import (
     _expected_interval,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def test_f1s4(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
+    logger.debug("compose paths resolved")
     env_file = tmp_path / ".env"
     cron = "*/2 * * * * *"
     _write_env(env_file, cron)
+    logger.debug("env written")
     _prepare_dirs(workdir, output_dir)
+    logger.debug("dirs prepared")
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    logger.debug("compose up")
     try:
         times = _wait_for_start_lines(output_dir, 3)
+        logger.debug("got times %s", times)
         compose(compose_file, workdir, "stop", env_file=env_file)
+        logger.debug("compose stopped")
         interval = (times[-1] - times[-2]).total_seconds()
         expected = _expected_interval(cron)
         assert interval >= expected - 1
         assert interval <= expected * 3 + 1
+        logger.debug("interval %s expected %s", interval, expected)
     except Exception:
         dump_logs(compose_file, workdir)
         raise
