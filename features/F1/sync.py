@@ -31,6 +31,7 @@ RESERVED_FILES_DIRS = [metadata_store.metadata_directory()]
 
 
 def _safe_mkdir(path: Path) -> None:
+    files_logger.debug("_safe_mkdir: %s", path)
     try:
         path.mkdir(parents=True, exist_ok=True)
     except PermissionError:
@@ -41,8 +42,11 @@ def _safe_mkdir(path: Path) -> None:
 
 
 def compute_hash(path: Path) -> tuple[Path, str, os.stat_result]:
+    files_logger.debug("compute_hash: %s", path)
     stat = path.stat()
-    return path, duplicate_finder.compute_hash(path), stat
+    result = duplicate_finder.compute_hash(path)
+    files_logger.debug("hashed %s -> %s", path, result)
+    return path, result, stat
 
 
 _safe_mkdir(INDEX_DIRECTORY)
@@ -52,6 +56,7 @@ path_links.ensure_directories()
 
 
 def module_metadata_path(file_id: str, module_name: str) -> Path:
+    files_logger.debug("module_metadata_path: %s %s", file_id, module_name)
     path = metadata_store.by_id_directory() / file_id / module_name
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -65,13 +70,17 @@ parse_cron_env = scheduler.parse_cron_env
 
 
 def write_doc_json(doc: MutableMapping[str, Any]) -> None:
+    files_logger.debug("write_doc_json: %s", doc.get("id"))
     metadata_store.write_doc_json(doc)
 
 
 def is_apple_double(file_path: Path) -> bool:
+    files_logger.debug("is_apple_double: %s", file_path)
     try:
         with file_path.open("rb") as file:
-            return file.read(4) == b"\x00\x05\x16\x07"
+            result = file.read(4) == b"\x00\x05\x16\x07"
+            files_logger.debug("is_apple_double result for %s -> %s", file_path, result)
+            return result
     except Exception:
         return False
 
@@ -80,6 +89,7 @@ magic_mime = None
 
 
 def get_mime_type(file_path: Path) -> str:
+    files_logger.debug("get_mime_type: %s", file_path)
     global magic_mime
     if magic_mime is None:
         import magic
@@ -91,6 +101,7 @@ def get_mime_type(file_path: Path) -> str:
             return "multipart/appledouble"
         guess, _ = mimetypes.guess_type(str(file_path), strict=False)
         mime_type = guess or "application/octet-stream"
+    files_logger.debug("mime type for %s -> %s", file_path, mime_type)
     return mime_type
 
 
@@ -104,6 +115,7 @@ def index_metadata() -> tuple[
     dict[str, str],
     dict[str, dict[str, Any]],
 ]:
+    files_logger.debug("index_metadata start")
     metadata_docs_by_hash = {}
     metadata_hashes_by_relpath = {}
     unmounted_archive_docs_by_hash = {}
@@ -111,20 +123,26 @@ def index_metadata() -> tuple[
     migrated_docs_by_hash = {}
 
     files_logger.info(" * iterate metadata by-id")
+    files_logger.debug("metadata by-id directory: %s", metadata_store.by_id_directory())
     file_paths = [
         dir / "document.json" for dir in (metadata_store.by_id_directory()).iterdir()
     ]
 
     def read_doc_json(doc_json_path: Path) -> dict[str, Any] | None:
+        files_logger.debug("read_doc_json: %s", doc_json_path)
         if not doc_json_path.exists():
             shutil.rmtree(doc_json_path.parent)
+            files_logger.debug("metadata missing for %s", doc_json_path)
             return None
         with doc_json_path.open("r") as file:
-            return cast(dict[str, Any], json.load(file))
+            doc = cast(dict[str, Any], json.load(file))
+        files_logger.debug("loaded metadata doc %s", doc.get("id"))
+        return doc
 
     def handle_doc(doc: dict[str, Any] | None) -> None:
         if not doc:
             return
+        files_logger.debug("handle_doc: %s", doc.get("id"))
         if migrations.migrate_doc(doc):
             metadata_store.write_doc_json(doc)
             migrated_docs_by_hash[doc["id"]] = doc
@@ -171,12 +189,14 @@ def index_metadata() -> tuple[
         files_logger.info(" * check %d file hashes", len(file_paths))
         if MAX_FILE_WORKERS < 2:
             for fp in file_paths:
+                files_logger.debug("sequential read %s", fp)
                 handle_doc(read_doc_json(fp))
         else:
             with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
                 for completed in as_completed(
                     executor.submit(read_doc_json, fp) for fp in file_paths
                 ):
+                    files_logger.debug("threaded read result")
                     handle_doc(completed.result())
 
     return (
@@ -194,10 +214,12 @@ def index_files(
     unmounted_archive_docs_by_hash: dict[str, dict[str, Any]],
     unmounted_archive_hashes_by_relpath: dict[str, str],
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    files_logger.debug("index_files start")
     files_docs_by_hash: dict[str, dict[str, Any]] = {}
     files_hashes_by_relpath: dict[str, str] = {}
 
     files_logger.info(" * recursively walk files")
+    files_logger.debug("walking directory %s", INDEX_DIRECTORY)
     file_paths = []
     for root, _, files in os.walk(INDEX_DIRECTORY):
         root_path = Path(root)
@@ -210,9 +232,11 @@ def index_files(
             if archive.is_status_marker(path):
                 continue
             file_paths.append(path)
+            files_logger.debug("found file %s", path)
 
     def handle_hash_at_path(args: tuple[Path, str, os.stat_result]) -> None:
         path, hash_val, stat = args
+        files_logger.debug("handle_hash_at_path: %s -> %s", path, hash_val)
         relpath = str(path.relative_to(INDEX_DIRECTORY))
 
         metadata_doc = files_doc = None
@@ -240,6 +264,7 @@ def index_files(
                 "type": get_mime_type(path),
                 "next": "",
             }
+        files_logger.debug("indexed file %s -> %s", path, doc["id"])
         doc.setdefault("paths_list", sorted(doc["paths"].keys()))
         doc.setdefault("copies", len(doc["paths"]))
         doc.setdefault("version", migrations.CURRENT_VERSION)
@@ -275,7 +300,8 @@ def index_files(
         modules_f4.set_next_modules(
             files_docs_by_hash, force_offline=modules_f4.is_modules_changed
         )
-
+        files_logger.debug("next modules set for %d docs", len(files_docs_by_hash))
+    files_logger.debug("index_files end: %d docs", len(files_docs_by_hash))
     return files_docs_by_hash, files_hashes_by_relpath
 
 
@@ -285,6 +311,7 @@ def update_metadata(
     files_docs_by_hash: dict[str, dict[str, Any]],
     files_hashes_by_relpath: dict[str, str],
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    files_logger.debug("update_metadata start")
     files_logger.info(" * check for upserted documents")
     upserted_docs_by_hash = {
         hash_val: files_doc
@@ -312,6 +339,7 @@ def update_metadata(
     )
 
     def handle_deleted_relpath(relpath: str) -> None:
+        files_logger.debug("delete metadata path %s", relpath)
         metadata_doc = metadata_docs_by_hash[metadata_hashes_by_relpath[relpath]]
         by_id_path = metadata_store.by_id_directory() / metadata_doc["id"]
         if metadata_doc["id"] not in files_docs_by_hash and by_id_path.exists():
@@ -319,6 +347,7 @@ def update_metadata(
         path_links.unlink_path(relpath)
 
     def handle_upserted_doc(doc: dict[str, Any]) -> None:
+        files_logger.debug("upsert metadata doc %s", doc.get("id"))
         write_doc_json(doc)
         for relpath in doc["paths"].keys():
             path_links.link_path(relpath, doc["id"])
@@ -327,6 +356,7 @@ def update_metadata(
         files_logger.info(" * delete %d metadata paths", len(deleted_relpaths))
         if MAX_FILE_WORKERS < 2:
             for relpath in deleted_relpaths:
+                files_logger.debug("delete path sequential %s", relpath)
                 handle_deleted_relpath(relpath)
         else:
             with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
@@ -334,12 +364,14 @@ def update_metadata(
                     executor.submit(handle_deleted_relpath, relpath)
                     for relpath in deleted_relpaths
                 ):
+                    files_logger.debug("deleted path threaded")
                     completed.result()
 
     if upserted_docs_by_hash:
         files_logger.info(" * upsert %d metadata documents", len(upserted_docs_by_hash))
         if MAX_FILE_WORKERS < 2:
             for doc in upserted_docs_by_hash.values():
+                files_logger.debug("upsert doc sequential %s", doc.get("id"))
                 handle_upserted_doc(doc)
         else:
             with ThreadPoolExecutor(max_workers=MAX_FILE_WORKERS) as executor:
@@ -347,8 +379,14 @@ def update_metadata(
                     executor.submit(handle_upserted_doc, doc)
                     for doc in upserted_docs_by_hash.values()
                 ):
+                    files_logger.debug("upsert doc threaded")
                     completed.result()
 
+    files_logger.debug(
+        "update_metadata end: %d upserted, %d files",
+        len(upserted_docs_by_hash),
+        len(files_docs_by_hash),
+    )
     return upserted_docs_by_hash, files_docs_by_hash
 
 
@@ -356,9 +394,11 @@ async def update_meilisearch(
     upserted_docs_by_hash: dict[str, dict[str, Any]],
     files_docs_by_hash: Mapping[str, Mapping[str, Any]],
 ) -> None:
+    files_logger.debug("update_meilisearch start")
     files_logger.info(" * get all meilisearch documents")
     all_meili_docs = await search_index.get_all_documents()
     meili_hashes = {doc["id"] for doc in all_meili_docs}
+    files_logger.debug("meili documents fetched: %d", len(meili_hashes))
 
     files_logger.info(" * check for redundant meilisearch documents")
     deleted_hashes = meili_hashes - set(files_docs_by_hash.keys())
@@ -371,9 +411,15 @@ async def update_meilisearch(
             for hash_val in missing_meili_hashes
         }
     )
+    files_logger.debug(
+        "meili missing %d, redundant %d",
+        len(missing_meili_hashes),
+        len(deleted_hashes),
+    )
 
     if deleted_hashes:
         files_logger.info(" * delete %d meilisearch documents", len(deleted_hashes))
+        files_logger.debug("deleting %s", list(deleted_hashes))
         await search_index.delete_docs_by_id(list(deleted_hashes))
         await search_index.delete_chunk_docs_by_file_ids(list(deleted_hashes))
         await search_index.wait_for_meili_idle()
@@ -381,10 +427,12 @@ async def update_meilisearch(
         files_logger.info(
             " * upsert %d meilisearch documents", len(upserted_docs_by_hash)
         )
+        files_logger.debug("upserting %s", list(upserted_docs_by_hash.keys()))
         await search_index.add_or_update_documents(list(upserted_docs_by_hash.values()))
         await search_index.wait_for_meili_idle()
     total_docs_in_meili = await search_index.get_document_count()
     files_logger.info(" * counted %d documents in meilisearch", total_docs_in_meili)
+    files_logger.debug("update_meilisearch end")
 
     # Ensure module queues are refreshed immediately after sync
     if modules_f4.module_values and upserted_docs_by_hash:
@@ -399,6 +447,7 @@ async def update_meilisearch(
 
 
 async def sync_documents() -> None:
+    files_logger.debug("sync_documents start")
     try:
         files_logger.info("---------------------------------------------------")
         files_logger.info("start file sync")
@@ -435,6 +484,7 @@ async def sync_documents() -> None:
         await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
         await chunking.sync_content_files(files_docs_by_hash)
         files_logger.info("completed file sync")
+        files_logger.debug("sync_documents end")
     except Exception:  # pragma: no cover - unexpected errors
         files_logger.exception("sync failed")
         raise
@@ -446,24 +496,29 @@ async def sync_documents() -> None:
 def run_async_in_loop(
     func: Callable[..., Coroutine[Any, Any, Any]], *args: Any
 ) -> None:
+    files_logger.debug("run_async_in_loop: %s", func.__name__)
     asyncio.run(func(*args))
 
 
 def run_in_process(func: Callable[..., Coroutine[Any, Any, Any]], *args: Any) -> None:
+    files_logger.debug("run_in_process: %s", func.__name__)
     process = Process(target=run_async_in_loop, args=(func,) + args)
     process.start()
     process.join()
 
 
 async def init_meili_and_sync() -> None:
+    files_logger.debug("init_meili_and_sync start")
     await search_index.init_meili()
     await sync_documents()
+    files_logger.debug("init_meili_and_sync end")
 
 
 async def schedule_and_run(
     api_coro_fn: Callable[[], Awaitable[Any]], *, debug: bool
 ) -> None:
     """Run the API server and schedule periodic sync jobs."""
+    files_logger.debug("schedule_and_run start, debug=%s", debug)
     sched = BackgroundScheduler()
     scheduler.attach_sync_job(
         sched,
@@ -471,4 +526,6 @@ async def schedule_and_run(
         lambda: run_in_process(init_meili_and_sync),
     )
     sched.start()
+    files_logger.debug("scheduler started")
     await api_coro_fn()
+    files_logger.debug("schedule_and_run end")
