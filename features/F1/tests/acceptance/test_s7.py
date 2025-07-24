@@ -16,7 +16,7 @@ async def test_f1s7(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     server, host, port = await _start_server()
     cron = "* * * * * *"
-    _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"{host}:{port}")
+    _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
@@ -49,7 +49,7 @@ async def test_f1s7(tmp_path: Path) -> None:
         server.close()
         await server.wait_closed()
     server, host, port = await _start_server()
-    _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"{host}:{port}")
+    _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
         reader, writer = await server.accept(timeout=10)

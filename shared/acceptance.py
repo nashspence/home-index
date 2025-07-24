@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable
 import asyncio
@@ -104,7 +105,14 @@ def _connect_once() -> None:
     global _sock
     if _sock or not _TEST:
         return
-    host, port = os.getenv("TEST_LOG_TARGET", "127.0.0.1:9020").split(":")
+    target = os.getenv("TEST_LOG_TARGET", "http://127.0.0.1:9020")
+    if "://" in target:
+        parsed = urllib.parse.urlparse(target)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 9020
+    else:
+        host, port_str = target.split(":")
+        port = int(port_str)
     handler = SocketHandler(host, int(port))
     handler.addFilter(lambda r: r.levelno == ACCEPTANCE_LEVEL)
     root_logger = logging.getLogger()

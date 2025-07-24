@@ -15,7 +15,9 @@ async def test_f1s8(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
     server, host, port = await _start_server()
-    _write_env(env_file, "bad cron", TEST="true", TEST_LOG_TARGET=f"{host}:{port}")
+    _write_env(
+        env_file, "bad cron", TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}"
+    )
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
     try:
