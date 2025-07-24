@@ -40,12 +40,8 @@ class _AcceptServer:
         self._server = server
         self._q = q
 
-    async def accept(
-        self, *, timeout: float | None = None
-    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
-        if timeout is None:
-            return await self._q.get()
-        return await asyncio.wait_for(self._q.get(), timeout)
+    async def accept(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        return await self._q.get()
 
     def close(self) -> None:
         self._server.close()

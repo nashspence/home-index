@@ -1,6 +1,8 @@
 services:
   home-index:
     image: ${IMAGE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - CRON_EXPRESSION=${CRON_EXPRESSION}
       - METADATA_DIRECTORY=/home-index/metadata
