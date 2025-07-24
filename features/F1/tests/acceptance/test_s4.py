@@ -19,6 +19,7 @@ async def test_f1s4(tmp_path: Path) -> None:
     _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    writer = None
     try:
         reader, writer = await server.accept(timeout=60)
         expected = [
@@ -36,8 +37,6 @@ async def test_f1s4(tmp_path: Path) -> None:
         expected_interval = _expected_interval(cron)
         assert interval >= expected_interval - 1
         assert interval <= expected_interval * 3 + 1
-        writer.close()
-        await writer.wait_closed()
     except Exception:
         dump_logs(compose_file, workdir)
         raise
@@ -52,5 +51,8 @@ async def test_f1s4(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
         server.close()
         await server.wait_closed()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from shared import compose, compose_paths, dump_logs, search_meili, wait_for
+from shared import compose, compose_paths, dump_logs, search_meili
 import pytest
 
 from .helpers import _write_env, _prepare_dirs
@@ -19,6 +19,7 @@ async def test_f1s1(tmp_path: Path) -> None:
     _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    writer = None
     try:
         reader, writer = await server.accept(timeout=60)
         expected = [
@@ -29,10 +30,8 @@ async def test_f1s1(tmp_path: Path) -> None:
             {"event": "completed file sync"},
         ]
         await assert_event_sequence(reader, writer, expected)
-        writer.close()
-        await writer.wait_closed()
         by_id = output_dir / "metadata" / "by-id"
-        wait_for(lambda: by_id.exists() and any(by_id.iterdir()), message="metadata")
+        assert by_id.exists() and any(by_id.iterdir())
         assert search_meili(compose_file, workdir, "")
     except Exception:
         dump_logs(compose_file, workdir)
@@ -48,5 +47,8 @@ async def test_f1s1(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
         server.close()
         await server.wait_closed()

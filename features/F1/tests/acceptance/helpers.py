@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import shutil
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -70,27 +69,3 @@ def _read_start_times(output_dir: Path) -> list[datetime]:
     lines = (output_dir / "files.log").read_text().splitlines()
     stamps = [line.split(" [", 1)[0] for line in lines if "start file sync" in line]
     return [datetime.strptime(s, "%Y-%m-%d %H:%M:%S,%f") for s in stamps]
-
-
-def _wait_for_start_lines(output_dir: Path, count: int) -> list[datetime]:
-    deadline = time.time() + 120
-    while True:
-        times = _read_start_times(output_dir)
-        if len(times) >= count:
-            return times
-        if time.time() > deadline:
-            raise AssertionError("Timed out waiting for sync logs")
-        time.sleep(0.5)
-
-
-def _wait_for_log(output_dir: Path, text: str, start: int = 0) -> int:
-    deadline = time.time() + 120
-    while True:
-        if (output_dir / "files.log").exists():
-            lines = (output_dir / "files.log").read_text().splitlines()
-            for idx, line in enumerate(lines[start:], start=start):
-                if text in line:
-                    return idx
-        if time.time() > deadline:
-            raise AssertionError(f"Timed out waiting for log containing: {text}")
-        time.sleep(0.5)

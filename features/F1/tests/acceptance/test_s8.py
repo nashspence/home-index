@@ -20,6 +20,7 @@ async def test_f1s8(tmp_path: Path) -> None:
     )
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
+    writer = None
     try:
         reader, writer = await server.accept(timeout=60)
         await assert_event_sequence(
@@ -27,8 +28,6 @@ async def test_f1s8(tmp_path: Path) -> None:
             writer,
             [{"event": "log-subscriber-attached"}],
         )
-        writer.close()
-        await writer.wait_closed()
         wait_for(
             lambda: b"invalid cron expression"
             in compose(
@@ -75,5 +74,8 @@ async def test_f1s8(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
         server.close()
         await server.wait_closed()

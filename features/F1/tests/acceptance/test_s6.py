@@ -19,6 +19,7 @@ async def test_f1s6(tmp_path: Path) -> None:
     _write_env(env_file, cron1, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    writer = None
     try:
         reader, writer = await server.accept(timeout=60)
         expected = [
@@ -43,8 +44,9 @@ async def test_f1s6(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
-        writer.close()
-        await writer.wait_closed()
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
         server.close()
         await server.wait_closed()
     cron2 = "*/2 * * * * *"
@@ -52,6 +54,7 @@ async def test_f1s6(tmp_path: Path) -> None:
     _write_env(env_file, cron2, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     initial_count = len(_read_start_times(output_dir))
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    writer = None
     try:
         reader, writer = await server.accept(timeout=60)
         needed = initial_count + 3 - len(_read_start_times(output_dir))
@@ -63,8 +66,6 @@ async def test_f1s6(tmp_path: Path) -> None:
         interval = (times[-1] - times[-2]).total_seconds()
         expected_interval = _expected_interval(cron2)
         assert abs(interval - expected_interval) <= 1
-        writer.close()
-        await writer.wait_closed()
     except Exception:
         dump_logs(compose_file, workdir)
         raise
@@ -79,5 +80,8 @@ async def test_f1s6(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
         server.close()
         await server.wait_closed()
