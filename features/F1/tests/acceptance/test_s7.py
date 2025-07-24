@@ -3,26 +3,34 @@ from __future__ import annotations
 from pathlib import Path
 
 from shared import compose, compose_paths, dump_logs
+import pytest
 
-from .helpers import (
-    _write_env,
-    _prepare_dirs,
-    _wait_for_start_lines,
-    _read_start_times,
-)
+from .helpers import _write_env, _prepare_dirs
+from shared.acceptance import _start_server
+from shared.acceptance import assert_event_sequence
 
 
-def test_f1s7(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_f1s7(tmp_path: Path) -> None:
     compose_file, workdir, output_dir = compose_paths(__file__)
     env_file = tmp_path / ".env"
+    server, host, port = await _start_server()
     cron = "* * * * * *"
-    _write_env(env_file, cron)
+    _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    writer = None
     try:
-        _wait_for_start_lines(output_dir, 2)
+        reader, writer = await server.accept(timeout=60)
+        expected = [
+            {"event": "log-subscriber-attached"},
+            {"event": "start file sync"},
+            {"event": "completed file sync"},
+            {"event": "start file sync"},
+            {"event": "completed file sync"},
+        ]
+        await assert_event_sequence(reader, writer, expected)
         initial_lines = (output_dir / "files.log").read_text().splitlines()
-        initial_count = len(_read_start_times(output_dir))
     except Exception:
         dump_logs(compose_file, workdir)
         raise
@@ -37,9 +45,25 @@ def test_f1s7(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+        server.close()
+        await server.wait_closed()
+    server, host, port = await _start_server()
+    _write_env(env_file, cron, TEST="true", TEST_LOG_TARGET=f"http://{host}:{port}")
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
+    writer = None
     try:
-        _wait_for_start_lines(output_dir, initial_count + 2)
+        reader, writer = await server.accept(timeout=60)
+        expected = [
+            {"event": "log-subscriber-attached"},
+            {"event": "start file sync"},
+            {"event": "completed file sync"},
+            {"event": "start file sync"},
+            {"event": "completed file sync"},
+        ]
+        await assert_event_sequence(reader, writer, expected)
         final_lines = (output_dir / "files.log").read_text().splitlines()
         assert len(final_lines) > len(initial_lines)
     except Exception:
@@ -56,3 +80,8 @@ def test_f1s7(tmp_path: Path) -> None:
             env_file=env_file,
             check=False,
         )
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+        server.close()
+        await server.wait_closed()
