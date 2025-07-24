@@ -1,9 +1,13 @@
 services:
   home-index:
     image: ${IMAGE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - CRON_EXPRESSION=${CRON_EXPRESSION}
       - METADATA_DIRECTORY=/home-index/metadata
+      - TEST=true
+      - TEST_LOG_TARGET=${TEST_LOG_TARGET:-http://host.docker.internal:9020}
       - DEBUG=${DEBUG:-False}
       - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
       - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
