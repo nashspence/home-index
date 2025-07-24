@@ -20,7 +20,7 @@ async def test_f1s6(tmp_path: Path) -> None:
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
-        reader, writer = await server.accept()
+        reader, writer = await server.accept(timeout=10)
         expected = [
             {"event": "log-subscriber-attached"},
             {"event": "start file sync"},
@@ -53,7 +53,7 @@ async def test_f1s6(tmp_path: Path) -> None:
     initial_count = len(_read_start_times(output_dir))
     compose(compose_file, workdir, "up", "-d", env_file=env_file)
     try:
-        reader, writer = await server.accept()
+        reader, writer = await server.accept(timeout=10)
         needed = initial_count + 3 - len(_read_start_times(output_dir))
         expected = [{"event": "log-subscriber-attached"}] + (
             [{"event": "start file sync"}, {"event": "completed file sync"}] * needed

@@ -19,7 +19,7 @@ async def test_f1s8(tmp_path: Path) -> None:
     _prepare_dirs(workdir, output_dir)
     compose(compose_file, workdir, "up", "-d", env_file=env_file, check=False)
     try:
-        reader, writer = await server.accept()
+        reader, writer = await server.accept(timeout=10)
         await assert_event_sequence(
             reader,
             writer,
