@@ -4,6 +4,8 @@ services:
     environment:
       - CRON_EXPRESSION=${CRON_EXPRESSION}
       - METADATA_DIRECTORY=/home-index/metadata
+      - TEST=${TEST:-False}
+      - TEST_LOG_TARGET=${TEST_LOG_TARGET:-}
       - DEBUG=${DEBUG:-False}
       - DEBUGPY_HOST=${DEBUGPY_HOST:-0.0.0.0}
       - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
