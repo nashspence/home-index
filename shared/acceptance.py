@@ -94,7 +94,8 @@ async def assert_event_sequence(
     expected: list[dict[str, Any]],
     timeout: float = 5,
 ) -> None:
-    """ACK every log record and assert that *expected* specs appear in order."""
+    """ACK each record and assert that *expected* specs appear in order."""
+    print("\n" + "=" * 30 + " acceptance events " + "=" * 30)
     idx = 0
     seen: list[str] = []
     try:
@@ -159,8 +160,10 @@ def acceptance_step(
 
 
 def dump_logs(compose_file: Path, workdir: Path) -> None:
-    """Print logs from all compose containers in service order."""
+    """Print logs from all compose containers in service order with separators."""
     for service in ("home-index", "meilisearch", "redis"):
+        header = f"\n{'=' * 30} {service} logs {'=' * 30}\n"
+        print(header, end="")
         result = subprocess.run(
             [
                 "docker",
