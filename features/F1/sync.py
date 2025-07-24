@@ -20,6 +20,7 @@ from features.F3 import archive
 from features.F4 import modules as modules_f4
 from features.F5 import chunking
 from shared.logging_config import files_logger
+from shared.acceptance import acceptance_step
 
 INDEX_DIRECTORY = Path(os.environ.get("INDEX_DIRECTORY", "/files"))
 
@@ -401,7 +402,7 @@ async def update_meilisearch(
 async def sync_documents() -> None:
     try:
         files_logger.info("---------------------------------------------------")
-        files_logger.info("start file sync")
+        acceptance_step("start file sync")
         files_logger.info("index previously stored metadata")
         (
             metadata_docs_by_hash,
@@ -434,7 +435,7 @@ async def sync_documents() -> None:
         files_logger.info("commit changes to meilisearch")
         await update_meilisearch(upserted_docs_by_hash, files_docs_by_hash)
         await chunking.sync_content_files(files_docs_by_hash)
-        files_logger.info("completed file sync")
+        acceptance_step("completed file sync")
     except Exception:  # pragma: no cover - unexpected errors
         files_logger.exception("sync failed")
         raise
