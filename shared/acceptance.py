@@ -122,10 +122,13 @@ def _connect_once() -> None:
     root_logger = logging.getLogger()
     if root_logger.level > ACCEPTANCE_LEVEL:
         root_logger.setLevel(ACCEPTANCE_LEVEL)
+    try:
+        handler.sock = handler.makeSocket(timeout=5)
+    except OSError as exc:  # pragma: no cover - network failures
+        raise ConnectionError(
+            f"failed to connect to log server {host}:{port}: {exc}"
+        ) from exc
     root_logger.addHandler(handler)
-    handler.createSocket()
-    if handler.sock is None:
-        raise ConnectionError(f"failed to connect to log server {host}:{port}")
     _sock = handler.sock
 
 
