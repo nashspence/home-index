@@ -59,9 +59,9 @@ async def _start_server() -> tuple[_AcceptServer, str, int]:
     async def handler(r: asyncio.StreamReader, w: asyncio.StreamWriter) -> None:
         q.put_nowait((r, w))
 
-    server = await asyncio.start_server(handler, host="127.0.0.1")
-    host, port = server.sockets[0].getsockname()
-    return _AcceptServer(server, q), host, port
+    server = await asyncio.start_server(handler, host="0.0.0.0")
+    _, port = server.sockets[0].getsockname()
+    return _AcceptServer(server, q), "host.docker.internal", port
 
 
 async def _next_record(reader: asyncio.StreamReader) -> logging.LogRecord:
