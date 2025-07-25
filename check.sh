@@ -69,7 +69,7 @@ run_named "pytest unit (-q)" \
 ###############################################################################
 if [[ ${GITHUB_ACTIONS:-false} == "true" ]]; then
   mapfile -t test_files < <(
-    find features -path '*/tests/acceptance/test_*.py' | sort -V
+    find features -path '*/tests/acceptance/*' -name 'test_*.py' | sort -V
   )
   run_named "pytest acceptance (-vv -x)" \
             pytest -vv -x "${test_files[@]}"
