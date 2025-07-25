@@ -60,8 +60,10 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
         compose_file, docker_client, CONTAINER_NAMES
     ) as watchers:
         recorded.extend(watchers.values())
+        # bootstrap + two scheduled runs
         events = await watchers["f1s6_home-index"].wait_for_sequence(
             [
+                EventMatcher("start file sync"),
                 EventMatcher("start file sync"),
                 EventMatcher("start file sync"),
             ],
