@@ -19,6 +19,7 @@ PATH="/workspace/venv/bin:$PATH"
     PyYAML==6.0.1 \
     xxhash==3.5.0 \
     types-PyYAML==6.0.12 \
+    docker==7.1.0 \
     sentence-transformers==4.1.0 \
     transformers==4.53.0
 
