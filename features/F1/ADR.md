@@ -6,3 +6,6 @@
 - `parse_cron_env` supports 5- or 6-field cron expressions.
 - Debug mode switches to an interval trigger for rapid testing.
 - Chosen for simple configuration and reliable timing.
+
+### 2025-07-24
+- Added acceptance-step handshake for deterministic acceptance tests and updated compose environment for container connectivity.
