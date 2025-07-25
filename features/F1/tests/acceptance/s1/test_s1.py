@@ -60,13 +60,13 @@ async def test_f1s1(tmp_path: Path, docker_client, request):
         )
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
+
+        # filesystem and search assertions before shutdown
+        assert_file_indexed(workdir, output_dir, "hello.txt")
+
+        docs = await asyncio.to_thread(search_meili, compose_file, workdir, "")
+        assert docs
     finally:
         await compose_down_and_stop(compose_file, watchers.values())
-
-    # filesystem assertions
-    assert_file_indexed(workdir, output_dir, "hello.txt")
-
-    docs = await asyncio.to_thread(search_meili, compose_file, workdir, "")
-    assert docs
 
     dump_on_failure(request, CONTAINER_NAMES, recorded)
