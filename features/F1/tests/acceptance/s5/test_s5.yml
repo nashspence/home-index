@@ -1,0 +1,22 @@
+services:
+  home-index:
+    image: ${IMAGE}
+    container_name: f1s5_home-index
+    environment:
+      - CRON_EXPRESSION=* * * * * *
+      - METADATA_DIRECTORY=/home-index/metadata
+    volumes:
+      - ./input:/files:ro
+      - ./output:/home-index
+    depends_on:
+      - meilisearch
+  meilisearch:
+    image: getmeili/meilisearch:v1.15
+    container_name: f1s5_meilisearch
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_LOG_LEVEL=warn
+    volumes:
+      - ./output/meili:/meili_data
+    ports:
+      - "7700:7700"
