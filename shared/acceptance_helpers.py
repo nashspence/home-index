@@ -312,7 +312,9 @@ def _reader_worker(
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
     api = container.client.api
-    since = int(time.time()) if start_from_now else None
+    # NOTE: ContainerApiMixin.attach() does not accept a 'since' argument.
+    # Passing logs=True ensures we receive previous output from container
+    # creation onward so no events are missed during startup.
     stream = api.attach(
         container.id,
         stream=True,
@@ -320,7 +322,6 @@ def _reader_worker(
         stdout=True,
         stderr=True,
         demux=True,
-        since=since,
     )
     for stdout_chunk, stderr_chunk in stream:
         if stop_evt.is_set():
