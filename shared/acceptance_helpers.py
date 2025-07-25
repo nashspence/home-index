@@ -175,7 +175,10 @@ class AsyncDockerLogWatcher:
         """
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            await asyncio.to_thread(self.container.reload)
+            try:
+                await asyncio.to_thread(self.container.reload)
+            except docker.errors.NotFound:
+                return
             if self.container.status in ("exited", "dead"):
                 return
             await asyncio.sleep(self.poll_interval)
