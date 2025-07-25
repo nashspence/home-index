@@ -23,9 +23,11 @@ def setup_logging() -> logging.Logger:
     level = os.environ.get("LOGGING_LEVEL", "INFO")
     max_bytes = int(os.environ.get("LOGGING_MAX_BYTES", 5_000_000))
     backup_count = int(os.environ.get("LOGGING_BACKUP_COUNT", 10))
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
-        level=logging.CRITICAL,
+        level=numeric_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.StreamHandler()],
     )
     directory = os.environ.get("LOGGING_DIRECTORY", "/home-index")
     os.makedirs(directory, exist_ok=True)

@@ -2,28 +2,44 @@
 AsyncDockerLogWatcher  –  tiny, dependency-free (besides docker-py) helper
 =========================================================================
 
-• Remembers every log line (FIFO cap optional).  
-• `await wait_for_sequence(...)` – ordered line/regex/callable matching.  
-• `await wait_until_quiet(...)`  – no new logs for N seconds.  
-• `await wait_for_ready(...)`    – HEALTHCHECK or custom predicate.  
-• `await wait_for_container_stopped(...)` – exit/death detection.  
+• Remembers every log line (FIFO cap optional).
+• `await wait_for_sequence(...)` – ordered line/regex/callable matching.
+• `await wait_until_quiet(...)`  – no new logs for N seconds.
+• `await wait_for_ready(...)`    – HEALTHCHECK or custom predicate.
+• `await wait_for_container_stopped(...)` – exit/death detection.
 • `assert_no_line(...)`, `dump_logs(...)` for debugging / CI output.
 
-Assumes **plain text logs** (no JSON decoding).  
+Assumes **plain text logs** (no JSON decoding).
 Python ≥ 3.8, Docker SDK ≥ 5.x.
 
 ---------------------------------------------------------------------------
 """
+
 from __future__ import annotations
 
 import asyncio
 import subprocess
 from pathlib import Path
 import re
+import shutil
+import tempfile
 import threading
 import time
+import types
+import xxhash
 from dataclasses import dataclass
-from typing import Dict, Iterable, Callable, List, Optional, Pattern, Sequence, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Callable,
+    List,
+    Optional,
+    Pattern,
+    Sequence,
+    Union,
+    cast,
+)
 
 import docker
 from docker.models.containers import Container
@@ -75,9 +91,7 @@ class AsyncDockerLogWatcher:
         self._start_from_now = start_from_now
 
         self._q: asyncio.Queue[LogEvent] = (
-            asyncio.Queue(maxsize=queue_maxsize)
-            if queue_maxsize
-            else asyncio.Queue()
+            asyncio.Queue(maxsize=queue_maxsize) if queue_maxsize else asyncio.Queue()
         )
         self._remembered: List[LogEvent] = []
         self._lock = threading.Lock()
@@ -114,11 +128,16 @@ class AsyncDockerLogWatcher:
         await asyncio.to_thread(self._reader_thread.join)
         self._reader_thread = None
 
-    async def __aenter__(self) -> AsyncDockerLogWatcher:
+    async def __aenter__(self) -> "AsyncDockerLogWatcher":
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[types.TracebackType],
+    ) -> None:
         await self.stop()
 
     async def wait_for_ready(
@@ -156,7 +175,10 @@ class AsyncDockerLogWatcher:
         """
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            await asyncio.to_thread(self.container.reload)
+            try:
+                await asyncio.to_thread(self.container.reload)
+            except docker.errors.NotFound:
+                return
             if self.container.status in ("exited", "dead"):
                 return
             await asyncio.sleep(self.poll_interval)
@@ -291,9 +313,11 @@ def _reader_worker(
     stop_evt: threading.Event,
     loop: asyncio.AbstractEventLoop,
     ingest_cb: Callable[[LogEvent], None],
-):
+) -> None:
     api = container.client.api
-    since = int(time.time()) if start_from_now else None
+    # NOTE: ContainerApiMixin.attach() does not accept a 'since' argument.
+    # Passing logs=True ensures we receive previous output from container
+    # creation onward so no events are missed during startup.
     stream = api.attach(
         container.id,
         stream=True,
@@ -301,7 +325,6 @@ def _reader_worker(
         stdout=True,
         stderr=True,
         demux=True,
-        since=since,
     )
     for stdout_chunk, stderr_chunk in stream:
         if stop_evt.is_set():
@@ -319,7 +342,13 @@ def _reader_worker(
         pass
 
 
-def _schedule_ingest(loop, cb, raw_bytes, stream_type, ts):
+def _schedule_ingest(
+    loop: asyncio.AbstractEventLoop,
+    cb: Callable[[LogEvent], None],
+    raw_bytes: bytes,
+    stream_type: str,
+    ts: float,
+) -> None:
     decoded = raw_bytes.decode(errors="replace").rstrip("\r\n")
     evt = LogEvent(ts, decoded, stream_type)
     loop.call_soon_threadsafe(cb, evt)
@@ -335,12 +364,32 @@ def _match_line(line: str, matcher: LineMatcher) -> bool:
         return bool(matcher.search(line))
     return bool(matcher(line))
 
+
+def compose_paths_for_test(test_file: str | Path) -> tuple[Path, Path, Path]:
+    """Return compose paths for isolated acceptance test workdir.
+
+    Copies the test directory to a temporary location. If a compose file named
+    ``<test_file>.yml`` exists, use it; otherwise fall back to
+    ``docker-compose.yml`` from the same directory.
+    """
+    test_path = Path(test_file).resolve()
+    src_dir = test_path.parent
+    workdir = Path(tempfile.mkdtemp(prefix=src_dir.name + "_"))
+    shutil.copytree(src_dir, workdir, dirs_exist_ok=True)
+
+    specific = workdir / test_path.with_suffix(".yml").name
+    compose_file = specific if specific.exists() else workdir / "docker-compose.yml"
+    output_dir = workdir / "output"
+    return compose_file, workdir, output_dir
+
+
 async def compose_up(compose_file: Path) -> None:
     await asyncio.to_thread(
         subprocess.run,
         ["docker-compose", "-f", str(compose_file), "up", "-d"],
         check=True,
     )
+
 
 async def compose_down(compose_file: Path) -> None:
     await asyncio.to_thread(
@@ -349,7 +398,9 @@ async def compose_down(compose_file: Path) -> None:
         check=True,
     )
 
+
 # ---------- watcher helpers -------------------------
+
 
 def make_watchers(
     client: docker.DockerClient,
@@ -360,27 +411,93 @@ def make_watchers(
     Build (but do not .start()) one watcher per container name.
     """
     return {
-        name: AsyncDockerLogWatcher(client.containers.get(name), remember_limit=remember_limit)
+        name: AsyncDockerLogWatcher(
+            client.containers.get(name), remember_limit=remember_limit
+        )
         for name in container_names
     }
+
 
 async def start_all(watchers: Iterable[AsyncDockerLogWatcher]) -> None:
     await asyncio.gather(*(w.start() for w in watchers))
 
+
 async def stop_all(watchers: Iterable[AsyncDockerLogWatcher]) -> None:
     await asyncio.gather(*(w.stop() for w in watchers))
 
+
 async def all_ready(watchers: Iterable[AsyncDockerLogWatcher], timeout: float) -> None:
     await asyncio.gather(*(w.wait_for_ready(timeout) for w in watchers))
+
 
 async def all_sequences(
     seq_map: Dict[AsyncDockerLogWatcher, Sequence[EventMatcher]],
     timeout: float,
 ) -> None:
-    await asyncio.gather(*(w.wait_for_sequence(seq, timeout) for w, seq in seq_map.items()))
+    await asyncio.gather(
+        *(w.wait_for_sequence(seq, timeout) for w, seq in seq_map.items())
+    )
 
-async def all_quiet(watchers: Iterable[AsyncDockerLogWatcher], timeout: float, quiet_for: float) -> None:
+
+async def all_quiet(
+    watchers: Iterable[AsyncDockerLogWatcher], timeout: float, quiet_for: float
+) -> None:
     await asyncio.gather(*(w.wait_until_quiet(quiet_for, timeout) for w in watchers))
 
-async def all_stopped(watchers: Iterable[AsyncDockerLogWatcher], timeout: float) -> None:
+
+async def all_stopped(
+    watchers: Iterable[AsyncDockerLogWatcher], timeout: float
+) -> None:
     await asyncio.gather(*(w.wait_for_container_stopped(timeout) for w in watchers))
+
+
+async def compose_up_with_watchers(
+    compose_file: Path,
+    client: docker.DockerClient,
+    container_names: Iterable[str],
+    *,
+    remember_limit: int = 1000,
+) -> Dict[str, AsyncDockerLogWatcher]:
+    await compose_up(compose_file)
+    watchers = make_watchers(client, container_names, remember_limit=remember_limit)
+    await start_all(watchers.values())
+    return watchers
+
+
+async def compose_down_and_stop(
+    compose_file: Path,
+    watchers: Iterable[AsyncDockerLogWatcher],
+    *,
+    timeout: float = 30,
+) -> None:
+    await compose_down(compose_file)
+    await all_stopped(watchers, timeout=timeout)
+    await stop_all(watchers)
+
+
+def assert_file_indexed(workdir: Path, output_dir: Path, rel_path: str) -> str:
+    source = workdir / "input" / rel_path
+    hasher = xxhash.xxh64()
+    with source.open("rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            hasher.update(chunk)
+    digest = cast(str, hasher.hexdigest())
+    doc_json = output_dir / "metadata" / "by-id" / digest / "document.json"
+    assert doc_json.exists()
+    link = output_dir / "metadata" / "by-path" / rel_path
+    assert link.is_symlink() and link.resolve().name == digest
+    return digest
+
+
+def dump_on_failure(
+    request: Any,
+    container_names: Iterable[str],
+    watchers: Iterable[AsyncDockerLogWatcher],
+    limit: int = 200,
+) -> None:
+    rep = getattr(request.node, "rep_call", None)
+    if rep and rep.failed:
+        print("\n=========== LOG DUMP FOR FAILED TEST ===========")
+        for name, watcher in zip(container_names, watchers):
+            watcher.dump_logs(f"CONTAINER ⟨{name}⟩ last {limit} lines")
+        print("=========== END LOG DUMP =======================\n")
