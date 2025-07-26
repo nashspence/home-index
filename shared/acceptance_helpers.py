@@ -26,9 +26,12 @@ import tempfile
 import threading
 import time
 import types
+from datetime import datetime, timezone
+import calendar
 import xxhash
 from dataclasses import dataclass
 from typing import (
+    Deque,
     Any,
     Dict,
     Iterable,
@@ -41,6 +44,7 @@ from typing import (
     cast,
     AsyncIterator,
 )
+from collections import deque
 from contextlib import asynccontextmanager
 
 import docker
@@ -77,7 +81,7 @@ class AsyncDockerLogWatcher:
         container: Container,
         remember_limit: Optional[int] = None,
         poll_interval: float = 0.03,
-        start_from_now: bool = True,
+        start_from_now: bool = False,
         queue_maxsize: Optional[int] = None,
     ):
         """
@@ -85,6 +89,8 @@ class AsyncDockerLogWatcher:
         :param remember_limit: Max # of past LogEvents to keep in memory.
         :param poll_interval: How often to poll for readiness/stopped checks.
         :param start_from_now: If True, ignore prior logs and start at current time.
+            Defaults to ``False`` so early lines aren't missed when containers
+            exit quickly.
         :param queue_maxsize: If set, bounds the internal asyncio.Queue size.
         """
         self.container = container
@@ -99,6 +105,8 @@ class AsyncDockerLogWatcher:
         self._lock = threading.Lock()
 
         self._reader_thread: Optional[threading.Thread] = None
+        # Bounded join ensures shutdown never hangs even if the thread misbehaves
+        self._join_timeout: float = 5.0
         self._stop_evt = threading.Event()
 
     # -- public -------------------------------------------------------------
@@ -126,8 +134,19 @@ class AsyncDockerLogWatcher:
         if not self._reader_thread:
             return
         self._stop_evt.set()
-        # join in threadpool so as not to block the event loop
-        await asyncio.to_thread(self._reader_thread.join)
+        # Join with a timeout so CI can always progress.
+        await asyncio.to_thread(self._reader_thread.join, self._join_timeout)
+        if self._reader_thread.is_alive():
+            # Best-effort notice; tests will also dump logs on failure.
+            try:
+                short = getattr(self.container, "short_id", "?")
+            except Exception:
+                short = "?"
+            print(
+                f"AsyncDockerLogWatcher: reader thread for {short} did not exit within "
+                f"{self._join_timeout:.1f}s; continuing."
+            )
+        # Drop the handle either way.
         self._reader_thread = None
 
     async def __aenter__(self) -> "AsyncDockerLogWatcher":
@@ -316,29 +335,151 @@ def _reader_worker(
     loop: asyncio.AbstractEventLoop,
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
+    """
+    Poll logs using non-blocking API calls. We keep a `since` watermark per
+    stream and de-duplicate locally because the Engine may return lines whose
+    timestamp is equal to `since` (comparison is >=).
+    """
     api = container.client.api
-    stream = api.attach(
-        container.id,
-        stream=True,
-        logs=True,
-        stdout=True,
-        stderr=True,
-        demux=True,
-    )
-    for stdout_chunk, stderr_chunk in stream:
-        if stop_evt.is_set():
-            break
-        now = time.time()
-        if stdout_chunk:
-            for line in stdout_chunk.splitlines():
-                _schedule_ingest(loop, ingest_cb, line, "stdout", now)
-        if stderr_chunk:
-            for line in stderr_chunk.splitlines():
-                _schedule_ingest(loop, ingest_cb, line, "stderr", now)
+    since_stdout_dt: Optional[datetime] = None
+    since_stderr_dt: Optional[datetime] = None
+
+    if start_from_now:
+        now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+        since_stdout_dt = now_dt
+        since_stderr_dt = now_dt
+
+    # Dedup: recent keys (stream, ts_prefix, text). Keep small to bound memory.
+    seen_keys: Deque[tuple[str, str, str]] = deque(maxlen=2048)
+    seen_set: set[tuple[str, str, str]] = set()
+
+    def _push_key(key: tuple[str, str, str]) -> None:
+        seen_keys.append(key)
+        seen_set.add(key)
+        if len(seen_keys) == seen_keys.maxlen:
+            oldest = seen_keys[0]
+            try:
+                seen_set.remove(oldest)
+            except KeyError:
+                pass
+
     try:
-        stream.close()
+        while not stop_evt.is_set():
+            now = time.time()
+            new_any = False
+
+            # stdout
+            try:
+                out_kwargs = dict(stdout=True, stderr=False, timestamps=True)
+                if since_stdout_dt is not None:
+                    out_kwargs["since"] = cast(
+                        Any, calendar.timegm(since_stdout_dt.timetuple())
+                    )
+                out_bytes = api.logs(container.id, **out_kwargs)
+            except docker.errors.NotFound:
+                break
+            last_stdout_dt = since_stdout_dt
+            for raw_line in out_bytes.splitlines():
+                ts_prefix, dt_utc, text = _split_ts_and_text(raw_line)
+                if dt_utc is not None:
+                    last_stdout_dt = (
+                        dt_utc
+                        if last_stdout_dt is None or dt_utc > last_stdout_dt
+                        else last_stdout_dt
+                    )
+                key = ("stdout", ts_prefix or "", text)
+                if key in seen_set:
+                    continue
+                _push_key(key)
+                if text:
+                    new_any = True
+                    _schedule_ingest(
+                        loop, ingest_cb, text.encode("utf-8", "replace"), "stdout", now
+                    )
+            since_stdout_dt = last_stdout_dt
+
+            # stderr
+            try:
+                err_kwargs = dict(stdout=False, stderr=True, timestamps=True)
+                if since_stderr_dt is not None:
+                    err_kwargs["since"] = cast(
+                        Any, calendar.timegm(since_stderr_dt.timetuple())
+                    )
+                err_bytes = api.logs(container.id, **err_kwargs)
+            except docker.errors.NotFound:
+                break
+            last_stderr_dt = since_stderr_dt
+            for raw_line in err_bytes.splitlines():
+                ts_prefix, dt_utc, text = _split_ts_and_text(raw_line)
+                if dt_utc is not None:
+                    last_stderr_dt = (
+                        dt_utc
+                        if last_stderr_dt is None or dt_utc > last_stderr_dt
+                        else last_stderr_dt
+                    )
+                key = ("stderr", ts_prefix or "", text)
+                if key in seen_set:
+                    continue
+                _push_key(key)
+                if text:
+                    new_any = True
+                    _schedule_ingest(
+                        loop, ingest_cb, text.encode("utf-8", "replace"), "stderr", now
+                    )
+            since_stderr_dt = last_stderr_dt
+
+            try:
+                container.reload()
+                status = container.status
+            except docker.errors.NotFound:
+                break
+
+            if status in ("exited", "dead") and not new_any:
+                if stop_evt.wait(timeout=0.05):
+                    break
+                continue
+
+            if stop_evt.wait(timeout=0.05):
+                break
+    except Exception as e:
+        short = getattr(container, "short_id", "?")
+        print(f"AsyncDockerLogWatcher reader error for {short}: {e!r}")
+        return
+
+
+_TS_RE = re.compile(
+    r"^(?P<prefix>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s+(?P<text>.*)$"
+)
+
+
+def _split_ts_and_text(
+    raw_bytes: bytes,
+) -> tuple[Optional[str], Optional[datetime], str]:
+    """Parse timestamps from Docker log lines.
+
+    Given ``b'2025-07-26T08:15:30.123456789Z message'`` returns
+    ``("2025-07-26T08:15:30.123456789Z", datetime(..., tzinfo=None), "message")``.
+    If parsing fails, returns ``(None, None, decoded_line)``.
+    """
+
+    s = raw_bytes.decode(errors="replace").rstrip("\r\n")
+    m = _TS_RE.match(s)
+    if not m:
+        return None, None, s
+    prefix = m.group("prefix")
+    text = m.group("text")
+    base = prefix[:19]
+    frac = ""
+    if "." in prefix:
+        frac = prefix[20:-1]
+    try:
+        dt = datetime.strptime(base, "%Y-%m-%dT%H:%M:%S")
+        if frac:
+            usec = int((frac + "000000")[:6])
+            dt = dt.replace(microsecond=usec)
+        return prefix, dt.replace(tzinfo=None), text
     except Exception:
-        pass
+        return None, None, s
 
 
 def _schedule_ingest(

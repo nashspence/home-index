@@ -10,3 +10,13 @@
 ### 2025-07-22 Scheduler logging
 - Log an explicit "invalid cron expression" error when `CRON_EXPRESSION` cannot
   be parsed. Tightens acceptance tests around startup failures.
+
+### 2025-07-26 Log watcher cleanup
+- `AsyncDockerLogWatcher.stop()` now closes the underlying attach stream before
+  joining the reader thread.
+- Prevents hangs when a container dies immediately after startup.
+
+### 2025-07-26 Poll logs instead of attach
+- Replaced the blocking attach stream with periodic `docker.logs` polling.
+- Avoids a long-standing Docker bug where the attach connection stays open
+  without producing data, causing test hangs.
