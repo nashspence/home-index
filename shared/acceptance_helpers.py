@@ -109,7 +109,12 @@ class AsyncDockerLogWatcher:
     # -- public -------------------------------------------------------------
 
     async def start(self) -> None:
-        """Begin streaming logs; idempotent."""
+        """Begin streaming logs once the container appears.
+
+        The Docker SDK is synchronous, so ``client.containers.get`` is called in
+        a thread and retried until it succeeds or a 60s timeout elapses. This
+        matches the polling approach recommended by the docker‑py documentation.
+        """
         if self._reader_thread:
             return
         deadline = time.monotonic() + 60
