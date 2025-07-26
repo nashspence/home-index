@@ -52,10 +52,6 @@ def setup_debugger() -> None:
 
 setup_debugger()
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
-
 LOGGING_LEVEL = os.environ.get("LOGGING_LEVEL", "INFO")
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 QUEUE_NAME = os.environ.get("QUEUE_NAME", "module")

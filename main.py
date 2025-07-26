@@ -1,14 +1,16 @@
 import asyncio
 import os
 
-from features.F1 import sync as f1_sync
-from features.F2 import migrations, duplicate_finder
-from features.F3 import archive
-from features.F4 import modules as modules_f4
-from features.F6 import server as f6_server
 from shared.logging_config import files_logger, setup_logging
 
-DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
+setup_logging()
+
+from features.F1 import sync as f1_sync  # noqa: E402
+from features.F2 import migrations, duplicate_finder  # noqa: E402
+from features.F3 import archive  # noqa: E402
+from features.F4 import modules as modules_f4  # noqa: E402
+from features.F6 import server as f6_server  # noqa: E402
+
 COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
 
 # re-export helpers used by legacy tests
@@ -23,7 +25,6 @@ duplicate_finder = duplicate_finder
 
 
 async def main() -> None:
-    setup_logging()
     files_logger.info("running commit %s", COMMIT_SHA)
     await f1_sync.init_meili_and_sync()
     if modules_f4.is_modules_changed:
@@ -31,7 +32,7 @@ async def main() -> None:
         await f1_sync.init_meili_and_sync()
         modules_f4.save_modules_state()
     await asyncio.gather(
-        f1_sync.schedule_and_run(f6_server.serve_api, debug=DEBUG),
+        f1_sync.schedule_and_run(f6_server.serve_api),
         modules_f4.service_module_queues(),
     )
 
