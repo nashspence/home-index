@@ -31,6 +31,7 @@ def docker_client():
 
 
 @pytest.mark.asyncio
+# invalid cron blocks startup
 async def test_f1s8(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
@@ -44,6 +45,7 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
         await watchers["f1s8_home-index"].wait_for_line(
             "invalid cron expression", timeout=5
         )
+        # assert_no_line is synchronous
         watchers["f1s8_home-index"].assert_no_line(
             lambda line: "start file sync" in line
         )

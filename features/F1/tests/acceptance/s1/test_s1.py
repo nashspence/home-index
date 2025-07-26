@@ -33,6 +33,7 @@ def docker_client():
 
 
 @pytest.mark.asyncio
+# initial run indexes existing files
 async def test_f1s1(tmp_path: Path, docker_client, request):
     # prepare isolated compose directory
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)

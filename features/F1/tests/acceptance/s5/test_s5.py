@@ -32,6 +32,7 @@ def docker_client():
 
 
 @pytest.mark.asyncio
+# long-running sync never overlaps
 async def test_f1s5(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 

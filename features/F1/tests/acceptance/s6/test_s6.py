@@ -35,6 +35,7 @@ def docker_client():
 
 
 @pytest.mark.asyncio
+# change schedule
 async def test_f1s6(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
