@@ -334,10 +334,14 @@ def _reader_worker(
     further chunks, which would otherwise block forever.
     """
     api = container.client.api
-    # Preserve current behavior: include backlog regardless of start_from_now.
+    # Preserve current behavior: include backlog on first pass.
     # We advance `since_*` using Docker-provided timestamps on each line.
-    since_stdout = 0
-    since_stderr = 0
+    since_stdout: Optional[int] = None
+    since_stderr: Optional[int] = None
+    if start_from_now:
+        now_sec = int(time.time())
+        since_stdout = now_sec
+        since_stderr = now_sec
     # Track whether the container is stopped and whether we saw new logs.
     stopped_no_new_cycles = 0
     try:
@@ -346,20 +350,19 @@ def _reader_worker(
             new_any = False
             # stdout
             try:
-                out_bytes = api.logs(
-                    container.id,
-                    stdout=True,
-                    stderr=False,
-                    since=since_stdout,
-                    timestamps=True,
+                out_kwargs: Dict[str, Any] = dict(
+                    stdout=True, stderr=False, timestamps=True
                 )
+                if since_stdout is not None and since_stdout > 0:
+                    out_kwargs["since"] = since_stdout
+                out_bytes = api.logs(container.id, **out_kwargs)
             except docker.errors.NotFound:
                 break
             for raw_line in out_bytes.splitlines():
                 ts_sec, text = _split_ts_and_text(raw_line)
                 if ts_sec is not None:
-                    # Advance lower bound; add 1 to be conservative against same-second repeats
-                    since_stdout = max(since_stdout, ts_sec)
+                    # Advance; add 1s to avoid same-second repeats
+                    since_stdout = max((since_stdout or 0), ts_sec + 1)
                 if text:
                     new_any = True
                     _schedule_ingest(
@@ -368,19 +371,18 @@ def _reader_worker(
 
             # stderr
             try:
-                err_bytes = api.logs(
-                    container.id,
-                    stdout=False,
-                    stderr=True,
-                    since=since_stderr,
-                    timestamps=True,
+                err_kwargs: Dict[str, Any] = dict(
+                    stdout=False, stderr=True, timestamps=True
                 )
+                if since_stderr is not None and since_stderr > 0:
+                    err_kwargs["since"] = since_stderr
+                err_bytes = api.logs(container.id, **err_kwargs)
             except docker.errors.NotFound:
                 break
             for raw_line in err_bytes.splitlines():
                 ts_sec, text = _split_ts_and_text(raw_line)
                 if ts_sec is not None:
-                    since_stderr = max(since_stderr, ts_sec)
+                    since_stderr = max((since_stderr or 0), ts_sec + 1)
                 if text:
                     new_any = True
                     _schedule_ingest(
