@@ -9,16 +9,17 @@ import pytest
 
 from shared.acceptance import search_meili
 from shared.acceptance_helpers import (
-    AsyncDockerLogWatcher,
     EventMatcher,
     assert_file_indexed,
     compose_paths_for_test,
-    compose_up_with_watchers,
-    dump_on_failure,
-    meilisearch_running,
+    compose_up,
+    make_watchers,
 )
 
-CONTAINER_NAMES: List[str] = ["f1s2_home-index"]
+CONTAINER_NAMES: List[str] = [
+    "f1s2_home-index",
+    "f1s2_meilisearch",
+]
 
 
 @pytest.fixture(autouse=True)
@@ -40,40 +41,46 @@ def docker_client():
 async def test_f1s2(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
-    recorded: List[AsyncDockerLogWatcher] = []
-
-    async with compose_up_with_watchers(
-        compose_file, docker_client, CONTAINER_NAMES
+    async with make_watchers(
+        docker_client,
+        CONTAINER_NAMES,
+        request=request,
     ) as watchers:
-        recorded.extend(watchers.values())
+        async with compose_up(
+            compose_file,
+            watchers=watchers,
+        ):
+            await watchers["f1s2_home-index"].wait_for_sequence(
+                [
+                    EventMatcher("start file sync"),
+                    EventMatcher("completed file sync"),
+                ],
+                timeout=120,
+            )
 
-        await watchers["f1s2_home-index"].wait_for_sequence(
-            [
-                EventMatcher("start file sync"),
-                EventMatcher("completed file sync"),
-            ],
-            timeout=120,
-        )
+            (workdir / "input" / "new.txt").write_text("new")
 
-        (workdir / "input" / "new.txt").write_text("new")
-
-        await watchers["f1s2_home-index"].wait_for_sequence(
-            [
-                EventMatcher("start file sync"),
-                EventMatcher("commit changes to meilisearch"),
-                EventMatcher("completed file sync"),
-            ],
-            timeout=120,
-        )
+            await watchers["f1s2_home-index"].wait_for_sequence(
+                [
+                    EventMatcher("start file sync"),
+                    EventMatcher("commit changes to meilisearch"),
+                    EventMatcher("completed file sync"),
+                ],
+                timeout=120,
+            )
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
 
     doc_id = assert_file_indexed(workdir, output_dir, "new.txt")
 
-    async with meilisearch_running(compose_file):
+    async with compose_up(
+        compose_file,
+        watchers=watchers,
+        containers=["f1s2_meilisearch"],
+    ):
         docs = await asyncio.to_thread(
             search_meili, compose_file, workdir, f'id = "{doc_id}"'
         )
         assert docs
-
-    dump_on_failure(request, CONTAINER_NAMES, recorded)
+    for w in watchers.values():
+        w.assert_no_line(lambda line: "ERROR" in line)

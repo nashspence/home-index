@@ -68,26 +68,25 @@ class LogEvent:
 
 
 class AsyncDockerLogWatcher:
-    """
-    Stream and buffer logs from a Docker container in an asyncio-friendly way.
-    """
+    """Stream and buffer logs from a Docker container."""
 
     def __init__(
         self,
-        container: Container,
+        client: docker.DockerClient,
+        container_name: str,
         remember_limit: Optional[int] = None,
         poll_interval: float = 0.03,
         start_from_now: bool = True,
         queue_maxsize: Optional[int] = None,
     ):
+        """Create a watcher for ``container_name`` using ``client``.
+
+        Container lookup is deferred until :py:meth:`start` so the watcher can
+        be created before the container exists.
         """
-        :param container: The Docker SDK Container to watch.
-        :param remember_limit: Max # of past LogEvents to keep in memory.
-        :param poll_interval: How often to poll for readiness/stopped checks.
-        :param start_from_now: If True, ignore prior logs and start at current time.
-        :param queue_maxsize: If set, bounds the internal asyncio.Queue size.
-        """
-        self.container = container
+        self.client = client
+        self.container_name = container_name
+        self._container: Optional[Container] = None
         self.remember_limit = remember_limit
         self.poll_interval = poll_interval
         self._start_from_now = start_from_now
@@ -101,17 +100,24 @@ class AsyncDockerLogWatcher:
         self._reader_thread: Optional[threading.Thread] = None
         self._stop_evt = threading.Event()
 
+    @property
+    def container(self) -> Container:
+        if self._container is None:
+            raise RuntimeError("Watcher not started yet")
+        return self._container
+
     # -- public -------------------------------------------------------------
 
     async def start(self) -> None:
         """Begin streaming logs; idempotent."""
         if self._reader_thread:
             return
+        self._container = self.client.containers.get(self.container_name)
         loop = asyncio.get_running_loop()
         self._reader_thread = threading.Thread(
             target=_reader_worker,
             args=(
-                self.container,
+                self._container,
                 self._start_from_now,
                 self._stop_evt,
                 loop,
@@ -382,39 +388,60 @@ def compose_paths_for_test(test_file: str | Path) -> tuple[Path, Path, Path]:
     return compose_file, workdir, output_dir
 
 
-async def compose_up(compose_file: Path) -> None:
-    await asyncio.to_thread(
-        subprocess.run,
-        ["docker-compose", "-f", str(compose_file), "up", "-d"],
-        check=True,
-    )
+@asynccontextmanager
+async def compose_up(
+    compose_file: Path,
+    *,
+    watchers: Dict[str, AsyncDockerLogWatcher] | None = None,
+    containers: Iterable[str] | None = None,
+) -> AsyncIterator[None]:
+    """Start selected compose services and optional log watchers."""
+    cmd = ["docker-compose", "-f", str(compose_file), "up", "-d"]
+    if containers:
+        cmd.extend(containers)
+    await asyncio.to_thread(subprocess.run, cmd, check=True)
+    if watchers is not None:
+        to_start = (
+            [watchers[name] for name in containers if name in watchers]
+            if containers
+            else watchers.values()
+        )
+        await start_all(to_start)
+    try:
+        yield
+    finally:
+        await compose_down(
+            compose_file,
+            watchers if watchers is not None else None,
+            containers=containers,
+        )
 
 
-async def compose_down(compose_file: Path) -> None:
-    await asyncio.to_thread(
-        subprocess.run,
-        ["docker-compose", "-f", str(compose_file), "down", "-v"],
-        check=True,
-    )
+async def compose_down(
+    compose_file: Path,
+    watchers: Dict[str, AsyncDockerLogWatcher] | None = None,
+    *,
+    containers: Iterable[str] | None = None,
+    timeout: float = 30,
+) -> None:
+    """Stop selected compose services and their watchers."""
+    if containers is None:
+        cmd = ["docker-compose", "-f", str(compose_file), "down", "-v"]
+        await asyncio.to_thread(subprocess.run, cmd, check=True)
+    else:
+        cmd = ["docker-compose", "-f", str(compose_file), "rm", "-fsv", *containers]
+        await asyncio.to_thread(subprocess.run, cmd, check=True)
+    if watchers is not None:
+        to_stop = (
+            [watchers[name] for name in containers if name in watchers]
+            if containers
+            else watchers.values()
+        )
+        await all_stopped(to_stop, timeout=timeout)
+        await stop_all(to_stop)
 
 
 # ---------- watcher helpers -------------------------
-
-
-def make_watchers(
-    client: docker.DockerClient,
-    container_names: Iterable[str],
-    remember_limit: int = 1_000,
-) -> Dict[str, AsyncDockerLogWatcher]:
-    """
-    Build (but do not .start()) one watcher per container name.
-    """
-    return {
-        name: AsyncDockerLogWatcher(
-            client.containers.get(name), remember_limit=remember_limit
-        )
-        for name in container_names
-    }
 
 
 async def start_all(watchers: Iterable[AsyncDockerLogWatcher]) -> None:
@@ -451,45 +478,29 @@ async def all_stopped(
 
 
 @asynccontextmanager
-async def compose_up_with_watchers(
-    compose_file: Path,
+async def make_watchers(
     client: docker.DockerClient,
     container_names: Iterable[str],
     *,
     remember_limit: int = 1000,
+    request: Any | None = None,
 ) -> AsyncIterator[Dict[str, AsyncDockerLogWatcher]]:
-    await compose_up(compose_file)
-    watchers = make_watchers(client, container_names, remember_limit=remember_limit)
-    await start_all(watchers.values())
+    """Yield log watchers and ensure cleanup on exit."""
+
+    watchers: Dict[str, AsyncDockerLogWatcher] = {
+        name: AsyncDockerLogWatcher(
+            client,
+            name,
+            remember_limit=remember_limit,
+        )
+        for name in container_names
+    }
     try:
         yield watchers
     finally:
-        await compose_down_and_stop(compose_file, watchers.values())
-
-
-async def compose_down_and_stop(
-    compose_file: Path,
-    watchers: Iterable[AsyncDockerLogWatcher],
-    *,
-    timeout: float = 30,
-) -> None:
-    await compose_down(compose_file)
-    await all_stopped(watchers, timeout=timeout)
-    await stop_all(watchers)
-
-
-@asynccontextmanager
-async def meilisearch_running(compose_file: Path) -> AsyncIterator[None]:
-    """Bring up just the meilisearch service and tear it down on exit."""
-    await asyncio.to_thread(
-        subprocess.run,
-        ["docker-compose", "-f", str(compose_file), "up", "-d", "meilisearch"],
-        check=True,
-    )
-    try:
-        yield
-    finally:
-        await compose_down(compose_file)
+        await stop_all(watchers.values())
+        if request is not None:
+            dump_on_failure(request, container_names, watchers.values())
 
 
 def assert_file_indexed(workdir: Path, output_dir: Path, rel_path: str) -> str:
