@@ -148,6 +148,13 @@ class AsyncDockerLogWatcher:
         """Stop streaming and wait for the reader thread to exit."""
         if not self._reader_thread:
             return
+        # first, close the blocking Docker-attach stream so the thread wakes up
+        try:
+            stream = getattr(self._reader_thread, "stream", None)
+            if stream:
+                stream.close()
+        except Exception:
+            pass
         self._stop_evt.set()
         # join in threadpool so as not to block the event loop
         await asyncio.to_thread(self._reader_thread.join)
@@ -348,6 +355,9 @@ def _reader_worker(
         stderr=True,
         demux=True,
     )
+    # record it so stop() can close it
+    thread = threading.current_thread()
+    setattr(thread, "stream", stream)
     for stdout_chunk, stderr_chunk in stream:
         if stop_evt.is_set():
             break
