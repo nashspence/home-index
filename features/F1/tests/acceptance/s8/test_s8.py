@@ -40,10 +40,9 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
         compose_file, docker_client, CONTAINER_NAMES
     ) as watchers:
         recorded.extend(watchers.values())
-        await watchers["f1s8_home-index"].wait_for_line(
-            "invalid cron expression", timeout=60
-        )
         await watchers["f1s8_home-index"].wait_for_container_stopped(timeout=60)
+        logs = watchers["f1s8_home-index"].container.logs().decode(errors="replace")
+        assert "invalid cron expression" in logs
 
     for w in recorded:
         w.assert_no_line(lambda line: "start file sync" in line)
