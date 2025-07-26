@@ -97,6 +97,7 @@ class AsyncDockerLogWatcher:
         )
         self._remembered: List[LogEvent] = []
         self._lock = threading.Lock()
+        self._stream: Optional[Any] = None  # underlying attach stream; closed on stop()
 
         self._reader_thread: Optional[threading.Thread] = None
         self._stop_evt = threading.Event()
@@ -116,6 +117,7 @@ class AsyncDockerLogWatcher:
                 self._stop_evt,
                 loop,
                 self._ingest_from_thread,
+                self._set_stream_from_thread,
             ),
             daemon=True,
         )
@@ -126,6 +128,18 @@ class AsyncDockerLogWatcher:
         if not self._reader_thread:
             return
         self._stop_evt.set()
+        # Proactively close the HTTP stream to break out of a blocked iterator.
+        # This avoids hangs when a container dies immediately and docker-py keeps
+        # the attach socket open without producing more chunks.
+        stream = None
+        with self._lock:
+            stream = self._stream
+            self._stream = None
+        if stream is not None:
+            try:
+                stream.close()
+            except Exception:
+                pass
         # join in threadpool so as not to block the event loop
         await asyncio.to_thread(self._reader_thread.join)
         self._reader_thread = None
@@ -305,6 +319,10 @@ class AsyncDockerLogWatcher:
                 overflow = len(self._remembered) - self.remember_limit
                 del self._remembered[:overflow]
 
+    def _set_stream_from_thread(self, s: Optional[Any]) -> None:
+        with self._lock:
+            self._stream = s
+
 
 # ----- thread worker (blocking Docker API) ---------------------------------
 
@@ -315,30 +333,39 @@ def _reader_worker(
     stop_evt: threading.Event,
     loop: asyncio.AbstractEventLoop,
     ingest_cb: Callable[[LogEvent], None],
+    set_stream_cb: Callable[[Optional[Any]], None],
 ) -> None:
     api = container.client.api
+    # Honor start_from_now: don't request prior logs when True.
+    include_logs = not start_from_now
     stream = api.attach(
         container.id,
         stream=True,
-        logs=True,
+        logs=include_logs,
         stdout=True,
         stderr=True,
         demux=True,
     )
-    for stdout_chunk, stderr_chunk in stream:
-        if stop_evt.is_set():
-            break
-        now = time.time()
-        if stdout_chunk:
-            for line in stdout_chunk.splitlines():
-                _schedule_ingest(loop, ingest_cb, line, "stdout", now)
-        if stderr_chunk:
-            for line in stderr_chunk.splitlines():
-                _schedule_ingest(loop, ingest_cb, line, "stderr", now)
+    # Expose the stream so `stop()` can close it if we get stuck.
+    set_stream_cb(stream)
     try:
-        stream.close()
-    except Exception:
-        pass
+        for stdout_chunk, stderr_chunk in stream:
+            if stop_evt.is_set():
+                break
+            now = time.time()
+            if stdout_chunk:
+                for line in stdout_chunk.splitlines():
+                    _schedule_ingest(loop, ingest_cb, line, "stdout", now)
+            if stderr_chunk:
+                for line in stderr_chunk.splitlines():
+                    _schedule_ingest(loop, ingest_cb, line, "stderr", now)
+    finally:
+        # Ensure caller can't try to close an already-closed stream
+        set_stream_cb(None)
+        try:
+            stream.close()
+        except Exception:
+            pass
 
 
 def _schedule_ingest(
