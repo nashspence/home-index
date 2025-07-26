@@ -100,6 +100,7 @@ class AsyncDockerLogWatcher:
 
         self._reader_thread: Optional[threading.Thread] = None
         self._stop_evt = threading.Event()
+        self._stream = None
 
     # -- public -------------------------------------------------------------
 
@@ -108,11 +109,19 @@ class AsyncDockerLogWatcher:
         if self._reader_thread:
             return
         loop = asyncio.get_running_loop()
+        api = self.container.client.api
+        self._stream = api.attach(
+            self.container.id,
+            stream=True,
+            logs=True,
+            stdout=True,
+            stderr=True,
+            demux=True,
+        )
         self._reader_thread = threading.Thread(
             target=_reader_worker,
             args=(
-                self.container,
-                self._start_from_now,
+                self._stream,
                 self._stop_evt,
                 loop,
                 self._ingest_from_thread,
@@ -126,6 +135,11 @@ class AsyncDockerLogWatcher:
         if not self._reader_thread:
             return
         self._stop_evt.set()
+        if self._stream is not None:
+            try:
+                self._stream.close()
+            except Exception:
+                pass
         # join in threadpool so as not to block the event loop
         await asyncio.to_thread(self._reader_thread.join)
         self._reader_thread = None
@@ -310,24 +324,11 @@ class AsyncDockerLogWatcher:
 
 
 def _reader_worker(
-    container: Container,
-    start_from_now: bool,
+    stream: Any,
     stop_evt: threading.Event,
     loop: asyncio.AbstractEventLoop,
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
-    api = container.client.api
-    # NOTE: ContainerApiMixin.attach() does not accept a 'since' argument.
-    # Passing logs=True ensures we receive previous output from container
-    # creation onward so no events are missed during startup.
-    stream = api.attach(
-        container.id,
-        stream=True,
-        logs=True,
-        stdout=True,
-        stderr=True,
-        demux=True,
-    )
     for stdout_chunk, stderr_chunk in stream:
         if stop_evt.is_set():
             break
