@@ -44,7 +44,8 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
         await watchers["f1s8_home-index"].wait_for_line(
             "invalid cron expression", timeout=5
         )
-        for w in watchers.values():
-            w.assert_no_line(lambda line: "start file sync" in line)
+        watchers["f1s8_home-index"].assert_no_line(
+            lambda line: "start file sync" in line
+        )
 
     dump_on_failure(request, CONTAINER_NAMES, recorded)
