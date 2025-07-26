@@ -1,15 +1,20 @@
+# ruff: noqa: E402
 import asyncio
 import os
+
+from shared.logging_config import files_logger, setup_logging
+
+DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
+COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
+
+setup_logging()
+files_logger.info("running commit %s", COMMIT_SHA)
 
 from features.F1 import sync as f1_sync
 from features.F2 import migrations, duplicate_finder
 from features.F3 import archive
 from features.F4 import modules as modules_f4
 from features.F6 import server as f6_server
-from shared.logging_config import files_logger, setup_logging
-
-DEBUG = str(os.environ.get("DEBUG", "False")) == "True"
-COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
 
 # re-export helpers used by legacy tests
 parse_cron_env = f1_sync.parse_cron_env
@@ -23,8 +28,6 @@ duplicate_finder = duplicate_finder
 
 
 async def main() -> None:
-    setup_logging()
-    files_logger.info("running commit %s", COMMIT_SHA)
     await f1_sync.init_meili_and_sync()
     if modules_f4.is_modules_changed:
         modules_f4.modules_logger.info("*** perform sync on MODULES changed")
