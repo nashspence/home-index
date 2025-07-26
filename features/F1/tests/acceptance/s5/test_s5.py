@@ -7,11 +7,10 @@ import docker
 import pytest
 
 from shared.acceptance_helpers import (
-    AsyncDockerLogWatcher,
     EventMatcher,
     compose_paths_for_test,
-    compose_up_with_watchers,
-    dump_on_failure,
+    compose_up,
+    make_watchers,
 )
 
 CONTAINER_NAMES: List[str] = ["f1s5_home-index"]
@@ -36,24 +35,24 @@ def docker_client():
 async def test_f1s5(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
-    recorded: List[AsyncDockerLogWatcher] = []
-
-    async with compose_up_with_watchers(
-        compose_file, docker_client, CONTAINER_NAMES
+    async with make_watchers(
+        docker_client,
+        CONTAINER_NAMES,
+        request=request,
     ) as watchers:
-        recorded.extend(watchers.values())
-
-        events = await watchers["f1s5_home-index"].wait_for_sequence(
-            [
-                EventMatcher("start file sync"),
-                EventMatcher("completed file sync"),
-                EventMatcher("start file sync"),
-            ],
-            timeout=120,
-        )
+        async with compose_up(
+            compose_file,
+            watchers=watchers,
+        ):
+            events = await watchers["f1s5_home-index"].wait_for_sequence(
+                [
+                    EventMatcher("start file sync"),
+                    EventMatcher("completed file sync"),
+                    EventMatcher("start file sync"),
+                ],
+                timeout=120,
+            )
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
 
     assert events[1].ts < events[2].ts
-
-    dump_on_failure(request, CONTAINER_NAMES, recorded)

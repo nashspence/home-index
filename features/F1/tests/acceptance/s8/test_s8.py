@@ -7,13 +7,15 @@ import docker
 import pytest
 
 from shared.acceptance_helpers import (
-    AsyncDockerLogWatcher,
     compose_paths_for_test,
-    compose_up_with_watchers,
-    dump_on_failure,
+    compose_up,
+    make_watchers,
 )
 
-CONTAINER_NAMES: List[str] = ["f1s8_home-index"]
+CONTAINER_NAMES: List[str] = [
+    "f1s8_home-index",
+    "f1s8_meilisearch",
+]
 
 
 @pytest.fixture(autouse=True)
@@ -35,18 +37,16 @@ def docker_client():
 async def test_f1s8(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
-    recorded: List[AsyncDockerLogWatcher] = []
-
-    async with compose_up_with_watchers(
-        compose_file, docker_client, CONTAINER_NAMES
+    async with make_watchers(
+        docker_client,
+        CONTAINER_NAMES,
+        request=request,
     ) as watchers:
-        recorded.extend(watchers.values())
-        await watchers["f1s8_home-index"].wait_for_container_stopped(timeout=60)
-        await watchers["f1s8_home-index"].wait_for_line(
-            "invalid cron expression", timeout=5
-        )
-        watchers["f1s8_home-index"].assert_no_line(
-            lambda line: "start file sync" in line
-        )
-
-    dump_on_failure(request, CONTAINER_NAMES, recorded)
+        async with compose_up(
+            compose_file,
+            watchers=watchers,
+        ):
+            await watchers["f1s8_home-index"].wait_for_line(
+                "invalid cron expression", timeout=5
+            )
+        watchers["f1s8_home-index"].assert_no_line("start file sync")
