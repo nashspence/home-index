@@ -109,14 +109,11 @@ class AsyncDockerLogWatcher:
         if self._reader_thread:
             return
         loop = asyncio.get_running_loop()
-        api = self.container.client.api
-        self._stream = api.attach(
-            self.container.id,
-            stream=True,
-            logs=True,
+        self._stream = self.container.logs(
             stdout=True,
             stderr=True,
-            demux=True,
+            stream=True,
+            follow=True,
         )
         self._reader_thread = threading.Thread(
             target=_reader_worker,
@@ -329,10 +326,14 @@ def _reader_worker(
     loop: asyncio.AbstractEventLoop,
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
-    for stdout_chunk, stderr_chunk in stream:
+    for chunk in stream:
         if stop_evt.is_set():
             break
         now = time.time()
+        if isinstance(chunk, tuple):
+            stdout_chunk, stderr_chunk = chunk
+        else:
+            stdout_chunk, stderr_chunk = chunk, None
         if stdout_chunk:
             for line in stdout_chunk.splitlines():
                 _schedule_ingest(loop, ingest_cb, line, "stdout", now)
