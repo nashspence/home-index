@@ -1,21 +1,24 @@
+from __future__ import annotations
+
 import asyncio
 from pathlib import Path
 from typing import List
 
 import docker
 import pytest
+
 from shared.acceptance import search_meili
 from shared.acceptance_helpers import (
     AsyncDockerLogWatcher,
     EventMatcher,
-    compose_up_with_watchers,
-    meilisearch_running,
     assert_file_indexed,
-    dump_on_failure,
     compose_paths_for_test,
+    compose_up_with_watchers,
+    dump_on_failure,
+    meilisearch_running,
 )
 
-CONTAINER_NAMES: List[str] = ["f1s1_home-index"]
+CONTAINER_NAMES: List[str] = ["f1s3_home-index"]
 
 
 @pytest.fixture(autouse=True)
@@ -33,9 +36,8 @@ def docker_client():
 
 
 @pytest.mark.asyncio
-# initial run indexes existing files
-async def test_f1s1(tmp_path: Path, docker_client, request):
-    # prepare isolated compose directory
+# file contents change
+async def test_f1s3(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
     recorded: List[AsyncDockerLogWatcher] = []
@@ -45,15 +47,21 @@ async def test_f1s1(tmp_path: Path, docker_client, request):
     ) as watchers:
         recorded.extend(watchers.values())
 
-        await watchers["f1s1_home-index"].wait_for_sequence(
+        await watchers["f1s3_home-index"].wait_for_sequence(
             [
                 EventMatcher("start file sync"),
-                EventMatcher("commit changes to meilisearch"),
-                EventMatcher(" * counted 1 documents in meilisearch"),
                 EventMatcher("completed file sync"),
+            ],
+            timeout=120,
+        )
+
+        existing = set((output_dir / "metadata" / "by-id").iterdir())
+        hello = workdir / "input" / "hello.txt"
+        hello.write_text("changed")
+
+        await watchers["f1s3_home-index"].wait_for_sequence(
+            [
                 EventMatcher("start file sync"),
-                EventMatcher("commit changes to meilisearch"),
-                EventMatcher(" * counted 1 documents in meilisearch"),
                 EventMatcher("completed file sync"),
             ],
             timeout=120,
@@ -61,11 +69,12 @@ async def test_f1s1(tmp_path: Path, docker_client, request):
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
 
-    doc_id = assert_file_indexed(workdir, output_dir, "hello.txt")
+    new_id = assert_file_indexed(workdir, output_dir, "hello.txt")
+    assert any(p.name != new_id for p in existing)
 
     async with meilisearch_running(compose_file):
         docs = await asyncio.to_thread(
-            search_meili, compose_file, workdir, f'id = "{doc_id}"'
+            search_meili, compose_file, workdir, f'id = "{new_id}"'
         )
         assert docs
 

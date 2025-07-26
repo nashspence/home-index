@@ -317,9 +317,6 @@ def _reader_worker(
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
     api = container.client.api
-    # NOTE: ContainerApiMixin.attach() does not accept a 'since' argument.
-    # Passing logs=True ensures we receive previous output from container
-    # creation onward so no events are missed during startup.
     stream = api.attach(
         container.id,
         stream=True,
