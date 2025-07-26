@@ -25,12 +25,13 @@ import shutil
 import tempfile
 import threading
 import time
-import calendar
 import types
-from datetime import datetime
+from datetime import datetime, timezone
+import calendar
 import xxhash
 from dataclasses import dataclass
 from typing import (
+    Deque,
     Any,
     Dict,
     Iterable,
@@ -43,6 +44,7 @@ from typing import (
     cast,
     AsyncIterator,
 )
+from collections import deque
 from contextlib import asynccontextmanager
 
 import docker
@@ -130,14 +132,17 @@ class AsyncDockerLogWatcher:
         if not self._reader_thread:
             return
         self._stop_evt.set()
-        # Join with a timeout so we never block forever in CI.
-        # If the reader thread misbehaves, it's a daemon; we proceed anyway.
+        # Join with a timeout so CI can always progress.
         await asyncio.to_thread(self._reader_thread.join, self._join_timeout)
         if self._reader_thread.is_alive():
-            # Best effort: log a hint to the test output.
+            # Best-effort notice; tests will also dump logs on failure.
+            try:
+                short = getattr(self.container, "short_id", "?")
+            except Exception:
+                short = "?"
             print(
-                f"AsyncDockerLogWatcher: reader thread for {self.container.short_id} "
-                f"did not exit within {self._join_timeout:.1f}s; continuing."
+                f"AsyncDockerLogWatcher: reader thread for {short} did not exit within "
+                f"{self._join_timeout:.1f}s; continuing."
             )
         # Drop the handle either way.
         self._reader_thread = None
@@ -329,114 +334,150 @@ def _reader_worker(
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
     """
-    Poll logs instead of using a blocking attach stream. This avoids situations
-    where the HTTP stream stays open after a fast crash/removal and yields no
-    further chunks, which would otherwise block forever.
+    Poll logs using non-blocking API calls. We keep a `since` watermark per
+    stream and de-duplicate locally because the Engine may return lines whose
+    timestamp is equal to `since` (comparison is >=).
     """
     api = container.client.api
-    # Preserve current behavior: include backlog on first pass.
-    # We advance `since_*` using Docker-provided timestamps on each line.
-    since_stdout: Optional[int] = None
-    since_stderr: Optional[int] = None
+    since_stdout_dt: Optional[datetime] = None
+    since_stderr_dt: Optional[datetime] = None
+
     if start_from_now:
-        now_sec = int(time.time())
-        since_stdout = now_sec
-        since_stderr = now_sec
-    # Track whether the container is stopped and whether we saw new logs.
-    stopped_no_new_cycles = 0
+        now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+        since_stdout_dt = now_dt
+        since_stderr_dt = now_dt
+
+    # Dedup: recent keys (stream, ts_prefix, text). Keep small to bound memory.
+    seen_keys: Deque[tuple[str, str, str]] = deque(maxlen=2048)
+    seen_set: set[tuple[str, str, str]] = set()
+
+    def _push_key(key: tuple[str, str, str]) -> None:
+        seen_keys.append(key)
+        seen_set.add(key)
+        if len(seen_keys) == seen_keys.maxlen:
+            oldest = seen_keys[0]
+            try:
+                seen_set.remove(oldest)
+            except KeyError:
+                pass
+
     try:
         while not stop_evt.is_set():
             now = time.time()
             new_any = False
+
             # stdout
             try:
-                out_kwargs: Dict[str, Any] = dict(
-                    stdout=True, stderr=False, timestamps=True
-                )
-                if since_stdout is not None and since_stdout > 0:
-                    out_kwargs["since"] = since_stdout
+                out_kwargs = dict(stdout=True, stderr=False, timestamps=True)
+                if since_stdout_dt is not None:
+                    out_kwargs["since"] = cast(
+                        Any, calendar.timegm(since_stdout_dt.timetuple())
+                    )
                 out_bytes = api.logs(container.id, **out_kwargs)
             except docker.errors.NotFound:
                 break
+            last_stdout_dt = since_stdout_dt
             for raw_line in out_bytes.splitlines():
-                ts_sec, text = _split_ts_and_text(raw_line)
-                if ts_sec is not None:
-                    # Advance; add 1s to avoid same-second repeats
-                    since_stdout = max((since_stdout or 0), ts_sec + 1)
+                ts_prefix, dt_utc, text = _split_ts_and_text(raw_line)
+                if dt_utc is not None:
+                    last_stdout_dt = (
+                        dt_utc
+                        if last_stdout_dt is None or dt_utc > last_stdout_dt
+                        else last_stdout_dt
+                    )
+                key = ("stdout", ts_prefix or "", text)
+                if key in seen_set:
+                    continue
+                _push_key(key)
                 if text:
                     new_any = True
                     _schedule_ingest(
                         loop, ingest_cb, text.encode("utf-8", "replace"), "stdout", now
                     )
+            since_stdout_dt = last_stdout_dt
 
             # stderr
             try:
-                err_kwargs: Dict[str, Any] = dict(
-                    stdout=False, stderr=True, timestamps=True
-                )
-                if since_stderr is not None and since_stderr > 0:
-                    err_kwargs["since"] = since_stderr
+                err_kwargs = dict(stdout=False, stderr=True, timestamps=True)
+                if since_stderr_dt is not None:
+                    err_kwargs["since"] = cast(
+                        Any, calendar.timegm(since_stderr_dt.timetuple())
+                    )
                 err_bytes = api.logs(container.id, **err_kwargs)
             except docker.errors.NotFound:
                 break
+            last_stderr_dt = since_stderr_dt
             for raw_line in err_bytes.splitlines():
-                ts_sec, text = _split_ts_and_text(raw_line)
-                if ts_sec is not None:
-                    since_stderr = max((since_stderr or 0), ts_sec + 1)
+                ts_prefix, dt_utc, text = _split_ts_and_text(raw_line)
+                if dt_utc is not None:
+                    last_stderr_dt = (
+                        dt_utc
+                        if last_stderr_dt is None or dt_utc > last_stderr_dt
+                        else last_stderr_dt
+                    )
+                key = ("stderr", ts_prefix or "", text)
+                if key in seen_set:
+                    continue
+                _push_key(key)
                 if text:
                     new_any = True
                     _schedule_ingest(
                         loop, ingest_cb, text.encode("utf-8", "replace"), "stderr", now
                     )
+            since_stderr_dt = last_stderr_dt
 
-            # If container is stopped and we've seen no new logs for a couple of cycles, exit.
             try:
-                # Avoid high frequency engine calls when already removed
                 container.reload()
                 status = container.status
             except docker.errors.NotFound:
                 break
 
-            if status in ("exited", "dead"):
-                if not new_any:
-                    stopped_no_new_cycles += 1
-                else:
-                    stopped_no_new_cycles = 0
-                if stopped_no_new_cycles >= 2:
+            if status in ("exited", "dead") and not new_any:
+                if stop_evt.wait(timeout=0.05):
                     break
-            else:
-                stopped_no_new_cycles = 0
+                continue
 
-            # Gentle polling pace
             if stop_evt.wait(timeout=0.05):
                 break
     except Exception as e:
-        # Never propagate exceptions out of the thread; surface via logs only.
-        print(f"AsyncDockerLogWatcher reader error for {container.short_id}: {e!r}")
+        short = getattr(container, "short_id", "?")
+        print(f"AsyncDockerLogWatcher reader error for {short}: {e!r}")
         return
 
 
-def _split_ts_and_text(raw_bytes: bytes) -> tuple[Optional[int], str]:
+_TS_RE = re.compile(
+    r"^(?P<prefix>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s+(?P<text>.*)$"
+)
+
+
+def _split_ts_and_text(
+    raw_bytes: bytes,
+) -> tuple[Optional[str], Optional[datetime], str]:
+    """Parse timestamps from Docker log lines.
+
+    Given ``b'2025-07-26T08:15:30.123456789Z message'`` returns
+    ``("2025-07-26T08:15:30.123456789Z", datetime(..., tzinfo=None), "message")``.
+    If parsing fails, returns ``(None, None, decoded_line)``.
     """
-    Docker 'timestamps=True' prefixes lines like:
-      '2025-07-26T08:15:30.123456789Z message...'
-    Return (unix_seconds, text_without_prefix).
-    """
+
     s = raw_bytes.decode(errors="replace").rstrip("\r\n")
-    # Fast-path: find the first space; prefix should end with 'Z'
-    sp = s.find(" ")
-    if sp > 0 and s[:sp].endswith("Z") and "T" in s[:sp]:
-        ts_prefix = s[:sp]
-        text = s[sp + 1 :] if sp + 1 < len(s) else ""
-        try:
-            # Truncate to seconds resolution; format '%Y-%m-%dT%H:%M:%S'
-            base = ts_prefix[:19]
-            dt = datetime.strptime(base, "%Y-%m-%dT%H:%M:%S")
-            ts_sec = int(calendar.timegm(dt.timetuple()))
-            return ts_sec, text
-        except Exception:
-            return None, s
-    return None, s
+    m = _TS_RE.match(s)
+    if not m:
+        return None, None, s
+    prefix = m.group("prefix")
+    text = m.group("text")
+    base = prefix[:19]
+    frac = ""
+    if "." in prefix:
+        frac = prefix[20:-1]
+    try:
+        dt = datetime.strptime(base, "%Y-%m-%dT%H:%M:%S")
+        if frac:
+            usec = int((frac + "000000")[:6])
+            dt = dt.replace(microsecond=usec)
+        return prefix, dt.replace(tzinfo=None), text
+    except Exception:
+        return None, None, s
 
 
 def _schedule_ingest(
