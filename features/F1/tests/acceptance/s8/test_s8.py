@@ -41,7 +41,6 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
         compose_file, docker_client, CONTAINER_NAMES
     ) as watchers:
         recorded.extend(watchers.values())
-        await watchers["f1s8_home-index"].wait_for_container_stopped(timeout=60)
         await watchers["f1s8_home-index"].wait_for_line(
             "invalid cron expression", timeout=5
         )

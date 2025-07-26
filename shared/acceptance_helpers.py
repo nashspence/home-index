@@ -103,7 +103,7 @@ class AsyncDockerLogWatcher:
         self._lock = threading.Lock()
 
         self._reader_thread: Optional[threading.Thread] = None
-        # bounded join to ensure we never hang shutdown even if the thread misbehaves
+        # Bounded join ensures shutdown never hangs even if the thread misbehaves
         self._join_timeout: float = 5.0
         self._stop_evt = threading.Event()
 
