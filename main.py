@@ -2,6 +2,7 @@ import asyncio
 import os
 
 from features.F1 import sync as f1_sync
+from apscheduler.triggers.cron import CronTrigger
 from features.F2 import migrations, duplicate_finder
 from features.F3 import archive
 from features.F4 import modules as modules_f4
@@ -25,6 +26,13 @@ duplicate_finder = duplicate_finder
 async def main() -> None:
     setup_logging()
     files_logger.info("running commit %s", COMMIT_SHA)
+    # Validate cron expression early so startup fails fast on bad config.
+    if not DEBUG:
+        try:
+            CronTrigger(**parse_cron_env())
+        except ValueError:
+            files_logger.error("invalid cron expression")
+            raise
     await f1_sync.init_meili_and_sync()
     if modules_f4.is_modules_changed:
         modules_f4.modules_logger.info("*** perform sync on MODULES changed")

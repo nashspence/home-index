@@ -81,7 +81,7 @@ class AsyncDockerLogWatcher:
         container: Container,
         remember_limit: Optional[int] = None,
         poll_interval: float = 0.03,
-        start_from_now: bool = True,
+        start_from_now: bool = False,
         queue_maxsize: Optional[int] = None,
     ):
         """
@@ -89,6 +89,8 @@ class AsyncDockerLogWatcher:
         :param remember_limit: Max # of past LogEvents to keep in memory.
         :param poll_interval: How often to poll for readiness/stopped checks.
         :param start_from_now: If True, ignore prior logs and start at current time.
+            Defaults to ``False`` so early lines aren't missed when containers
+            exit quickly.
         :param queue_maxsize: If set, bounds the internal asyncio.Queue size.
         """
         self.container = container
