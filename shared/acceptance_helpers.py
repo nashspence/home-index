@@ -100,7 +100,6 @@ class AsyncDockerLogWatcher:
 
         self._reader_thread: Optional[threading.Thread] = None
         self._stop_evt = threading.Event()
-        self._stream = None
 
     # -- public -------------------------------------------------------------
 
@@ -109,16 +108,11 @@ class AsyncDockerLogWatcher:
         if self._reader_thread:
             return
         loop = asyncio.get_running_loop()
-        self._stream = self.container.logs(
-            stdout=True,
-            stderr=True,
-            stream=True,
-            follow=True,
-        )
         self._reader_thread = threading.Thread(
             target=_reader_worker,
             args=(
-                self._stream,
+                self.container,
+                self._start_from_now,
                 self._stop_evt,
                 loop,
                 self._ingest_from_thread,
@@ -132,11 +126,6 @@ class AsyncDockerLogWatcher:
         if not self._reader_thread:
             return
         self._stop_evt.set()
-        if self._stream is not None:
-            try:
-                self._stream.close()
-            except Exception:
-                pass
         # join in threadpool so as not to block the event loop
         await asyncio.to_thread(self._reader_thread.join)
         self._reader_thread = None
@@ -321,19 +310,25 @@ class AsyncDockerLogWatcher:
 
 
 def _reader_worker(
-    stream: Any,
+    container: Container,
+    start_from_now: bool,
     stop_evt: threading.Event,
     loop: asyncio.AbstractEventLoop,
     ingest_cb: Callable[[LogEvent], None],
 ) -> None:
-    for chunk in stream:
+    api = container.client.api
+    stream = api.attach(
+        container.id,
+        stream=True,
+        logs=True,
+        stdout=True,
+        stderr=True,
+        demux=True,
+    )
+    for stdout_chunk, stderr_chunk in stream:
         if stop_evt.is_set():
             break
         now = time.time()
-        if isinstance(chunk, tuple):
-            stdout_chunk, stderr_chunk = chunk
-        else:
-            stdout_chunk, stderr_chunk = chunk, None
         if stdout_chunk:
             for line in stdout_chunk.splitlines():
                 _schedule_ingest(loop, ingest_cb, line, "stdout", now)
