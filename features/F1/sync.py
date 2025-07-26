@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Callable, Awaitable, Coroutine, cast
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 import mimetypes
 
 from features.F1 import scheduler
@@ -59,6 +60,14 @@ def module_metadata_path(file_id: str, module_name: str) -> Path:
 
 # Cron helpers
 parse_cron_env = scheduler.parse_cron_env
+
+# Validate cron expression on import so startup fails fast.
+if str(os.environ.get("DEBUG", "False")) != "True":
+    try:
+        CronTrigger(**parse_cron_env())
+    except ValueError:
+        files_logger.error("invalid cron expression")
+        raise
 
 
 # --- sync helpers -----------------------------------------------------------

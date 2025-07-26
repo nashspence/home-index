@@ -30,12 +30,10 @@ def test_malformed_cron_expressions_raise_valueerror(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGGING_DIRECTORY", str(log_dir))
     monkeypatch.setenv("MODULES", "")
     monkeypatch.setenv("CRON_EXPRESSION", "15 2 * *")
-    from features.F1 import sync
     import importlib
 
-    importlib.reload(sync)
     with pytest.raises(ValueError):
-        sync.parse_cron_env()
+        importlib.import_module("features.F1.sync")
 
 
 def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
