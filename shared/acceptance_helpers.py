@@ -112,7 +112,19 @@ class AsyncDockerLogWatcher:
         """Begin streaming logs; idempotent."""
         if self._reader_thread:
             return
-        self._container = self.client.containers.get(self.container_name)
+        deadline = time.monotonic() + 60
+        while True:
+            try:
+                self._container = await asyncio.to_thread(
+                    self.client.containers.get, self.container_name
+                )
+                break
+            except docker.errors.NotFound:
+                if time.monotonic() > deadline:
+                    raise RuntimeError(
+                        f"Container {self.container_name!r} not found within 60s"
+                    )
+                await asyncio.sleep(self.poll_interval)
         loop = asyncio.get_running_loop()
         self._reader_thread = threading.Thread(
             target=_reader_worker,
