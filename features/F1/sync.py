@@ -460,14 +460,11 @@ async def init_meili_and_sync() -> None:
     await sync_documents()
 
 
-async def schedule_and_run(
-    api_coro_fn: Callable[[], Awaitable[Any]], *, debug: bool
-) -> None:
+async def schedule_and_run(api_coro_fn: Callable[[], Awaitable[Any]]) -> None:
     """Run the API server and schedule periodic sync jobs."""
     sched = BackgroundScheduler()
     scheduler.attach_sync_job(
         sched,
-        debug,
         lambda: run_in_process(init_meili_and_sync),
     )
     sched.start()

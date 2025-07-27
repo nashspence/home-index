@@ -49,7 +49,6 @@ def test_scheduler_attaches_a_crontrigger_job_for_periodic_indexing(
     monkeypatch.setenv(
         "MODULES_CONFIG_FILE_PATH", str(tmp_path / "modules_config.json")
     )
-    monkeypatch.delenv("DEBUG", raising=False)
     added = {}
 
     class DummyScheduler:
