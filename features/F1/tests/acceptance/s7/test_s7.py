@@ -13,6 +13,7 @@ from shared.acceptance_helpers import (
 )
 
 HOME_INDEX_CONTAINER_NAME = "f1s7_home-index"
+MEILI_CONTAINER_NAME = "f1s7_meilisearch"
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +37,7 @@ async def test_f1s7(tmp_path: Path, docker_client, request):
 
     async with make_watchers(
         docker_client,
-        [HOME_INDEX_CONTAINER_NAME],
+        [HOME_INDEX_CONTAINER_NAME, MEILI_CONTAINER_NAME],
         request=request,
     ) as watchers:
         async with compose_up(
@@ -50,9 +51,6 @@ async def test_f1s7(tmp_path: Path, docker_client, request):
                 ],
                 timeout=10,
             )
-        for w in watchers.values():
-            w.assert_no_line(lambda line: "ERROR" in line)
-
         initial_lines = (output_dir / "files.log").read_text().splitlines()
 
         async with compose_up(
@@ -65,8 +63,7 @@ async def test_f1s7(tmp_path: Path, docker_client, request):
                 ],
                 timeout=10,
             )
-        for w in watchers.values():
-            w.assert_no_line(lambda line: "ERROR" in line)
-
         final_lines = (output_dir / "files.log").read_text().splitlines()
         assert len(final_lines) > len(initial_lines)
+        for w in watchers.values():
+            w.assert_no_line(lambda line: "ERROR" in line)

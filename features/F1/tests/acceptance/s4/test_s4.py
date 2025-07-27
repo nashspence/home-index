@@ -15,6 +15,7 @@ from shared.acceptance_helpers import (
 from ..helpers import _expected_interval
 
 HOME_INDEX_CONTAINER_NAME = "f1s4_home-index"
+MEILI_CONTAINER_NAME = "f1s4_meilisearch"
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +39,7 @@ async def test_f1s4(tmp_path: Path, docker_client, request):
 
     async with make_watchers(
         docker_client,
-        [HOME_INDEX_CONTAINER_NAME],
+        [HOME_INDEX_CONTAINER_NAME, MEILI_CONTAINER_NAME],
         request=request,
     ) as watchers:
         async with compose_up(
@@ -53,10 +54,9 @@ async def test_f1s4(tmp_path: Path, docker_client, request):
                 ],
                 timeout=10,
             )
+        interval = events[-1].ts - events[-2].ts
+        expected = _expected_interval("*/2 * * * * *")
+        assert interval >= expected - 1
+        assert interval <= expected * 3 + 1
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
-
-    interval = events[-1].ts - events[-2].ts
-    expected = _expected_interval("*/2 * * * * *")
-    assert interval >= expected - 1
-    assert interval <= expected * 3 + 1
