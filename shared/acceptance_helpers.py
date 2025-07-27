@@ -45,6 +45,9 @@ from typing import (
     Awaitable,
 )
 from contextlib import asynccontextmanager
+from functools import lru_cache
+
+import yaml
 
 import docker
 from docker.models.containers import Container
@@ -526,6 +529,20 @@ def compose_paths_for_test(test_file: str | Path) -> tuple[Path, Path, Path]:
     return compose_file, workdir, output_dir
 
 
+@lru_cache(maxsize=None)
+def _container_service_map(compose_file: Path) -> Dict[str, str]:
+    """Return mapping of container_name -> service name from a compose file."""
+    data = yaml.safe_load(compose_file.read_text())
+    services = data.get("services", {}) if isinstance(data, dict) else {}
+    mapping: Dict[str, str] = {}
+    for service, cfg in services.items():
+        if isinstance(cfg, Mapping):
+            cname = cfg.get("container_name")
+            if cname:
+                mapping[str(cname)] = service
+    return mapping
+
+
 def kill_compose_project(compose_file: Path) -> None:
     """Kill and remove all containers from the compose project."""
     project = compose_file.parent.name
@@ -574,7 +591,8 @@ async def compose_up(
     )
     cmd = ["docker-compose", "-f", str(compose_file), "up", "-d"]
     if containers:
-        cmd.extend(containers)
+        mapping = _container_service_map(compose_file)
+        cmd.extend([mapping.get(c, c) for c in containers])
     await asyncio.to_thread(subprocess.run, cmd, check=True)
     if watchers is not None:
         to_start = (
@@ -629,7 +647,15 @@ async def compose_down(
             "--remove-orphans",
         ]
     else:
-        cmd = ["docker-compose", "-f", str(compose_file), "rm", "-fsv", *containers]
+        mapping = _container_service_map(compose_file)
+        cmd = [
+            "docker-compose",
+            "-f",
+            str(compose_file),
+            "rm",
+            "-fsv",
+            *[mapping.get(c, c) for c in containers],
+        ]
     await _bounded(
         asyncio.to_thread(subprocess.run, cmd, check=True),
         timeout,
