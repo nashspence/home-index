@@ -381,6 +381,14 @@ def _reader_worker(
         demux=True,
     )
 
+    def _close() -> None:
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+    set_close_stream(_close)
+
     # record it so stop() can close it
     thread = threading.current_thread()
     setattr(thread, "stream", stream)
