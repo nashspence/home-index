@@ -428,13 +428,7 @@ def _reader_worker(
         demux=True,
     )
 
-    try:
-        close_fn = getattr(stream, "close")
-    except Exception:
-
-        def close_fn() -> None:
-            pass
-
+    close_fn = getattr(stream, "close", lambda: None)
     set_close_stream(close_fn)
 
     # record it so stop() can close it
