@@ -37,10 +37,16 @@ async def init_meili() -> None:
             except Exception:
                 pass
         try:
-            task = await client.index(MEILISEARCH_CHUNK_INDEX_NAME).delete()
-            await client.wait_for_task(task.task_uid)
+            await client.get_index(MEILISEARCH_CHUNK_INDEX_NAME)
         except Exception as e:  # pragma: no cover - index may not exist
             if getattr(e, "code", None) != "index_not_found":
+                files_logger.exception("check chunk index failed")
+                raise
+        else:
+            try:
+                task = await client.index(MEILISEARCH_CHUNK_INDEX_NAME).delete()
+                await client.wait_for_task(task.task_uid)
+            except Exception:
                 files_logger.exception("delete chunk index failed")
                 raise
         chunk_utils.save_chunk_settings()
