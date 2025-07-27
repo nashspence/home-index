@@ -5,7 +5,7 @@ from typing import Callable, Dict
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+
 
 from shared.logging_config import files_logger
 
@@ -33,21 +33,20 @@ def parse_cron_env(
             "month": parts[4],
             "day_of_week": parts[5],
         }
+    files_logger.error("invalid cron expression")
     raise ValueError(
         f"Invalid cron expression in {env_var}: '{cron_expression}'. Must have 5 or 6 fields."
     )
 
 
-def attach_sync_job(
-    scheduler: BackgroundScheduler, debug: bool, run_fn: Callable[[], None]
-) -> None:
-    """Attach the periodic sync job to the scheduler."""
-    try:
-        trigger = (
-            IntervalTrigger(seconds=60) if debug else CronTrigger(**parse_cron_env())
-        )
-    except ValueError:
-        files_logger.error("invalid cron expression")
-        raise
+CRON_KWARGS = parse_cron_env()
+try:
+    CRON_TRIGGER = CronTrigger(**CRON_KWARGS)
+except ValueError:
+    files_logger.error("invalid cron expression")
+    raise
 
-    scheduler.add_job(run_fn, trigger, max_instances=1)
+
+def attach_sync_job(scheduler: BackgroundScheduler, run_fn: Callable[[], None]) -> None:
+    """Attach the periodic sync job to the scheduler."""
+    scheduler.add_job(run_fn, CRON_TRIGGER, max_instances=1)
