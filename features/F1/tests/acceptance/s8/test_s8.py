@@ -12,6 +12,7 @@ from shared.acceptance_helpers import (
 )
 
 HOME_INDEX_CONTAINER_NAME = "f1s8_home-index"
+MEILI_CONTAINER_NAME = "f1s8_meilisearch"
 
 
 @pytest.fixture(autouse=True)
@@ -35,7 +36,7 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
 
     async with make_watchers(
         docker_client,
-        [HOME_INDEX_CONTAINER_NAME],
+        [HOME_INDEX_CONTAINER_NAME, MEILI_CONTAINER_NAME],
         request=request,
     ) as watchers:
         async with compose_up(
@@ -46,3 +47,4 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
                 "invalid cron expression", timeout=10
             )
         watchers[HOME_INDEX_CONTAINER_NAME].assert_no_line("start file sync")
+        watchers[MEILI_CONTAINER_NAME].assert_no_line(lambda line: "ERROR" in line)

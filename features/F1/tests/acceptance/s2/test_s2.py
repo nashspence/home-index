@@ -37,15 +37,16 @@ def docker_client():
 async def test_f1s2(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
-    async with compose_up(
-        compose_file,
-        containers=[MEILI_CONTAINER_NAME],
-    ):
-        async with make_watchers(
-            docker_client,
-            [HOME_INDEX_CONTAINER_NAME],
-            request=request,
-        ) as watchers:
+    async with make_watchers(
+        docker_client,
+        [HOME_INDEX_CONTAINER_NAME, MEILI_CONTAINER_NAME],
+        request=request,
+    ) as watchers:
+        async with compose_up(
+            compose_file,
+            watchers=watchers,
+            containers=[MEILI_CONTAINER_NAME],
+        ):
             async with compose_up(
                 compose_file,
                 watchers=watchers,
@@ -69,12 +70,10 @@ async def test_f1s2(tmp_path: Path, docker_client, request):
                     ],
                     timeout=10,
                 )
-            for w in watchers.values():
-                w.assert_no_line(lambda line: "ERROR" in line)
-
             doc_id = assert_file_indexed(workdir, output_dir, "new.txt")
-
-        docs = await asyncio.to_thread(
-            search_meili, compose_file, workdir, f'id = "{doc_id}"'
-        )
-        assert docs
+            docs = await asyncio.to_thread(
+                search_meili, compose_file, workdir, f'id = "{doc_id}"'
+            )
+            assert docs
+        for w in watchers.values():
+            w.assert_no_line(lambda line: "ERROR" in line)
