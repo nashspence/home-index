@@ -46,12 +46,12 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
         CONTAINER_NAMES,
         request=request,
     ) as watchers:
+        os.environ["CRON_EXPRESSION"] = "* * * * * *"
         async with compose_up(
             compose_file,
             watchers=watchers,
         ):
             # first run with cron1
-            os.environ["CRON_EXPRESSION"] = "* * * * * *"
             await watchers["f1s6_home-index"].wait_for_sequence(
                 [
                     EventMatcher("start file sync"),
@@ -83,3 +83,4 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
     interval = events[-1].ts - events[-2].ts
     expected = _expected_interval("*/2 * * * * *")
     assert abs(interval - expected) <= 1
+    os.environ.pop("CRON_EXPRESSION", None)
