@@ -145,6 +145,12 @@ class AsyncDockerLogWatcher:
         if self._reader_thread:
             _verbose(f"watcher {self.container_name}: already started")
             return
+        self._stop_evt.clear()
+        while not self._q.empty():
+            try:
+                _ = self._q.get_nowait()
+            except Exception:
+                break
         _verbose(f"watcher {self.container_name}: starting")
         deadline = time.monotonic() + 60
         while True:
