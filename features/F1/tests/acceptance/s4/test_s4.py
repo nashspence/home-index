@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 import docker
 import pytest
@@ -15,7 +14,7 @@ from shared.acceptance_helpers import (
 
 from ..helpers import _expected_interval
 
-CONTAINER_NAMES: List[str] = ["f1s4_home-index"]
+HOME_INDEX_CONTAINER_NAME = "f1s4_home-index"
 
 
 @pytest.fixture(autouse=True)
@@ -39,20 +38,20 @@ async def test_f1s4(tmp_path: Path, docker_client, request):
 
     async with make_watchers(
         docker_client,
-        CONTAINER_NAMES,
+        [HOME_INDEX_CONTAINER_NAME],
         request=request,
     ) as watchers:
         async with compose_up(
             compose_file,
             watchers=watchers,
         ):
-            events = await watchers["f1s4_home-index"].wait_for_sequence(
+            events = await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
                 [
                     EventMatcher("start file sync"),
                     EventMatcher("start file sync"),
                     EventMatcher("start file sync"),
                 ],
-                timeout=120,
+                timeout=10,
             )
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)

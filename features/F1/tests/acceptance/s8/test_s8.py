@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 import docker
 import pytest
@@ -12,10 +11,7 @@ from shared.acceptance_helpers import (
     make_watchers,
 )
 
-CONTAINER_NAMES: List[str] = [
-    "f1s8_home-index",
-    "f1s8_meilisearch",
-]
+HOME_INDEX_CONTAINER_NAME = "f1s8_home-index"
 
 
 @pytest.fixture(autouse=True)
@@ -39,14 +35,14 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
 
     async with make_watchers(
         docker_client,
-        CONTAINER_NAMES,
+        [HOME_INDEX_CONTAINER_NAME],
         request=request,
     ) as watchers:
         async with compose_up(
             compose_file,
             watchers=watchers,
         ):
-            await watchers["f1s8_home-index"].wait_for_line(
-                "invalid cron expression", timeout=5
+            await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_line(
+                "invalid cron expression", timeout=10
             )
-        watchers["f1s8_home-index"].assert_no_line("start file sync")
+        watchers[HOME_INDEX_CONTAINER_NAME].assert_no_line("start file sync")

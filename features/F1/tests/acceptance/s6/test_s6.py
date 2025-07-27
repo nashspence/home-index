@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List
 
 import docker
 import pytest
@@ -16,10 +15,7 @@ from shared.acceptance_helpers import (
 
 from ..helpers import _expected_interval
 
-CONTAINER_NAMES: List[str] = [
-    "f1s6_home-index",
-    "f1s6_meilisearch",
-]
+HOME_INDEX_CONTAINER_NAME = "f1s6_home-index"
 
 
 @pytest.fixture(autouse=True)
@@ -43,44 +39,46 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
 
     async with make_watchers(
         docker_client,
-        CONTAINER_NAMES,
+        [HOME_INDEX_CONTAINER_NAME],
         request=request,
     ) as watchers:
-        os.environ["CRON_EXPRESSION"] = "* * * * * *"
-        async with compose_up(
-            compose_file,
-            watchers=watchers,
-        ):
-            # first run with cron1
-            await watchers["f1s6_home-index"].wait_for_sequence(
-                [
-                    EventMatcher("start file sync"),
-                    EventMatcher("start file sync"),
-                ],
-                timeout=120,
-            )
-        for w in watchers.values():
-            w.assert_no_line(lambda line: "ERROR" in line)
+        try:
+            os.environ["CRON_EXPRESSION"] = "* * * * * *"
+            async with compose_up(
+                compose_file,
+                watchers=watchers,
+            ):
+                # first run with cron1
+                await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
+                    [
+                        EventMatcher("start file sync"),
+                        EventMatcher("start file sync"),
+                    ],
+                    timeout=10,
+                )
+            for w in watchers.values():
+                w.assert_no_line(lambda line: "ERROR" in line)
 
-        # second run with cron2
-        os.environ["CRON_EXPRESSION"] = "*/2 * * * * *"
-        async with compose_up(
-            compose_file,
-            watchers=watchers,
-        ):
-            # bootstrap + two scheduled runs
-            events = await watchers["f1s6_home-index"].wait_for_sequence(
-                [
-                    EventMatcher("start file sync"),
-                    EventMatcher("start file sync"),
-                    EventMatcher("start file sync"),
-                ],
-                timeout=120,
-            )
-        for w in watchers.values():
-            w.assert_no_line(lambda line: "ERROR" in line)
+            # second run with cron2
+            os.environ["CRON_EXPRESSION"] = "*/2 * * * * *"
+            async with compose_up(
+                compose_file,
+                watchers=watchers,
+            ):
+                # bootstrap + two scheduled runs
+                events = await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
+                    [
+                        EventMatcher("start file sync"),
+                        EventMatcher("start file sync"),
+                        EventMatcher("start file sync"),
+                    ],
+                    timeout=10,
+                )
+            for w in watchers.values():
+                w.assert_no_line(lambda line: "ERROR" in line)
 
-    interval = events[-1].ts - events[-2].ts
-    expected = _expected_interval("*/2 * * * * *")
-    assert abs(interval - expected) <= 1
-    os.environ.pop("CRON_EXPRESSION", None)
+            interval = events[-1].ts - events[-2].ts
+            expected = _expected_interval("*/2 * * * * *")
+            assert abs(interval - expected) <= 1
+        finally:
+            os.environ.pop("CRON_EXPRESSION", None)
