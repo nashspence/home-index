@@ -114,7 +114,8 @@ class AsyncDockerLogWatcher:
             asyncio.Queue(maxsize=queue_maxsize) if queue_maxsize else asyncio.Queue()
         )
         self._remembered: List[LogEvent] = []
-        self._lock = threading.Lock()
+        # Reentrant because diagnostics may call other locked methods.
+        self._lock = threading.RLock()
 
         self._reader_thread: Optional[threading.Thread] = None
         self._stop_evt = threading.Event()
@@ -384,11 +385,15 @@ class AsyncDockerLogWatcher:
 
     def assert_no_line(self, matcher: LineMatcher) -> None:
         """Assert that no remembered log line matches `matcher`."""
+        offending: Optional[str] = None
         with self._lock:
             for e in self._remembered:
                 if _match_line(e.raw, matcher):
-                    self.dump_logs("FORBIDDEN LINE ENCOUNTERED")
-                    raise AssertionError(f"Forbidden line found: {e.raw}")
+                    offending = e.raw
+                    break
+        if offending is not None:
+            self.dump_logs("FORBIDDEN LINE ENCOUNTERED")
+            raise AssertionError(f"Forbidden line found: {offending}")
 
     # -- internal -----------------------------------------------------------
 
