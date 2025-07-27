@@ -521,11 +521,37 @@ def compose_paths_for_test(test_file: str | Path) -> tuple[Path, Path, Path]:
     return compose_file, workdir, output_dir
 
 
-async def _bounded(coro: Awaitable[Any], timeout: float, label: str) -> Any:
+def kill_compose_project(compose_file: Path) -> None:
+    """Kill and remove all containers from the compose project."""
+    project = compose_file.parent.name
+    label = f"com.docker.compose.project={project}"
+    subprocess.run(
+        ["docker", "kill", "$(docker ps -q --filter", f"label={label}", ")"],
+        shell=True,
+        check=False,
+    )
+    subprocess.run(
+        ["docker", "rm", "-f", "$(docker ps -a -q --filter", f"label={label}", ")"],
+        shell=True,
+        check=False,
+    )
+
+
+async def _bounded(
+    coro: Awaitable[Any],
+    timeout: float,
+    label: str,
+    on_timeout: Callable[[], None] | None = None,
+) -> Any:
     try:
         return await asyncio.wait_for(coro, timeout)
     except asyncio.TimeoutError:
         print(f"{label} timeout")
+        if on_timeout:
+            try:
+                on_timeout()
+            except Exception:
+                pass
         raise
 
 
@@ -582,7 +608,12 @@ async def compose_down(
             if containers
             else watchers.values()
         )
-        await _bounded(stop_all(to_stop), timeout, "stop_all")
+        await _bounded(
+            stop_all(to_stop),
+            timeout,
+            "stop_all",
+            lambda: kill_compose_project(compose_file),
+        )
     if containers is None:
         cmd = [
             "docker-compose",
@@ -595,10 +626,18 @@ async def compose_down(
     else:
         cmd = ["docker-compose", "-f", str(compose_file), "rm", "-fsv", *containers]
     await _bounded(
-        asyncio.to_thread(subprocess.run, cmd, check=True), timeout, "compose down"
+        asyncio.to_thread(subprocess.run, cmd, check=True),
+        timeout,
+        "compose down",
+        lambda: kill_compose_project(compose_file),
     )
     if to_stop is not None:
-        await _bounded(all_stopped(to_stop, timeout=timeout), timeout, "all_stopped")
+        await _bounded(
+            all_stopped(to_stop, timeout=timeout),
+            timeout,
+            "all_stopped",
+            lambda: kill_compose_project(compose_file),
+        )
     _verbose("compose_down: done")
 
 
