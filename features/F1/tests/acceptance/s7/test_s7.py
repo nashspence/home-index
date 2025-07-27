@@ -7,14 +7,16 @@ import docker
 import pytest
 
 from shared.acceptance_helpers import (
-    AsyncDockerLogWatcher,
     EventMatcher,
     compose_paths_for_test,
-    compose_up_with_watchers,
-    dump_on_failure,
+    compose_up,
+    make_watchers,
 )
 
-CONTAINER_NAMES: List[str] = ["f1s7_home-index"]
+CONTAINER_NAMES: List[str] = [
+    "f1s7_home-index",
+    "f1s7_meilisearch",
+]
 
 
 @pytest.fixture(autouse=True)
@@ -36,36 +38,39 @@ def docker_client():
 async def test_f1s7(tmp_path: Path, docker_client, request):
     compose_file, workdir, output_dir = compose_paths_for_test(__file__)
 
-    recorded: List[AsyncDockerLogWatcher] = []
-
-    async with compose_up_with_watchers(
-        compose_file, docker_client, CONTAINER_NAMES
+    async with make_watchers(
+        docker_client,
+        CONTAINER_NAMES,
+        request=request,
     ) as watchers:
-        recorded.extend(watchers.values())
-        await watchers["f1s7_home-index"].wait_for_sequence(
-            [
-                EventMatcher("start file sync"),
-                EventMatcher("start file sync"),
-            ],
-            timeout=120,
-        )
-
-    initial_lines = (output_dir / "files.log").read_text().splitlines()
-
-    async with compose_up_with_watchers(
-        compose_file, docker_client, CONTAINER_NAMES
-    ) as watchers:
-        recorded.extend(watchers.values())
-        await watchers["f1s7_home-index"].wait_for_sequence(
-            [
-                EventMatcher("start file sync"),
-            ],
-            timeout=120,
-        )
+        async with compose_up(
+            compose_file,
+            watchers=watchers,
+        ):
+            await watchers["f1s7_home-index"].wait_for_sequence(
+                [
+                    EventMatcher("start file sync"),
+                    EventMatcher("start file sync"),
+                ],
+                timeout=120,
+            )
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
 
-    final_lines = (output_dir / "files.log").read_text().splitlines()
-    assert len(final_lines) > len(initial_lines)
+        initial_lines = (output_dir / "files.log").read_text().splitlines()
 
-    dump_on_failure(request, CONTAINER_NAMES, recorded)
+        async with compose_up(
+            compose_file,
+            watchers=watchers,
+        ):
+            await watchers["f1s7_home-index"].wait_for_sequence(
+                [
+                    EventMatcher("start file sync"),
+                ],
+                timeout=120,
+            )
+        for w in watchers.values():
+            w.assert_no_line(lambda line: "ERROR" in line)
+
+        final_lines = (output_dir / "files.log").read_text().splitlines()
+        assert len(final_lines) > len(initial_lines)
