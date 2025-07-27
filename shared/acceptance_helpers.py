@@ -37,9 +37,11 @@ from typing import (
     Optional,
     Pattern,
     Sequence,
+    Mapping,
     Union,
     cast,
     AsyncIterator,
+    Awaitable,
 )
 from contextlib import asynccontextmanager
 
@@ -381,20 +383,21 @@ def _reader_worker(
         demux=True,
     )
 
-    def _close() -> None:
-        try:
-            stream.close()
-        except Exception:
+    try:
+        close_fn = getattr(stream, "close")
+    except Exception:
+
+        def close_fn() -> None:
             pass
 
-    set_close_stream(_close)
+    set_close_stream(close_fn)
 
     # record it so stop() can close it
     thread = threading.current_thread()
     setattr(thread, "stream", stream)
 
     try:
-        for stdout_chunk, stderr_chunk in stream:
+        for stdout_chunk, stderr_chunk in _iter_with_timeout(stream, stop_evt):
             if stop_evt.is_set():
                 break
             now = time.monotonic()
@@ -405,7 +408,10 @@ def _reader_worker(
                 for line in stderr_chunk.splitlines():
                     _schedule_ingest(loop, ingest_cb, line, "stderr", now)
     finally:
-        _close()
+        try:
+            close_fn()
+        except Exception:
+            pass
         set_close_stream(lambda: None)
 
 
@@ -419,6 +425,26 @@ def _schedule_ingest(
     decoded = raw_bytes.decode(errors="replace").rstrip("\r\n")
     evt = LogEvent(ts, decoded, stream_type)
     loop.call_soon_threadsafe(cb, evt)
+
+
+def _iter_with_timeout(
+    stream: Iterable[Any],
+    stop_evt: threading.Event,
+    idle_break: float = 1.0,
+) -> Iterable[Any]:
+    last = time.monotonic()
+    it = iter(stream)
+    while True:
+        if stop_evt.is_set() and time.monotonic() - last >= idle_break:
+            return
+        try:
+            item = next(it)
+        except StopIteration:
+            return
+        except Exception:
+            return
+        last = time.monotonic()
+        yield item
 
 
 # ----- utilities -----------------------------------------------------------
@@ -448,6 +474,14 @@ def compose_paths_for_test(test_file: str | Path) -> tuple[Path, Path, Path]:
     compose_file = specific if specific.exists() else workdir / "docker-compose.yml"
     output_dir = workdir / "output"
     return compose_file, workdir, output_dir
+
+
+async def _bounded(coro: Awaitable[Any], timeout: float, label: str) -> Any:
+    try:
+        return await asyncio.wait_for(coro, timeout)
+    except asyncio.TimeoutError:
+        print(f"{label} timeout")
+        raise
 
 
 @asynccontextmanager
@@ -487,38 +521,61 @@ async def compose_down(
     timeout: float = 30,
 ) -> None:
     """Stop selected compose services and their watchers."""
-    if containers is None:
-        cmd = ["docker-compose", "-f", str(compose_file), "down", "-v"]
-        await asyncio.to_thread(subprocess.run, cmd, check=True)
-    else:
-        cmd = ["docker-compose", "-f", str(compose_file), "rm", "-fsv", *containers]
-        await asyncio.to_thread(subprocess.run, cmd, check=True)
+    to_stop = None
     if watchers is not None:
         to_stop = (
             [watchers[name] for name in containers if name in watchers]
             if containers
             else watchers.values()
         )
-        await all_stopped(to_stop, timeout=timeout)
-        await stop_all(to_stop)
+        await _bounded(stop_all(to_stop), timeout, "stop_all")
+    if containers is None:
+        cmd = [
+            "docker-compose",
+            "-f",
+            str(compose_file),
+            "down",
+            "-v",
+            "--remove-orphans",
+        ]
+    else:
+        cmd = ["docker-compose", "-f", str(compose_file), "rm", "-fsv", *containers]
+    await _bounded(
+        asyncio.to_thread(subprocess.run, cmd, check=True), timeout, "compose down"
+    )
+    if to_stop is not None:
+        await _bounded(all_stopped(to_stop, timeout=timeout), timeout, "all_stopped")
 
 
 # ---------- watcher helpers -------------------------
 
 
 async def start_all(watchers: Iterable[AsyncDockerLogWatcher]) -> None:
-    await asyncio.gather(*(w.start() for w in watchers), return_exceptions=True)
+    results = await asyncio.gather(
+        *(w.start() for w in watchers), return_exceptions=True
+    )
+    errs = [e for e in results if isinstance(e, BaseException)]
+    if errs:
+        raise RuntimeError(f"start_all failed: {errs}")
 
 
 async def stop_all(watchers: Iterable[AsyncDockerLogWatcher]) -> None:
-    await asyncio.gather(*(w.stop() for w in watchers), return_exceptions=True)
+    results = await asyncio.gather(
+        *(w.stop() for w in watchers), return_exceptions=True
+    )
+    errs = [e for e in results if isinstance(e, BaseException)]
+    if errs:
+        raise RuntimeError(f"stop_all failed: {errs}")
 
 
 async def all_ready(watchers: Iterable[AsyncDockerLogWatcher], timeout: float) -> None:
-    await asyncio.gather(
+    results = await asyncio.gather(
         *(w.wait_for_ready(timeout) for w in watchers if w._started()),
         return_exceptions=True,
     )
+    errs = [e for e in results if isinstance(e, BaseException)]
+    if errs:
+        raise RuntimeError(f"all_ready failed: {errs}")
 
 
 async def all_sequences(
@@ -533,19 +590,25 @@ async def all_sequences(
 async def all_quiet(
     watchers: Iterable[AsyncDockerLogWatcher], timeout: float, quiet_for: float
 ) -> None:
-    await asyncio.gather(
+    results = await asyncio.gather(
         *(w.wait_until_quiet(quiet_for, timeout) for w in watchers if w._started()),
         return_exceptions=True,
     )
+    errs = [e for e in results if isinstance(e, BaseException)]
+    if errs:
+        raise RuntimeError(f"all_quiet failed: {errs}")
 
 
 async def all_stopped(
     watchers: Iterable[AsyncDockerLogWatcher], timeout: float
 ) -> None:
-    await asyncio.gather(
+    results = await asyncio.gather(
         *(w.wait_for_container_stopped(timeout) for w in watchers if w._started()),
         return_exceptions=True,
     )
+    errs = [e for e in results if isinstance(e, BaseException)]
+    if errs:
+        raise RuntimeError(f"all_stopped failed: {errs}")
 
 
 @asynccontextmanager
@@ -571,7 +634,7 @@ async def make_watchers(
     finally:
         await stop_all(watchers.values())
         if request is not None:
-            dump_on_failure(request, container_names, watchers.values())
+            dump_on_failure(request, container_names, watchers)
 
 
 def assert_file_indexed(workdir: Path, output_dir: Path, rel_path: str) -> str:
@@ -591,12 +654,18 @@ def assert_file_indexed(workdir: Path, output_dir: Path, rel_path: str) -> str:
 def dump_on_failure(
     request: Any,
     container_names: Iterable[str],
-    watchers: Iterable[AsyncDockerLogWatcher],
+    watchers: Mapping[str, AsyncDockerLogWatcher] | Iterable[AsyncDockerLogWatcher],
     limit: int = 200,
 ) -> None:
     rep = getattr(request.node, "rep_call", None)
     if rep and rep.failed:
         print("\n=========== LOG DUMP FOR FAILED TEST ===========")
-        for name, watcher in zip(container_names, watchers):
-            watcher.dump_logs(f"CONTAINER ⟨{name}⟩ last {limit} lines")
+        if isinstance(watchers, Mapping):
+            watchers_map = watchers
+        else:
+            watchers_map = {w.container_name: w for w in watchers}
+        for name in container_names:
+            watcher = watchers_map.get(name)
+            if watcher:
+                watcher.dump_logs(f"CONTAINER ⟨{name}⟩ last {limit} lines")
         print("=========== END LOG DUMP =======================\n")
