@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# mypy: disable-error-code=misc
+
 import asyncio
 import os
 from pathlib import Path
@@ -41,7 +43,7 @@ async def world(
             w.assert_no_line(lambda line: "ERROR" in line)
 
 
-@given(parsers.parse("the stack started with a valid cron expression"))
+@given("the stack started with a valid cron expression")
 @given("the stack is running")
 @when("the stack boots")
 @when("the stack runs")
@@ -223,7 +225,7 @@ async def interval_matches(world: World) -> None:
 
 
 @then("never faster")
-def never_faster():
+def never_faster() -> None:
     pass
 
 

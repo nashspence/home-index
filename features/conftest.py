@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import sys
 import types
 from pathlib import Path
@@ -15,6 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 @pytest.fixture(autouse=True)
 def stub_dependencies(monkeypatch):
+    if os.environ.get("CI") == "true":
+        # In CI we need real dependencies for acceptance tests.
+        yield
+        return
     modules = {
         "debugpy": types.ModuleType("debugpy"),
         "xxhash": types.ModuleType("xxhash"),
@@ -193,7 +198,7 @@ def stub_dependencies(monkeypatch):
     ]
 
     for name, module in modules.items():
-        sys.modules.setdefault(name, module)
+        sys.modules[name] = module
     for mod in ["features.F1", "features.F1.scheduler", "features.F1.sync"]:
         sys.modules.pop(mod, None)
 
