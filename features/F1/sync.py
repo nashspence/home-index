@@ -211,6 +211,8 @@ def index_files(
                 continue
             file_paths.append(path)
 
+    files_logger.info(" * discovered %d files", len(file_paths))
+
     def handle_hash_at_path(args: tuple[Path, str, os.stat_result]) -> None:
         path, hash_val, stat = args
         relpath = str(path.relative_to(INDEX_DIRECTORY))
@@ -462,10 +464,16 @@ async def init_meili_and_sync() -> None:
 
 async def schedule_and_run(api_coro_fn: Callable[[], Awaitable[Any]]) -> None:
     """Run the API server and schedule periodic sync jobs."""
+    files_logger.info("scheduler start")
     sched = BackgroundScheduler()
     scheduler.attach_sync_job(
         sched,
         lambda: run_in_process(init_meili_and_sync),
     )
     sched.start()
-    await api_coro_fn()
+    try:
+        await api_coro_fn()
+    finally:
+        if hasattr(sched, "shutdown"):
+            sched.shutdown(wait=False)
+        files_logger.info("scheduler finished")

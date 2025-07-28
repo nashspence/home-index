@@ -48,9 +48,9 @@ async def test_f1s4(tmp_path: Path, docker_client, request):
         ):
             events = await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
                 [
-                    EventMatcher("start file sync"),
-                    EventMatcher("start file sync"),
-                    EventMatcher("start file sync"),
+                    EventMatcher(r"\[INFO\] start file sync"),
+                    EventMatcher(r"\[INFO\] start file sync"),
+                    EventMatcher(r"\[INFO\] start file sync"),
                 ],
                 timeout=10,
             )

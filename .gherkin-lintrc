@@ -1,7 +1,7 @@
 {
   "keywords-in-logical-order": "on",
   "only-one-when": "on",
-  "scenario-size": ["on", {"steps-length": {"Scenario": 15}}],
+  "scenario-size": ["on", {"steps-length": {"Scenario": 20}}],
   "indentation": ["on", {
     "Feature": 0,
     "Rule": 2,

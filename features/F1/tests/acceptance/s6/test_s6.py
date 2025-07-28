@@ -52,8 +52,8 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
                 # first run with cron1
                 await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
                     [
-                        EventMatcher("start file sync"),
-                        EventMatcher("start file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
                     ],
                     timeout=10,
                 )
@@ -66,9 +66,9 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
                 # bootstrap + two scheduled runs
                 events = await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
                     [
-                        EventMatcher("start file sync"),
-                        EventMatcher("start file sync"),
-                        EventMatcher("start file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
                     ],
                     timeout=10,
                 )

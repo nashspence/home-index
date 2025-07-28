@@ -78,6 +78,10 @@ class EventMatcher:
     line: LineMatcher
     within: Optional[float] = None  # seconds allowed since previous match
 
+    def __post_init__(self) -> None:
+        if isinstance(self.line, str):
+            self.line = re.compile(self.line)
+
 
 @dataclass
 class LogEvent:
@@ -333,11 +337,17 @@ class AsyncDockerLogWatcher:
         include_stderr: bool = True,
     ) -> LogEvent:
         """
-        Wait for the first log line matching `matcher` (string/regex/callable).
+        Wait for the first log line matching ``matcher``.
+
+        If ``matcher`` is a string it is interpreted as a regular expression and
+        compiled automatically. ``re.Pattern`` objects or callables are used as
+        provided.
         """
         _verbose(
             f"watcher {self.container_name}: wait_for_line {matcher} timeout={timeout}"
         )
+        if isinstance(matcher, str):
+            matcher = re.compile(matcher)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             remain = deadline - time.monotonic()
@@ -388,6 +398,8 @@ class AsyncDockerLogWatcher:
 
     def assert_no_line(self, matcher: LineMatcher) -> None:
         """Assert that no remembered log line matches `matcher`."""
+        if isinstance(matcher, str):
+            matcher = re.compile(matcher)
         offending: Optional[str] = None
         with self._lock:
             for e in self._remembered:
