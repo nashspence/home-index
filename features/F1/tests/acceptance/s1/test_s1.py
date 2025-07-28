@@ -55,13 +55,13 @@ async def test_f1s1(tmp_path: Path, docker_client, request):
                         EventMatcher(r"\[INFO\] start file sync"),
                         EventMatcher(r"\[INFO\] commit changes to meilisearch"),
                         EventMatcher(
-                            r"\[INFO\] \* counted \d+ documents in meilisearch"
+                            r"\[INFO\]\s+\* counted \d+ documents in meilisearch"
                         ),
                         EventMatcher(r"\[INFO\] completed file sync"),
                         EventMatcher(r"\[INFO\] start file sync"),
                         EventMatcher(r"\[INFO\] commit changes to meilisearch"),
                         EventMatcher(
-                            r"\[INFO\] \* counted \d+ documents in meilisearch"
+                            r"\[INFO\]\s+\* counted \d+ documents in meilisearch"
                         ),
                         EventMatcher(r"\[INFO\] completed file sync"),
                     ],

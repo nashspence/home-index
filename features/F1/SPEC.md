@@ -61,11 +61,11 @@ Feature: Scheduled file sync
           | container  | line_regex                                |
           | home_index | ^\[INFO\] start file sync$                |
           | home_index | ^\[INFO\] commit changes to meilisearch$ |
-          | home_index | ^\[INFO\] \* counted \d+ documents in meilisearch$ |
+          | home_index | ^\[INFO\]\s+\* counted \d+ documents in meilisearch$ |
           | home_index | ^\[INFO\] completed file sync$            |
           | home_index | ^\[INFO\] start file sync$                |
           | home_index | ^\[INFO\] commit changes to meilisearch$ |
-          | home_index | ^\[INFO\] \* counted \d+ documents in meilisearch$ |
+          | home_index | ^\[INFO\]\s+\* counted \d+ documents in meilisearch$ |
           | home_index | ^\[INFO\] completed file sync$            |
         And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
         And each file becomes searchable
