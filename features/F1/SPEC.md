@@ -45,18 +45,91 @@ services:
 
 ## 4 Acceptance criteria (platform‑agnostic)
 
-| #     | Scenario & pre‑conditions                                                                                 | Steps (user actions → expected behaviour)                                                                                                                                                                                                                                                    |
-| ----- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **Initial run — existing files indexed**<br>Stack started with a valid cron and ≥ 1 file already present. | 1 Start stack → `$LOGGING_DIRECTORY/files.log` created.<br>2 A `… start file sync` line appears **during start‑up** (bootstrap); a second line appears at the **first cron tick**.<br>3 For each file, `$METADATA_DIRECTORY/by-id/<hash>/document.json` is written; file becomes searchable. ([test](tests/acceptance/s1/test_s1.py)) |
-| **2** | **New file appears mid‑run**                                                                              | 1 Copy a new file into `$INDEX_DIRECTORY` between ticks.<br>2 At the **next tick** metadata and index entries for that file are created. ([test](tests/acceptance/s2/test_s2.py))                                                                                                                                                     |
-| **3** | **File contents change**                                                                                  | 1 Replace bytes of an existing file (hash changes).<br>2 At next tick a **new** metadata directory (new hash) is created; old one remains untouched. ([test](tests/acceptance/s3/test_s3.py))                                                                                                                                         |
-| **4** | **Regular cadence honoured**                                                                              | 1 Let stack run several ticks.<br>2 Interval between successive `start file sync` lines matches the cron ± 1 s and **never faster**. ([test](tests/acceptance/s4/test_s4.py))                                                                                                                                                         |
-| **5** | **Long‑running sync never overlaps**                                                                      | 1 Choose a cron shorter than the scan duration.<br>2 A second `start file sync` line never appears until the previous run logs `… completed file sync`. ([test](tests/acceptance/s5/test_s5.py))                                                                                                                                      |
-| **6** | **Change schedule**                                                                                       | 1 Stop containers.<br>2 Edit `CRON_EXPRESSION` to any valid value.<br>3 Restart → new cadence is observed. ([test](tests/acceptance/s6/test_s6.py))                                                                                                                                                                                   |
-| **7** | **Restart with same schedule**                                                                            | 1 After any successful run, stop containers.<br>2 Start them again with the **identical** cron expression → service reuses the existing `$LOGGING_DIRECTORY`, appends to `files.log`, and performs the usual bootstrap + scheduled ticks. ([test](tests/acceptance/s7/test_s7.py))                                                    |
-| **8** | **Invalid cron blocks start‑up**                                                                          | 1 Set `CRON_EXPRESSION` to `bad cron`.<br>2 Start stack → Home‑Index exits non‑zero, logs “invalid cron expression”, container stays stopped. ([test](tests/acceptance/s8/test_s8.py))                                                                                                                                                |
+```gherkin
+@f1 @s1
+Scenario: Initial run — existing files indexed
+  Given the stack started with a valid cron expression
+    And at least one file exists in $INDEX_DIRECTORY
+  When the stack boots
+  Then $LOGGING_DIRECTORY/files.log is created
+    And a "start file sync" line appears during start-up
+    And another "start file sync" line appears at the first cron tick
+    And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
+    And each file becomes searchable
+```
+([test](tests/acceptance/s1/test_s1.py))
 
-All scenarios must pass on Linux, macOS, and Windows (WSL) without altering this spec—only the concrete cron strings, file names, and timestamps vary by project.
+```gherkin
+@f1 @s2
+Scenario: New file appears mid-run
+  Given the stack is running
+  When a new file is copied into $INDEX_DIRECTORY between ticks
+  Then at the next tick metadata and index entries for that file are created
+```
+([test](tests/acceptance/s2/test_s2.py))
+
+```gherkin
+@f1 @s3
+Scenario: File contents change
+  Given an existing file's bytes are replaced so its hash changes
+  When the next tick runs
+  Then a new metadata directory is created for the new hash
+    And the old directory remains untouched
+```
+([test](tests/acceptance/s3/test_s3.py))
+
+```gherkin
+@f1 @s4
+Scenario: Regular cadence honoured
+  When the stack runs for several ticks
+  Then the interval between successive "start file sync" lines matches the cron ± 1 s
+    And never faster
+```
+([test](tests/acceptance/s4/test_s4.py))
+
+```gherkin
+@f1 @s5
+Scenario: Long-running sync never overlaps
+  Given the cron schedule is shorter than the scan duration
+  When the stack runs
+  Then a second "start file sync" line never appears until the previous run logs "… completed file sync"
+```
+([test](tests/acceptance/s5/test_s5.py))
+
+```gherkin
+@f1 @s6
+Scenario: Change schedule
+  Given the stack is stopped
+  When $CRON_EXPRESSION is edited to any valid value
+    And the stack restarts
+  Then the new cadence is observed
+```
+([test](tests/acceptance/s6/test_s6.py))
+
+```gherkin
+@f1 @s7
+Scenario: Restart with same schedule
+  Given a previous run succeeded
+    And the containers are stopped
+  When they start again with the identical cron expression
+  Then the service reuses the existing $LOGGING_DIRECTORY
+    And files.log continues to append
+    And the usual bootstrap and scheduled ticks occur
+```
+([test](tests/acceptance/s7/test_s7.py))
+
+```gherkin
+@f1 @s8
+Scenario: Invalid cron blocks start-up
+  Given CRON_EXPRESSION is set to "bad cron"
+  When the stack starts
+  Then Home-Index exits with a non-zero code
+    And logs "invalid cron expression"
+    And the container stays stopped
+```
+([test](tests/acceptance/s8/test_s8.py))
+
+All scenarios must pass in the provided container environment. Only the concrete cron strings, file names, and timestamps may vary by project.
 
 ---
 
