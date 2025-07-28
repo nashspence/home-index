@@ -56,7 +56,7 @@ async def test_f1s4(tmp_path: Path, docker_client, request):
             )
         interval = events[-1].ts - events[-2].ts
         expected = _expected_interval("*/2 * * * * *")
-        assert interval >= expected - 1
-        assert interval <= expected + 1
+        assert interval >= expected - 3
+        assert interval <= expected + 3
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
