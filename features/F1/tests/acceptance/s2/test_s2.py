@@ -54,8 +54,8 @@ async def test_f1s2(tmp_path: Path, docker_client, request):
             ):
                 await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
                     [
-                        EventMatcher("start file sync"),
-                        EventMatcher("completed file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
+                        EventMatcher(r"\[INFO\] completed file sync"),
                     ],
                     timeout=10,
                 )
@@ -64,9 +64,9 @@ async def test_f1s2(tmp_path: Path, docker_client, request):
 
                 await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_sequence(
                     [
-                        EventMatcher("start file sync"),
-                        EventMatcher("commit changes to meilisearch"),
-                        EventMatcher("completed file sync"),
+                        EventMatcher(r"\[INFO\] start file sync"),
+                        EventMatcher(r"\[INFO\] commit changes to meilisearch"),
+                        EventMatcher(r"\[INFO\] completed file sync"),
                     ],
                     timeout=10,
                 )
