@@ -18,7 +18,7 @@ Home‑Index keeps their file metadata so you can still
 
 ```yaml
 environment:
-  ARCHIVE_DIRECTORY: /files/archive            # default shown
+  ARCHIVE_DIRECTORY: /files/archive # default shown
 ```
 
 *Every sub‑directory directly under this path represents one removable medium.*

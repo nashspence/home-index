@@ -75,6 +75,7 @@ treat it as a raw GitHub Actions log from a failed CI run and follow this flow
 * One markdown file per feature in `features/Fx/`, named `SPEC.md`.
 * Contains an `Acceptance` section - which is always the master feature specification.
 * Always link each `Acceptance` scenario to corresponding acceptance test files.
+* Present each `Acceptance` scenario as a tagged Gherkin block in Markdown. Each scenario must represent an important testable requirement of the feature.
 * Always match existing format and style when editing.
 
 ### S2.3\_REPOSITORY\_LAYOUT

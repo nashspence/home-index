@@ -13,7 +13,7 @@ A scheduled scan keeps Home‑Index responsive: the service sleeps between ticks
 Declare a single variable:
 
 ```yaml
-CRON_EXPRESSION: "* * * * *"          # every minute – any valid cron is OK
+CRON_EXPRESSION: "* * * * *" # every minute – any valid cron is OK
 ```
 
 * **Default when unset:** `0 2 * * *` (02:00 daily, container time).
@@ -29,10 +29,10 @@ services:
   home-index:
     image: ghcr.io/nashspence/home-index:latest
     environment:
-      - CRON_EXPRESSION=* * * * *           # edit to taste
+      - CRON_EXPRESSION=* * * * * # edit to taste
     volumes:
-      - ./input:$INDEX_DIRECTORY:ro         # project files (read‑only)
-      - ./output:$LOGGING_DIRECTORY         # logs
+      - ./input:$INDEX_DIRECTORY:ro # project files (read‑only)
+      - ./output:$LOGGING_DIRECTORY # logs
     depends_on: [meilisearch]
 
   meilisearch:
@@ -43,20 +43,78 @@ services:
 
 ---
 
-## 4 Acceptance criteria (platform‑agnostic)
+## 4 Acceptance criteria (platform-agnostic)
 
-| #     | Scenario & pre‑conditions                                                                                 | Steps (user actions → expected behaviour)                                                                                                                                                                                                                                                    |
-| ----- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **Initial run — existing files indexed**<br>Stack started with a valid cron and ≥ 1 file already present. | 1 Start stack → `$LOGGING_DIRECTORY/files.log` created.<br>2 A `… start file sync` line appears **during start‑up** (bootstrap); a second line appears at the **first cron tick**.<br>3 For each file, `$METADATA_DIRECTORY/by-id/<hash>/document.json` is written; file becomes searchable. ([test](tests/acceptance/s1/test_s1.py)) |
-| **2** | **New file appears mid‑run**                                                                              | 1 Copy a new file into `$INDEX_DIRECTORY` between ticks.<br>2 At the **next tick** metadata and index entries for that file are created. ([test](tests/acceptance/s2/test_s2.py))                                                                                                                                                     |
-| **3** | **File contents change**                                                                                  | 1 Replace bytes of an existing file (hash changes).<br>2 At next tick a **new** metadata directory (new hash) is created; old one remains untouched. ([test](tests/acceptance/s3/test_s3.py))                                                                                                                                         |
-| **4** | **Regular cadence honoured**                                                                              | 1 Let stack run several ticks.<br>2 Interval between successive `start file sync` lines matches the cron ± 1 s and **never faster**. ([test](tests/acceptance/s4/test_s4.py))                                                                                                                                                         |
-| **5** | **Long‑running sync never overlaps**                                                                      | 1 Choose a cron shorter than the scan duration.<br>2 A second `start file sync` line never appears until the previous run logs `… completed file sync`. ([test](tests/acceptance/s5/test_s5.py))                                                                                                                                      |
-| **6** | **Change schedule**                                                                                       | 1 Stop containers.<br>2 Edit `CRON_EXPRESSION` to any valid value.<br>3 Restart → new cadence is observed. ([test](tests/acceptance/s6/test_s6.py))                                                                                                                                                                                   |
-| **7** | **Restart with same schedule**                                                                            | 1 After any successful run, stop containers.<br>2 Start them again with the **identical** cron expression → service reuses the existing `$LOGGING_DIRECTORY`, appends to `files.log`, and performs the usual bootstrap + scheduled ticks. ([test](tests/acceptance/s7/test_s7.py))                                                    |
-| **8** | **Invalid cron blocks start‑up**                                                                          | 1 Set `CRON_EXPRESSION` to `bad cron`.<br>2 Start stack → Home‑Index exits non‑zero, logs “invalid cron expression”, container stays stopped. ([test](tests/acceptance/s8/test_s8.py))                                                                                                                                                |
+```gherkin
+@f1
+Feature: Scheduled file sync
 
-All scenarios must pass on Linux, macOS, and Windows (WSL) without altering this spec—only the concrete cron strings, file names, and timestamps vary by project.
+  Rule: Bootstrap and normal operation
+    @s1
+    # [test](tests/acceptance/s1/test_s1.py)
+    Scenario: Index existing files on first run
+      Given the stack started with a valid cron expression
+        And at least one file exists in $INDEX_DIRECTORY
+      When the stack boots
+      Then $LOGGING_DIRECTORY/files.log is created
+        And a "start file sync" line appears during start-up
+        And another "start file sync" line appears at the first cron tick
+        And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
+        And each file becomes searchable
+    @s2
+    # [test](tests/acceptance/s2/test_s2.py)
+    Scenario: Index file added between ticks
+      Given the stack is running
+      When a new file is copied into $INDEX_DIRECTORY between ticks
+      Then at the next tick metadata and index entries for that file are created
+    @s3
+    # [test](tests/acceptance/s3/test_s3.py)
+    Scenario: Track modified file by new hash
+      Given an existing file's bytes are replaced so its hash changes
+      When the next tick runs
+      Then a new metadata directory is created for the new hash
+        And the old directory remains untouched
+    @s4
+    # [test](tests/acceptance/s4/test_s4.py)
+    Scenario: Honour configured cadence
+      When the stack runs for several ticks
+      Then the interval between successive "start file sync" lines matches the cron +- 1 s
+        And never faster
+    @s5
+    # [test](tests/acceptance/s5/test_s5.py)
+    Scenario: Do not overlap sync runs
+      Given the cron schedule is shorter than the scan duration
+      When the stack runs
+      Then a second "start file sync" line never appears until the previous run logs "... completed file sync"
+
+  Rule: Schedule management
+    @s6
+    # [test](tests/acceptance/s6/test_s6.py)
+    Scenario: Apply new schedule after restart
+      Given the stack is stopped
+        And $CRON_EXPRESSION is edited to any valid value
+      When the stack restarts
+      Then the new cadence is observed
+    @s7
+    # [test](tests/acceptance/s7/test_s7.py)
+    Scenario: Reuse logs on restart
+      Given a previous run succeeded
+        And the containers are stopped
+      When they start again with the identical cron expression
+      Then the service reuses the existing $LOGGING_DIRECTORY
+        And files.log continues to append
+        And the usual bootstrap and scheduled ticks occur
+    @s8
+    # [test](tests/acceptance/s8/test_s8.py)
+    Scenario: Exit on invalid cron
+      Given CRON_EXPRESSION is set to "bad cron"
+      When the stack starts
+      Then Home-Index exits with a non-zero code
+        And logs "invalid cron expression"
+        And the container stays stopped
+```
+
+All scenarios must pass in the provided container environment. Only the concrete cron strings, file names, and timestamps may vary by project.
 
 ---
 
