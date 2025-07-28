@@ -70,6 +70,10 @@ run_named "pytest unit (-q)" \
 # Acceptance tests (CI only)
 ###############################################################################
 if [[ ${GITHUB_ACTIONS:-false} == "true" ]]; then
+  # Run feature tests collected from SPEC.md via pytest-bdd
+  run_named "pytest F1 acceptance (-vv -x -s)" \
+            pytest -vv -x -s -c pytest.ini features/F1/tests/acceptance
+
   mapfile -t test_files < <(
     find features -path '*/tests/acceptance/*' -name 'test_*.py' | sort -V
   )
