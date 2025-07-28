@@ -183,7 +183,7 @@ async def files_searchable(world: World) -> None:
 async def new_file_indexed(world: World) -> None:
     await logs_in_order(
         world,
-        """home_index|^\[INFO\] start file sync$\nhome_index|^\[INFO\] commit changes to meilisearch$\nhome_index|^\[INFO\] completed file sync$""",
+        r"""home_index|^\[INFO\] start file sync$\nhome_index|^\[INFO\] commit changes to meilisearch$\nhome_index|^\[INFO\] completed file sync$""",
     )
     await files_searchable(world)
 

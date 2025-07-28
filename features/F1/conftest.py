@@ -40,6 +40,7 @@ def pytest_collect_file(
     feature_paths = []
     for i, body in enumerate(blocks, 1):
         body = textwrap.dedent(body)
+        body = "\n".join(line.lstrip() for line in body.splitlines())
         h = hashlib.sha1(body.encode("utf-8")).hexdigest()[:12]
         fpath = tmpdir / f"F1_{i:02d}_{h}.feature"
         fpath.write_text(body + "\n", encoding="utf-8")
