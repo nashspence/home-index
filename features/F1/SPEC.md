@@ -57,7 +57,7 @@ Feature: Scheduled file sync
         And at least one file exists in $INDEX_DIRECTORY
       When the stack boots
       Then $LOGGING_DIRECTORY/files.log is created
-        And the logs contain the following subsequence:
+        And the logs contain, in order:
           | container  | line_regex                                |
           | home_index | ^\[INFO\] start file sync$                |
           | home_index | ^\[INFO\] commit changes to meilisearch$ |
@@ -75,7 +75,7 @@ Feature: Scheduled file sync
     Given the stack is running
     When a new file is copied into $INDEX_DIRECTORY between ticks
     Then at the next tick metadata and index entries for that file are created
-      And the logs contain the following subsequence:
+      And the logs contain, in order:
         | container  | line_regex                   |
         | home_index | ^\[INFO\] start file sync$   |
         | home_index | ^\[INFO\] completed file sync$ |
@@ -88,7 +88,7 @@ Feature: Scheduled file sync
     Given an existing file's bytes are replaced so its hash changes
     When the next tick runs
     Then a new metadata directory is created for the new hash
-      And the logs contain the following subsequence:
+      And the logs contain, in order:
         | container  | line_regex              |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] completed file sync$ |
@@ -99,7 +99,7 @@ Feature: Scheduled file sync
     # [test](tests/acceptance/s4/test_s4.py)
   Scenario: Honour configured cadence
     When the stack runs for several ticks
-    Then the logs contain the following subsequence:
+    Then the logs contain, in order:
         | container  | line_regex          |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
@@ -111,7 +111,7 @@ Feature: Scheduled file sync
   Scenario: Do not overlap sync runs
     Given the cron schedule is shorter than the scan duration
     When the stack runs
-    Then the logs contain the following subsequence:
+    Then the logs contain, in order:
         | container  | line_regex            |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] completed file sync$ |
@@ -125,7 +125,7 @@ Feature: Scheduled file sync
     Given the stack is stopped
       And $CRON_EXPRESSION is edited to any valid value
     When the stack restarts
-    Then the logs contain the following subsequence:
+    Then the logs contain, in order:
         | container  | line_regex          |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
@@ -138,7 +138,7 @@ Feature: Scheduled file sync
       And the containers are stopped
     When they start again with the identical cron expression
     Then the service reuses the existing $LOGGING_DIRECTORY
-      And the logs contain the following subsequence:
+      And the logs contain, in order:
         | container  | line_regex          |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
@@ -151,7 +151,7 @@ Feature: Scheduled file sync
     Given CRON_EXPRESSION is set to "bad cron"
     When the stack starts
     Then Home-Index exits with a non-zero code
-      And the logs contain the following subsequence:
+      And the logs contain, in order:
         | container  | line_regex            |
         | home_index | ^\[ERROR\] invalid cron expression$ |
       And the container stays stopped
