@@ -261,13 +261,16 @@ class AsyncDockerLogWatcher:
         self.dump_logs("READY TIMEOUT (tail)")
         raise TimeoutError("Container did not become ready in time")
 
-    async def wait_for_container_stopped(self, timeout: float) -> None:
+    async def wait_for_container_stopped(self, timeout: float) -> int:
         """
-        Wait until the container exits or dies, or raise TimeoutError.
+        Wait until the container exits or dies, or raise ``TimeoutError``.
+
+        Returns the container's exit status code (``-1`` if the container
+        disappears before it can be inspected).
         """
         if not self._started():
             _verbose(f"watcher {self.container_name}: not started")
-            return
+            return -1
         _verbose(
             f"watcher {self.container_name}: wait_for_container_stopped timeout={timeout}"
         )
@@ -276,9 +279,10 @@ class AsyncDockerLogWatcher:
             try:
                 await asyncio.to_thread(self.container.reload)
             except docker.errors.NotFound:
-                return
+                return -1
             if self.container.status in ("exited", "dead"):
-                return
+                result = await asyncio.to_thread(self.container.wait)
+                return int(result.get("StatusCode", 0))
             await asyncio.sleep(self.poll_interval)
         self.dump_logs("STOP TIMEOUT (tail)")
         raise TimeoutError("Container did not stop in time")

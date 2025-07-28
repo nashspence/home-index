@@ -59,7 +59,9 @@ async def test_f1s3(tmp_path: Path, docker_client, request):
                     ],
                     timeout=10,
                 )
-
+                old_id = assert_file_indexed(workdir, output_dir, "hello.txt")
+                old_dir = output_dir / "metadata" / "by-id" / old_id
+                assert old_dir.exists()
                 existing = set((output_dir / "metadata" / "by-id").iterdir())
                 hello = workdir / "input" / "hello.txt"
                 hello.write_text("changed")
@@ -72,6 +74,8 @@ async def test_f1s3(tmp_path: Path, docker_client, request):
                     timeout=10,
                 )
             new_id = assert_file_indexed(workdir, output_dir, "hello.txt")
+            assert new_id != old_id
+            assert old_dir.exists()
             assert any(p.name != new_id for p in existing)
             docs = await asyncio.to_thread(
                 search_meili, compose_file, workdir, f'id = "{new_id}"'

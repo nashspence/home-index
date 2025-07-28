@@ -46,5 +46,9 @@ async def test_f1s8(tmp_path: Path, docker_client, request):
             await watchers[HOME_INDEX_CONTAINER_NAME].wait_for_line(
                 r"\[ERROR\] invalid cron expression", timeout=10
             )
+            exit_code = await watchers[
+                HOME_INDEX_CONTAINER_NAME
+            ].wait_for_container_stopped(timeout=10)
+            assert exit_code != 0
         watchers[HOME_INDEX_CONTAINER_NAME].assert_no_line("start file sync")
         watchers[MEILI_CONTAINER_NAME].assert_no_line(lambda line: "ERROR" in line)

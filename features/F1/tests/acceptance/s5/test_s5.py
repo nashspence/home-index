@@ -52,6 +52,10 @@ async def test_f1s5(tmp_path: Path, docker_client, request):
                 ],
                 timeout=10,
             )
-        assert events[1].ts < events[2].ts
+        start_ts, completed_ts, _ = (e.ts for e in events)
+        for evt in watchers[HOME_INDEX_CONTAINER_NAME]._remembered:
+            if start_ts < evt.ts < completed_ts and "start file sync" in evt.raw:
+                raise AssertionError("sync overlapped previous run")
+        assert completed_ts < events[2].ts
         for w in watchers.values():
             w.assert_no_line(lambda line: "ERROR" in line)
