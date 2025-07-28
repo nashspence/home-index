@@ -92,8 +92,8 @@ Feature: Scheduled file sync
     # [test](tests/acceptance/s6/test_s6.py)
     Scenario: Apply new schedule after restart
       Given the stack is stopped
-      When $CRON_EXPRESSION is edited to any valid value
-        And the stack restarts
+        And $CRON_EXPRESSION is edited to any valid value
+      When the stack restarts
       Then the new cadence is observed
     @s7
     # [test](tests/acceptance/s7/test_s7.py)

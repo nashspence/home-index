@@ -1,14 +1,11 @@
 {
-  "rules": {
-    "keywords-in-logical-order": "on",
-    "only-one-when": "on",
-    "scenario-size": ["on", {"steps-length": {"Scenario": 15}}],
-    "indentation": ["on", {"Feature": 0, "Scenario": 0, "Step": 2, "scenario tag": 0}],
-    "no-duplicate-tags": "on",
-    "allowed-tags": ["^@f\\d+$", "^@s\\d+$"],
-    "required-tags": {
-      "Feature": "^@f\\d+$",
-      "Scenario": "^@s\\d+$"
-    }
-  }
+  "keywords-in-logical-order": "on",
+  "only-one-when": "on",
+  "scenario-size": ["on", {"steps-length": {"Scenario": 15}}],
+  "indentation": ["on", {"Feature": 0, "Rule": 2, "Scenario": 0, "Step": 2, "scenario tag": 0}],
+  "no-duplicate-tags": "on",
+  "allowed-tags": ["on", {"patterns": ["^@f\\d+$", "^@s\\d+$"]}],
+  "required-tags": ["on", {"tags": ["^@s\\d+$"], "ignoreUntagged": false}]
 }
+
+
