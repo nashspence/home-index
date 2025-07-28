@@ -6,6 +6,7 @@ pip install --quiet \
     mypy==1.10.0 \
     pytest==8.4.1 \
     pytest-asyncio==0.23.6 \
+    pytest-bdd==7.3.0 \
     jsonschema==4.24.0 \
     fastapi==0.116.1 \
     asgiwebdav==1.5.0 \

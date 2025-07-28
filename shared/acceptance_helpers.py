@@ -44,10 +44,11 @@ from typing import (
     AsyncIterator,
     Awaitable,
 )
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from functools import lru_cache
 
 import yaml
+import pytest
 
 import docker
 from docker.models.containers import Container
@@ -826,3 +827,81 @@ def dump_on_failure(
             if watcher:
                 watcher.dump_logs(f"CONTAINER ⟨{name}⟩ last {limit} lines")
         print("=========== END LOG DUMP =======================\n")
+
+
+# ---------------------------------------------------------------------------
+# Pytest-bdd helpers for acceptance steps
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ComposeState:
+    """Mutable container for compose stack state used in tests."""
+
+    compose_file: Path | None = None
+    workdir: Path | None = None
+    output_dir: Path | None = None
+    stack: AsyncExitStack | None = None
+    watchers: Dict[str, AsyncDockerLogWatcher] | None = None
+
+
+def scenario_tag(request: pytest.FixtureRequest) -> str:
+    """Return the scenario marker (``sX``) for the current test."""
+
+    for mark in request.node.iter_markers():
+        name = str(mark.name)
+        if re.fullmatch(r"s\d+", name):
+            return name
+    raise RuntimeError("scenario tag missing")
+
+
+def container_names(prefix: str, tag: str, services: Sequence[str]) -> tuple[str, ...]:
+    """Return container names with ``prefix`` and ``tag`` applied."""
+
+    return tuple(f"{prefix}{tag}_{svc}" for svc in services)
+
+
+async def start_stack(
+    state: ComposeState,
+    request: pytest.FixtureRequest,
+    docker_client: docker.DockerClient,
+    *,
+    steps_file: Path,
+    prefix: str,
+    services: Sequence[str],
+) -> None:
+    """Start the compose stack for the current scenario if not already started."""
+
+    if state.stack is not None:
+        return
+
+    tag = scenario_tag(request)
+    scenario_dir = steps_file.with_name(tag)
+    compose_file, workdir, output_dir = compose_paths_for_test(
+        scenario_dir / f"test_{tag}.py"
+    )
+
+    stack = AsyncExitStack()
+    names = container_names(prefix, tag, services)
+    watchers = await stack.enter_async_context(
+        make_watchers(docker_client, list(names), request=request)
+    )
+    for name in names:
+        await stack.enter_async_context(
+            compose_up(compose_file, watchers=watchers, containers=[name])
+        )
+
+    state.compose_file = compose_file
+    state.workdir = workdir
+    state.output_dir = output_dir
+    state.stack = stack
+    state.watchers = watchers
+
+
+async def stop_stack(state: ComposeState) -> None:
+    """Stop and clear a compose stack started via :func:`start_stack`."""
+
+    if state.stack is not None:
+        await state.stack.aclose()
+        state.stack = None
+        state.watchers = None
