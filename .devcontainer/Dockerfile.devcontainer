@@ -66,8 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     file \
     libmagic1t64 \
     libmagic-mgc \
-    nodejs npm \
-    cargo && \
+    nodejs npm && \
     ln -sf /usr/bin/python3 /usr/bin/python && \
     ln -sf /usr/bin/pip3 /usr/bin/pip && \
     rm -rf /var/lib/apt/lists/*
