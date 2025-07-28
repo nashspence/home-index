@@ -67,6 +67,7 @@ async def test_f1s1(tmp_path: Path, docker_client, request):
                     ],
                     timeout=10,
                 )
+            assert (output_dir / "files.log").exists()
             doc_id = assert_file_indexed(workdir, output_dir, "hello.txt")
             docs = await asyncio.to_thread(
                 search_meili,

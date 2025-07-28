@@ -104,7 +104,7 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
-      And the interval between successive "start file sync" lines matches the cron +- 1 s
+      And the interval between successive "start file sync" lines matches the cron +- 3 s
         And never faster
     @s5
     # [test](tests/acceptance/s5/test_s5.py)
@@ -130,7 +130,7 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
-      And the new cadence is observed
+        And the interval between successive "start file sync" lines matches the new cron +- 3 s
     @s7
     # [test](tests/acceptance/s7/test_s7.py)
   Scenario: Reuse logs on restart

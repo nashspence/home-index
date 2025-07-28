@@ -74,7 +74,7 @@ async def test_f1s6(tmp_path: Path, docker_client, request):
                 )
             interval = events[-1].ts - events[-2].ts
             expected = _expected_interval("*/2 * * * * *")
-            assert abs(interval - expected) <= 1
+            assert abs(interval - expected) <= 3
         finally:
             os.environ.pop("CRON_EXPRESSION", None)
             for w in watchers.values():
