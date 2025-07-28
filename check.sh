@@ -59,7 +59,7 @@ run ruff check .
 run mypy --ignore-missing-imports --strict --explicit-package-bases \
          --no-site-packages --exclude tests \
          main.py shared features
-run mdsf verify --config mdsf.json features/F1/SPEC.md
+run mdsf verify --config mdsf.json $(git ls-files '*.md')
 run "$SCRIPT_DIR/gherkin-lint-md.sh"
 
 # Unit tests – concise header

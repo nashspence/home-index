@@ -12,11 +12,11 @@ pip install --quiet \
     uvicorn==0.35.0 \
     aiofiles==23.2.1 \
     httpx==0.28.1
+    reformat_gherkin==3.0.1
 
 # Tools for linting/formatting Gherkin snippets in Markdown
 npm install --quiet -g \
-    gherkin-lint@4.2.4 \
-    prettier-plugin-gherkin@3.1.2
+    gherkin-lint@4.2.4
 
 # Formatter runner for fenced code blocks
 cargo install --locked mdsf --version 0.10.3

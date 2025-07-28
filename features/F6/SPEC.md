@@ -60,14 +60,14 @@ prefer explicit batched operations.
 ```yaml
 services:
   home-index:
-    image: ghcr.io/nashspence/home-index:latest     # or build: .
+    image: ghcr.io/nashspence/home-index:latest # or build: .
     environment:
-      - CRON_EXPRESSION=* * * * *                  # periodic rescan
+      - CRON_EXPRESSION=* * * * * # periodic rescan
     volumes:
-      - ./input:/files:rw                          # project + metadata
-      - ./output:/home-index                       # logs, cache, etc.
+      - ./input:/files:rw # project + metadata
+      - ./output:/home-index # logs, cache, etc.
     ports:
-      - "8000:8000"                                # map FILE_API_PORT
+      - "8000:8000" # map FILE_API_PORT
     depends_on: [meilisearch]
 
   meilisearch:

@@ -1,61 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/hougesen/mdsf/main/schemas/v0.10.3/mdsf.schema.json",
   "languages": {
-    "c": "clang-format",
-    "cpp": "clang-format",
-    "csharp": "csharpier",
-    "go": [
-      [
-        "gci",
-        "goimports-reviser",
-        "goimports"
-      ],
-      [
-        "gofumpt",
-        "gofmt"
-      ]
-    ],
-    "java": "google-java-format",
-    "javascript": "prettier",
-    "json": "prettier",
-    "python": [
-      [
-        "usort",
-        "isort"
-      ],
-      [
-        "ruff:format",
-        "blue",
-        "black",
-        "yapf",
-        "autopep8",
-        "pyink"
-      ]
-    ],
-    "ruby": [
-      [
-        "rubocop",
-        "rufo",
-        "rubyfmt",
-        "standardrb"
-      ]
-    ],
-    "rust": "rustfmt",
     "shell": [
-      [
-        "shfmt",
-        "beautysh"
-      ]
+      ["shfmt", "beautysh"]
     ],
-    "sql": [
-      [
-        "sql-formatter",
-        "sqlfluff:format",
-        "sqlfmt"
-      ]
-    ],
-    "toml": "taplo",
-    "typescript": "prettier",
     "yaml": "prettier",
     "gherkin": "reformat-gherkin"
   }

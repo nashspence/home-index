@@ -94,11 +94,11 @@ services:
   meilisearch:
     image: getmeili/meilisearch:v1.15.2
     environment: [MEILI_NO_ANALYTICS=true, TZ=America/Los_Angeles]
-    volumes:   [./output/meili:/meili_data]
-    ports:     ["7700:7700"]
+    volumes: [./output/meili:/meili_data]
+    ports: ["7700:7700"]
 
   text-module:
-    build: ./text_module                 # emits content.json for each file
+    build: ./text_module # emits content.json for each file
     environment:
       METADATA_DIRECTORY: /home-index/metadata
       QUEUE_NAME: text-module
