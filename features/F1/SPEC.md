@@ -153,7 +153,7 @@ Feature: Scheduled file sync
     Then Home-Index exits with a non-zero code
       And the logs contain the following subsequence:
         | container  | line_regex            |
-        | home_index | ^invalid cron expression$ |
+        | home_index | ^\[ERROR\] invalid cron expression$ |
       And the container stays stopped
 ```
 

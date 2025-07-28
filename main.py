@@ -1,12 +1,18 @@
 import asyncio
 import os
 
+# Configure logging before importing modules that may emit logs at import time
+# ruff: noqa: E402
+
+from shared.logging_config import files_logger, setup_logging
+
+setup_logging()  # noqa: E402
+
 from features.F1 import sync as f1_sync
 from features.F2 import migrations, duplicate_finder
 from features.F3 import archive
 from features.F4 import modules as modules_f4
 from features.F6 import server as f6_server
-from shared.logging_config import files_logger, setup_logging
 
 COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
 
@@ -22,7 +28,6 @@ duplicate_finder = duplicate_finder
 
 
 async def main() -> None:
-    setup_logging()
     files_logger.info("running commit %s", COMMIT_SHA)
     await f1_sync.init_meili_and_sync()
     if modules_f4.is_modules_changed:
