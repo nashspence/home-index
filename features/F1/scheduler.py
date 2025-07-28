@@ -39,12 +39,14 @@ def parse_cron_env(
     )
 
 
+CRON_KWARGS = parse_cron_env()
+try:
+    CRON_TRIGGER = CronTrigger(**CRON_KWARGS)
+except ValueError:
+    files_logger.error("invalid cron expression")
+    raise
+
+
 def attach_sync_job(scheduler: BackgroundScheduler, run_fn: Callable[[], None]) -> None:
     """Attach the periodic sync job to the scheduler."""
-    cron_kwargs = parse_cron_env()
-    try:
-        trigger = CronTrigger(**cron_kwargs)
-    except ValueError:
-        files_logger.error("invalid cron expression")
-        raise
-    scheduler.add_job(run_fn, trigger, max_instances=1)
+    scheduler.add_job(run_fn, CRON_TRIGGER, max_instances=1)
