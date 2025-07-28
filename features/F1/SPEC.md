@@ -13,7 +13,7 @@ A scheduled scan keeps Home‑Index responsive: the service sleeps between ticks
 Declare a single variable:
 
 ```yaml
-CRON_EXPRESSION: "* * * * *"          # every minute – any valid cron is OK
+CRON_EXPRESSION: "* * * * *" # every minute – any valid cron is OK
 ```
 
 * **Default when unset:** `0 2 * * *` (02:00 daily, container time).
@@ -29,10 +29,10 @@ services:
   home-index:
     image: ghcr.io/nashspence/home-index:latest
     environment:
-      - CRON_EXPRESSION=* * * * *           # edit to taste
+      - CRON_EXPRESSION=* * * * * # edit to taste
     volumes:
-      - ./input:$INDEX_DIRECTORY:ro         # project files (read‑only)
-      - ./output:$LOGGING_DIRECTORY         # logs
+      - ./input:$INDEX_DIRECTORY:ro # project files (read‑only)
+      - ./output:$LOGGING_DIRECTORY # logs
     depends_on: [meilisearch]
 
   meilisearch:
@@ -43,91 +43,76 @@ services:
 
 ---
 
-## 4 Acceptance criteria (platform‑agnostic)
+## 4 Acceptance criteria (platform-agnostic)
 
 ```gherkin
-@f1 @s1
-Scenario: Initial run — existing files indexed
-  Given the stack started with a valid cron expression
-    And at least one file exists in $INDEX_DIRECTORY
-  When the stack boots
-  Then $LOGGING_DIRECTORY/files.log is created
-    And a "start file sync" line appears during start-up
-    And another "start file sync" line appears at the first cron tick
-    And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
-    And each file becomes searchable
-```
-([test](tests/acceptance/s1/test_s1.py))
+@f1
+Feature: Scheduled file sync
 
-```gherkin
-@f1 @s2
-Scenario: New file appears mid-run
-  Given the stack is running
-  When a new file is copied into $INDEX_DIRECTORY between ticks
-  Then at the next tick metadata and index entries for that file are created
-```
-([test](tests/acceptance/s2/test_s2.py))
+  Rule: Bootstrap and normal operation
+    @s1
+    # [test](tests/acceptance/s1/test_s1.py)
+    Scenario: Index existing files on first run
+      Given the stack started with a valid cron expression
+        And at least one file exists in $INDEX_DIRECTORY
+      When the stack boots
+      Then $LOGGING_DIRECTORY/files.log is created
+        And a "start file sync" line appears during start-up
+        And another "start file sync" line appears at the first cron tick
+        And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
+        And each file becomes searchable
+    @s2
+    # [test](tests/acceptance/s2/test_s2.py)
+    Scenario: Index file added between ticks
+      Given the stack is running
+      When a new file is copied into $INDEX_DIRECTORY between ticks
+      Then at the next tick metadata and index entries for that file are created
+    @s3
+    # [test](tests/acceptance/s3/test_s3.py)
+    Scenario: Track modified file by new hash
+      Given an existing file's bytes are replaced so its hash changes
+      When the next tick runs
+      Then a new metadata directory is created for the new hash
+        And the old directory remains untouched
+    @s4
+    # [test](tests/acceptance/s4/test_s4.py)
+    Scenario: Honour configured cadence
+      When the stack runs for several ticks
+      Then the interval between successive "start file sync" lines matches the cron +- 1 s
+        And never faster
+    @s5
+    # [test](tests/acceptance/s5/test_s5.py)
+    Scenario: Do not overlap sync runs
+      Given the cron schedule is shorter than the scan duration
+      When the stack runs
+      Then a second "start file sync" line never appears until the previous run logs "... completed file sync"
 
-```gherkin
-@f1 @s3
-Scenario: File contents change
-  Given an existing file's bytes are replaced so its hash changes
-  When the next tick runs
-  Then a new metadata directory is created for the new hash
-    And the old directory remains untouched
+  Rule: Schedule management
+    @s6
+    # [test](tests/acceptance/s6/test_s6.py)
+    Scenario: Apply new schedule after restart
+      Given the stack is stopped
+      When $CRON_EXPRESSION is edited to any valid value
+        And the stack restarts
+      Then the new cadence is observed
+    @s7
+    # [test](tests/acceptance/s7/test_s7.py)
+    Scenario: Reuse logs on restart
+      Given a previous run succeeded
+        And the containers are stopped
+      When they start again with the identical cron expression
+      Then the service reuses the existing $LOGGING_DIRECTORY
+        And files.log continues to append
+        And the usual bootstrap and scheduled ticks occur
+    @s8
+    # [test](tests/acceptance/s8/test_s8.py)
+    Scenario: Exit on invalid cron
+      Given CRON_EXPRESSION is set to "bad cron"
+      When the stack starts
+      Then Home-Index exits with a non-zero code
+        And logs "invalid cron expression"
+        And the container stays stopped
 ```
-([test](tests/acceptance/s3/test_s3.py))
-
-```gherkin
-@f1 @s4
-Scenario: Regular cadence honoured
-  When the stack runs for several ticks
-  Then the interval between successive "start file sync" lines matches the cron ± 1 s
-    And never faster
-```
-([test](tests/acceptance/s4/test_s4.py))
-
-```gherkin
-@f1 @s5
-Scenario: Long-running sync never overlaps
-  Given the cron schedule is shorter than the scan duration
-  When the stack runs
-  Then a second "start file sync" line never appears until the previous run logs "… completed file sync"
-```
-([test](tests/acceptance/s5/test_s5.py))
-
-```gherkin
-@f1 @s6
-Scenario: Change schedule
-  Given the stack is stopped
-  When $CRON_EXPRESSION is edited to any valid value
-    And the stack restarts
-  Then the new cadence is observed
-```
-([test](tests/acceptance/s6/test_s6.py))
-
-```gherkin
-@f1 @s7
-Scenario: Restart with same schedule
-  Given a previous run succeeded
-    And the containers are stopped
-  When they start again with the identical cron expression
-  Then the service reuses the existing $LOGGING_DIRECTORY
-    And files.log continues to append
-    And the usual bootstrap and scheduled ticks occur
-```
-([test](tests/acceptance/s7/test_s7.py))
-
-```gherkin
-@f1 @s8
-Scenario: Invalid cron blocks start-up
-  Given CRON_EXPRESSION is set to "bad cron"
-  When the stack starts
-  Then Home-Index exits with a non-zero code
-    And logs "invalid cron expression"
-    And the container stays stopped
-```
-([test](tests/acceptance/s8/test_s8.py))
 
 All scenarios must pass in the provided container environment. Only the concrete cron strings, file names, and timestamps may vary by project.
 

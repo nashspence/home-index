@@ -59,6 +59,7 @@ run ruff check .
 run mypy --ignore-missing-imports --strict --explicit-package-bases \
          --no-site-packages --exclude tests \
          main.py shared features
+run mdsf verify --config mdsf.json features/F1/SPEC.md
 
 # Unit tests – concise header
 run_named "pytest unit (-q)" \
