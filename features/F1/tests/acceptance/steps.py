@@ -23,6 +23,14 @@ from shared.acceptance_helpers import (
 from .helpers import _expected_interval
 
 
+from typing import Any, Awaitable
+
+
+def _run(loop: asyncio.AbstractEventLoop, coro: Awaitable[Any]) -> Any:
+    """Run ``coro`` using ``loop`` and return the result."""
+    return loop.run_until_complete(coro)
+
+
 World = ComposeState
 
 
@@ -49,16 +57,22 @@ async def world(
 @when("the stack boots")
 @when("the stack runs")
 @when("the stack starts")
-async def start_stack_running(
-    world: World, request: pytest.FixtureRequest, docker_client: docker.DockerClient
+def start_stack_running(
+    world: World,
+    request: pytest.FixtureRequest,
+    docker_client: docker.DockerClient,
+    event_loop: asyncio.AbstractEventLoop,
 ) -> None:
-    await start_stack(
-        world,
-        request,
-        docker_client,
-        steps_file=Path(__file__),
-        prefix="f1",
-        services=["meilisearch", "home-index"],
+    _run(
+        event_loop,
+        start_stack(
+            world,
+            request,
+            docker_client,
+            steps_file=Path(__file__),
+            prefix="f1",
+            services=["meilisearch", "home-index"],
+        ),
     )
 
 
@@ -69,8 +83,8 @@ def ensure_files_exist(world: World) -> None:
 
 
 @given("the stack is stopped")
-async def given_stack_stopped(world: World) -> None:
-    await stop_stack(world)
+def given_stack_stopped(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
+    _run(event_loop, stop_stack(world))
 
 
 @given(parsers.parse("$CRON_EXPRESSION is edited to any valid value"))
@@ -84,26 +98,35 @@ def set_bad_cron() -> None:
 
 
 @given("an existing file's bytes are replaced so its hash changes")
-async def file_bytes_changed(
-    world: World, request: pytest.FixtureRequest, docker_client: docker.DockerClient
+def file_bytes_changed(
+    world: World,
+    request: pytest.FixtureRequest,
+    docker_client: docker.DockerClient,
+    event_loop: asyncio.AbstractEventLoop,
 ) -> None:
     if world.stack is None:
-        await start_stack(
-            world,
-            request,
-            docker_client,
-            steps_file=Path(__file__),
-            prefix="f1",
-            services=["meilisearch", "home-index"],
+        _run(
+            event_loop,
+            start_stack(
+                world,
+                request,
+                docker_client,
+                steps_file=Path(__file__),
+                prefix="f1",
+                services=["meilisearch", "home-index"],
+            ),
         )
         assert world.watchers is not None
         hi = next(iter(world.watchers.values()))
-        await hi.wait_for_sequence(
-            [
-                EventMatcher(r"\[INFO\] start file sync"),
-                EventMatcher(r"\[INFO\] completed file sync"),
-            ],
-            timeout=10,
+        _run(
+            event_loop,
+            hi.wait_for_sequence(
+                [
+                    EventMatcher(r"\[INFO\] start file sync"),
+                    EventMatcher(r"\[INFO\] completed file sync"),
+                ],
+                timeout=10,
+            ),
         )
     assert world.workdir is not None
     (world.workdir / "input" / "hello.txt").write_text("changed")
@@ -115,83 +138,104 @@ def short_schedule() -> None:
 
 
 @given("a previous run succeeded")
-async def previous_run_succeeded(
-    world: World, request: pytest.FixtureRequest, docker_client: docker.DockerClient
+def previous_run_succeeded(
+    world: World,
+    request: pytest.FixtureRequest,
+    docker_client: docker.DockerClient,
+    event_loop: asyncio.AbstractEventLoop,
 ) -> None:
-    await start_stack(
-        world,
-        request,
-        docker_client,
-        steps_file=Path(__file__),
-        prefix="f1",
-        services=["meilisearch", "home-index"],
+    _run(
+        event_loop,
+        start_stack(
+            world,
+            request,
+            docker_client,
+            steps_file=Path(__file__),
+            prefix="f1",
+            services=["meilisearch", "home-index"],
+        ),
     )
     assert world.watchers is not None and world.output_dir is not None
     hi = next(iter(world.watchers.values()))
-    await hi.wait_for_sequence(
-        [
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] start file sync"),
-        ],
-        timeout=10,
+    _run(
+        event_loop,
+        hi.wait_for_sequence(
+            [
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] start file sync"),
+            ],
+            timeout=10,
+        ),
     )
     world.prev_log_lines = (
         world.output_dir.joinpath("files.log").read_text().splitlines()
     )
-    await stop_stack(world)
+    _run(event_loop, stop_stack(world))
 
 
 @given("the containers are stopped")
-async def containers_stopped(world: World) -> None:
-    await stop_stack(world)
+def containers_stopped(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
+    _run(event_loop, stop_stack(world))
 
 
 @when("a new file is copied into $INDEX_DIRECTORY between ticks")
-async def copy_new_file(world: World) -> None:
+def copy_new_file(world: World) -> None:
     assert world.workdir is not None
     (world.workdir / "input" / "new.txt").write_text("new")
 
 
 @when("the next tick runs")
-async def wait_next_tick(world: World) -> None:
+def wait_next_tick(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.watchers is not None
     hi = next(iter(world.watchers.values()))
-    await hi.wait_for_sequence(
-        [
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] completed file sync"),
-        ],
-        timeout=10,
+    _run(
+        event_loop,
+        hi.wait_for_sequence(
+            [
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] completed file sync"),
+            ],
+            timeout=10,
+        ),
     )
 
 
 @when("the stack restarts")
 @when("they start again with the identical cron expression")
-async def restart_stack(
-    world: World, request: pytest.FixtureRequest, docker_client: docker.DockerClient
+def restart_stack(
+    world: World,
+    request: pytest.FixtureRequest,
+    docker_client: docker.DockerClient,
+    event_loop: asyncio.AbstractEventLoop,
 ) -> None:
-    await given_stack_stopped(world)
-    await start_stack(
-        world,
-        request,
-        docker_client,
-        steps_file=Path(__file__),
-        prefix="f1",
-        services=["meilisearch", "home-index"],
+    _run(event_loop, stop_stack(world))
+    _run(
+        event_loop,
+        start_stack(
+            world,
+            request,
+            docker_client,
+            steps_file=Path(__file__),
+            prefix="f1",
+            services=["meilisearch", "home-index"],
+        ),
     )
 
 
 @when("the stack runs for several ticks")
-async def run_several_ticks(world: World) -> None:
+def run_several_ticks(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.watchers is not None
     hi = next(iter(world.watchers.values()))
-    await hi.wait_for_sequence(
-        [
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] start file sync"),
-        ],
-        timeout=10,
+    _run(
+        event_loop,
+        hi.wait_for_sequence(
+            [
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] start file sync"),
+            ],
+            timeout=10,
+        ),
     )
 
 
@@ -202,7 +246,9 @@ def log_file_created(world: World) -> None:
 
 
 @then(parsers.parse("the logs contain, in order:\n{table}"))
-async def logs_in_order(world: World, table: str) -> None:
+def logs_in_order(
+    world: World, table: str, event_loop: asyncio.AbstractEventLoop
+) -> None:
     """Assert each container's logs match the given regex sequence."""
     assert world.watchers is not None
     lines = [row.strip().split("|") for row in table.strip().splitlines()]
@@ -213,11 +259,14 @@ async def logs_in_order(world: World, table: str) -> None:
     for container, pattern in lines:
         seq_map.setdefault(container.strip(), []).append(EventMatcher(pattern.strip()))
 
-    await asyncio.gather(
-        *(
-            world.watchers[c].wait_for_sequence(seq, timeout=10)
-            for c, seq in seq_map.items()
-        )
+    _run(
+        event_loop,
+        asyncio.gather(
+            *(
+                world.watchers[c].wait_for_sequence(seq, timeout=10)
+                for c, seq in seq_map.items()
+            )
+        ),
     )
 
 
@@ -229,36 +278,40 @@ def metadata_written(world: World) -> None:
 
 
 @then("each file becomes searchable")
-async def files_searchable(world: World) -> None:
+def files_searchable(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.workdir is not None and world.output_dir is not None
     assert world.compose_file is not None
     for path in world.workdir.joinpath("input").iterdir():
         doc_id = assert_file_indexed(world.workdir, world.output_dir, path.name)
-        docs = await asyncio.to_thread(
-            search_meili,
-            world.compose_file,
-            world.workdir,
-            f'id = "{doc_id}"',
+        docs = _run(
+            event_loop,
+            asyncio.to_thread(
+                search_meili,
+                world.compose_file,
+                world.workdir,
+                f'id = "{doc_id}"',
+            ),
         )
         assert docs
 
 
 @then("at the next tick metadata and index entries for that file are created")
-async def new_file_indexed(world: World) -> None:
-    await logs_in_order(
+def new_file_indexed(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
+    logs_in_order(
         world,
         r"""home_index|^\[INFO\] start file sync$\nhome_index|^\[INFO\] commit changes to meilisearch$\nhome_index|^\[INFO\] completed file sync$""",
+        event_loop=event_loop,
     )
-    await files_searchable(world)
+    files_searchable(world, event_loop)
 
 
 @then("a new metadata directory is created for the new hash")
-async def new_metadata_dir(world: World) -> None:
+def new_metadata_dir(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.workdir is not None and world.output_dir is not None
     old_id = assert_file_indexed(world.workdir, world.output_dir, "hello.txt")
     hello = world.workdir / "input" / "hello.txt"
     hello.write_text("changed")
-    await wait_next_tick(world)
+    wait_next_tick(world, event_loop)
     new_id = assert_file_indexed(world.workdir, world.output_dir, "hello.txt")
     assert new_id != old_id
     assert (world.output_dir / "metadata" / "by-id" / old_id).exists()
@@ -272,16 +325,19 @@ def old_directory_untouched(world: World) -> None:
 
 
 @then('the interval between successive "start file sync" lines matches the cron +- 3 s')
-async def interval_matches(world: World) -> None:
+def interval_matches(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.watchers is not None
     hi = next(iter(world.watchers.values()))
-    events = await hi.wait_for_sequence(
-        [
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] start file sync"),
-        ],
-        timeout=10,
+    events = _run(
+        event_loop,
+        hi.wait_for_sequence(
+            [
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] start file sync"),
+            ],
+            timeout=10,
+        ),
     )
     interval = events[-1].ts - events[-2].ts
     expected = _expected_interval("*/2 * * * * *")
@@ -296,16 +352,19 @@ def never_faster() -> None:
 @then(
     'a second "start file sync" line never appears until the previous run logs "... completed file sync"'
 )
-async def no_overlap(world: World) -> None:
+def no_overlap(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.watchers is not None
     hi = next(iter(world.watchers.values()))
-    events = await hi.wait_for_sequence(
-        [
-            EventMatcher(r"\[INFO\] start file sync"),
-            EventMatcher(r"\[INFO\] completed file sync"),
-            EventMatcher(r"\[INFO\] start file sync"),
-        ],
-        timeout=10,
+    events = _run(
+        event_loop,
+        hi.wait_for_sequence(
+            [
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] completed file sync"),
+                EventMatcher(r"\[INFO\] start file sync"),
+            ],
+            timeout=10,
+        ),
     )
     start_ts, completed_ts, next_start = (e.ts for e in events)
     for evt in hi._remembered:
@@ -315,16 +374,16 @@ async def no_overlap(world: World) -> None:
 
 
 @then("the container stays stopped")
-async def container_stopped(world: World) -> None:
+def container_stopped(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
     assert world.watchers is not None
     hi = next(iter(world.watchers.values()))
-    exit_code = await hi.wait_for_container_stopped(timeout=10)
+    exit_code = _run(event_loop, hi.wait_for_container_stopped(timeout=10))
     assert exit_code != 0
 
 
 @then("Home-Index exits with a non-zero code")
-async def exit_non_zero(world: World) -> None:
-    await container_stopped(world)
+def exit_non_zero(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
+    container_stopped(world, event_loop)
 
 
 @then("the service reuses the existing $LOGGING_DIRECTORY")
@@ -344,8 +403,9 @@ def files_log_appends(world: World) -> None:
 
 
 @then("the usual bootstrap and scheduled ticks occur")
-async def usual_ticks(world: World) -> None:
-    await logs_in_order(
+def usual_ticks(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
+    logs_in_order(
         world,
         r"""home_index|^\[INFO\] start file sync$\nhome_index|^\[INFO\] start file sync$""",
+        event_loop=event_loop,
     )
