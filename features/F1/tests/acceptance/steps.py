@@ -12,7 +12,7 @@ import pytest_asyncio
 from typing import cast
 from pytest_bdd import given, when, then, parsers
 
-from shared.acceptance import search_meili
+from shared.acceptance import search_meili, wait_for
 from shared.acceptance_helpers import (
     EventMatcher,
     ComposeState,
@@ -242,7 +242,11 @@ def run_several_ticks(world: World, event_loop: asyncio.AbstractEventLoop) -> No
 @then(parsers.parse("$LOGGING_DIRECTORY/files.log is created"))
 def log_file_created(world: World) -> None:
     assert world.output_dir is not None
-    assert world.output_dir.joinpath("files.log").exists()
+    wait_for(
+        lambda: world.output_dir.joinpath("files.log").exists(),
+        timeout=10,
+        message="files.log created",
+    )
 
 
 @then(parsers.parse("the logs contain, in order:\n{table}"))

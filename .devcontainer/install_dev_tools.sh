@@ -15,7 +15,9 @@ pip install --quiet \
     httpx==0.28.1 \
     docker==7.1.0 \
     PyYAML==6.0.1 \
+    types-PyYAML==6.0.12.20240311 \
     xxhash==3.5.0 \
+    types-aiofiles==23.2.0.20240623 \
     reformat_gherkin==3.0.1
 
 # Tools for linting/formatting Gherkin snippets in Markdown
