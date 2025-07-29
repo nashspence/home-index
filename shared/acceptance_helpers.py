@@ -774,6 +774,7 @@ async def make_watchers(
     container_names: Iterable[str],
     *,
     remember_limit: int = 1000,
+    start_from_now: bool = True,
     request: Any | None = None,
 ) -> AsyncIterator[Dict[str, AsyncDockerLogWatcher]]:
     """Yield log watchers and ensure cleanup on exit."""
@@ -783,6 +784,7 @@ async def make_watchers(
             client,
             name,
             remember_limit=remember_limit,
+            start_from_now=start_from_now,
         )
         for name in container_names
     }
@@ -898,7 +900,12 @@ async def start_stack(
     stack = AsyncExitStack()
     names = container_names(prefix, tag, services)
     watchers = await stack.enter_async_context(
-        make_watchers(docker_client, list(names), request=request)
+        make_watchers(
+            docker_client,
+            list(names),
+            request=request,
+            start_from_now=False,
+        )
     )
     for name in names:
         await stack.enter_async_context(
