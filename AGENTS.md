@@ -114,10 +114,10 @@ repo/
 * Docker is **ABSOLUTELY NECESSARY** to run the acceptance tests. Do not even try without it.
 * Acceptance test script starts & stops `<repo>:ci` via compose.
 * Each scenario sits in `features/Fx/tests/acceptance/sY/`.
-* A compose file `test_sY.yml` resides beside the scenario test.
+* A compose file `test_sY.yml` resides in each scenario folder.
 * Keep scenario data in `features/Fx/tests/acceptance/sY/{input,output}`.
 * Handle each acceptance scenario from the spec via env vars + input files.
-* Each acceptance scenario lives in `features/Fx/tests/acceptance/sY/test_sY.py` with a function named `test_fXsY`, or is auto-collected from `features/Fx/SPEC.md` when no such file exists.
+* Each acceptance scenario is defined in `features/Fx/tests/acceptance/sY/test_sY.py` with `test_fXsY`, or is auto-collected from `features/Fx/SPEC.md` when that module is absent.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Do NOT use mocks, stubs, or dummies unless absolutely necessary.
 * On failure output test logs + relevant release‑env container logs.

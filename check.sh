@@ -70,9 +70,9 @@ run_named "pytest unit (-q)" \
 # Acceptance tests (CI only)
 ###############################################################################
 if [[ ${GITHUB_ACTIONS:-false} == "true" ]]; then
-  # Run feature tests collected from SPEC.md via pytest-bdd
-  run_named "pytest F1 acceptance (-vv -x -s)" \
-            pytest -vv -x -s -c pytest.ini features/F1 --ignore=features/F1/tests/unit
+  run python3 .tools/extract_gherkin.py
+  run_named "pytest bdd acceptance (-vv -x -s)" \
+            pytest -vv -x -s -c pytest.ini tests/test_bdd_from_md.py
 
   mapfile -t test_files < <(
     find features -path '*/tests/acceptance/*' -name 'test_*.py' | sort -V
