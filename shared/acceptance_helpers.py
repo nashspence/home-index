@@ -904,7 +904,6 @@ async def start_stack(
             docker_client,
             list(names),
             request=request,
-            start_from_now=False,
         )
     )
     for name in names:
