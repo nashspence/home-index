@@ -51,7 +51,7 @@ Feature: Scheduled file sync
 
   Rule: Bootstrap and normal operation
     @s1
-    # [test](tests/acceptance/s1/test_s1.py)
+    # [test](../../tests/test_bdd_from_md.py)
     Scenario: Index existing files on first run
       Given the stack started with a valid cron expression
         And at least one file exists in $INDEX_DIRECTORY
@@ -70,7 +70,7 @@ Feature: Scheduled file sync
         And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
         And each file becomes searchable
     @s2
-    # [test](tests/acceptance/s2/test_s2.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Index file added between ticks
     Given the stack is running
     When a new file is copied into $INDEX_DIRECTORY between ticks
@@ -83,7 +83,7 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] commit changes to meilisearch$ |
         | home_index | ^\[INFO\] completed file sync$ |
     @s3
-    # [test](tests/acceptance/s3/test_s3.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Track modified file by new hash
     Given an existing file's bytes are replaced so its hash changes
     When the next tick runs
@@ -96,7 +96,7 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] completed file sync$ |
       And the old directory remains untouched
     @s4
-    # [test](tests/acceptance/s4/test_s4.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Honour configured cadence
     When the stack runs for several ticks
     Then the logs contain, in order:
@@ -107,7 +107,7 @@ Feature: Scheduled file sync
       And the interval between successive "start file sync" lines matches the cron +- 3 s
         And never faster
     @s5
-    # [test](tests/acceptance/s5/test_s5.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Do not overlap sync runs
     Given the cron schedule is shorter than the scan duration
     When the stack runs
@@ -120,7 +120,7 @@ Feature: Scheduled file sync
 
   Rule: Schedule management
     @s6
-    # [test](tests/acceptance/s6/test_s6.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Apply new schedule after restart
     Given the stack is stopped
       And $CRON_EXPRESSION is edited to any valid value
@@ -132,7 +132,7 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] start file sync$ |
         And the interval between successive "start file sync" lines matches the new cron +- 3 s
     @s7
-    # [test](tests/acceptance/s7/test_s7.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Reuse logs on restart
     Given a previous run succeeded
       And the containers are stopped
@@ -146,7 +146,7 @@ Feature: Scheduled file sync
       And files.log continues to append
       And the usual bootstrap and scheduled ticks occur
     @s8
-    # [test](tests/acceptance/s8/test_s8.py)
+    # [test](../../tests/test_bdd_from_md.py)
   Scenario: Exit on invalid cron
     Given CRON_EXPRESSION is set to "bad cron"
     When the stack starts

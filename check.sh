@@ -70,9 +70,15 @@ run_named "pytest unit (-q)" \
 # Acceptance tests (CI only)
 ###############################################################################
 if [[ ${GITHUB_ACTIONS:-false} == "true" ]]; then
+  run python3 .tools/extract_gherkin.py
+  run_named "pytest bdd acceptance (-vv -x -s)" \
+            pytest -vv -x -s -c pytest.ini tests/test_bdd_from_md.py
+
   mapfile -t test_files < <(
     find features -path '*/tests/acceptance/*' -name 'test_*.py' | sort -V
   )
-  run_named "pytest acceptance (-vv -x -s)" \
-            pytest -vv -x -s "${test_files[@]}"
+  if [[ ${#test_files[@]} -gt 0 ]]; then
+    run_named "pytest acceptance (-vv -x -s)" \
+              pytest -vv -x -s "${test_files[@]}"
+  fi
 fi
