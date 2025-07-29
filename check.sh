@@ -77,6 +77,8 @@ if [[ ${GITHUB_ACTIONS:-false} == "true" ]]; then
   mapfile -t test_files < <(
     find features -path '*/tests/acceptance/*' -name 'test_*.py' | sort -V
   )
-  run_named "pytest acceptance (-vv -x -s)" \
-            pytest -vv -x -s "${test_files[@]}"
+  if [[ ${#test_files[@]} -gt 0 ]]; then
+    run_named "pytest acceptance (-vv -x -s)" \
+              pytest -vv -x -s "${test_files[@]}"
+  fi
 fi
