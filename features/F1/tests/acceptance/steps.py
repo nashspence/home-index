@@ -264,12 +264,21 @@ def logs_in_order(
 ) -> None:
     """Assert each container's logs match the given regex sequence."""
     assert world.watchers is not None
-    lines = [row.strip().split("|") for row in table.strip().splitlines()]
-    if lines and lines[0][0].strip().lower() == "container":
-        lines = lines[1:]
+    raw_rows = [r.strip() for r in table.strip().splitlines()]
+    cells_rows = []
+    for row in raw_rows:
+        cells = [c.strip() for c in row.split("|")]
+        if cells and cells[0] == "":
+            cells = cells[1:]
+        if cells and cells[-1] == "":
+            cells = cells[:-1]
+        if cells:
+            cells_rows.append(cells)
+    if cells_rows and cells_rows[0][0].lower() == "container":
+        cells_rows = cells_rows[1:]
 
     seq_map: dict[str, list[EventMatcher]] = {}
-    for container, pattern in lines:
+    for container, pattern in cells_rows:
         seq_map.setdefault(container.strip(), []).append(EventMatcher(pattern.strip()))
 
     tasks = []
