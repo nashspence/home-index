@@ -41,7 +41,13 @@ def extract_blocks(md_text: str) -> list[str]:
     for b in blocks:
         block = "\n".join(b)
         block = textwrap.dedent(block)
-        block = "\n".join(line.lstrip() for line in block.splitlines())
+        lines = []
+        for line in block.splitlines():
+            if line.lstrip().startswith("|"):
+                lines.append(line.rstrip())
+            else:
+                lines.append(line.lstrip().rstrip())
+        block = "\n".join(lines)
         cleaned.append(block.strip() + "\n")
     return cleaned
 
