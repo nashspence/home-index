@@ -9,6 +9,7 @@ from pathlib import Path
 import docker
 import pytest
 import pytest_asyncio
+from typing import cast
 from pytest_bdd import given, when, then, parsers
 
 from shared.acceptance import search_meili
@@ -80,6 +81,69 @@ def edit_cron() -> None:
 @given(parsers.parse('CRON_EXPRESSION is set to "bad cron"'))
 def set_bad_cron() -> None:
     os.environ["CRON_EXPRESSION"] = "bad cron"
+
+
+@given("an existing file's bytes are replaced so its hash changes")
+async def file_bytes_changed(
+    world: World, request: pytest.FixtureRequest, docker_client: docker.DockerClient
+) -> None:
+    if world.stack is None:
+        await start_stack(
+            world,
+            request,
+            docker_client,
+            steps_file=Path(__file__),
+            prefix="f1",
+            services=["meilisearch", "home-index"],
+        )
+        assert world.watchers is not None
+        hi = next(iter(world.watchers.values()))
+        await hi.wait_for_sequence(
+            [
+                EventMatcher(r"\[INFO\] start file sync"),
+                EventMatcher(r"\[INFO\] completed file sync"),
+            ],
+            timeout=10,
+        )
+    assert world.workdir is not None
+    (world.workdir / "input" / "hello.txt").write_text("changed")
+
+
+@given("the cron schedule is shorter than the scan duration")
+def short_schedule() -> None:
+    pass
+
+
+@given("a previous run succeeded")
+async def previous_run_succeeded(
+    world: World, request: pytest.FixtureRequest, docker_client: docker.DockerClient
+) -> None:
+    await start_stack(
+        world,
+        request,
+        docker_client,
+        steps_file=Path(__file__),
+        prefix="f1",
+        services=["meilisearch", "home-index"],
+    )
+    assert world.watchers is not None and world.output_dir is not None
+    hi = next(iter(world.watchers.values()))
+    await hi.wait_for_sequence(
+        [
+            EventMatcher(r"\[INFO\] start file sync"),
+            EventMatcher(r"\[INFO\] start file sync"),
+        ],
+        timeout=10,
+    )
+    world.prev_log_lines = (
+        world.output_dir.joinpath("files.log").read_text().splitlines()
+    )
+    await stop_stack(world)
+
+
+@given("the containers are stopped")
+async def containers_stopped(world: World) -> None:
+    await stop_stack(world)
 
 
 @when("a new file is copied into $INDEX_DIRECTORY between ticks")
@@ -261,3 +325,27 @@ async def container_stopped(world: World) -> None:
 @then("Home-Index exits with a non-zero code")
 async def exit_non_zero(world: World) -> None:
     await container_stopped(world)
+
+
+@then("the service reuses the existing $LOGGING_DIRECTORY")
+def reuse_existing_log_dir(world: World) -> None:
+    assert world.output_dir is not None
+    assert getattr(world, "prev_log_lines", None) is not None
+    assert world.output_dir.joinpath("files.log").exists()
+
+
+@then("files.log continues to append")
+def files_log_appends(world: World) -> None:
+    assert world.output_dir is not None
+    assert getattr(world, "prev_log_lines", None) is not None
+    final_lines = world.output_dir.joinpath("files.log").read_text().splitlines()
+    prev_lines = cast(list[str], world.prev_log_lines)
+    assert len(final_lines) > len(prev_lines)
+
+
+@then("the usual bootstrap and scheduled ticks occur")
+async def usual_ticks(world: World) -> None:
+    await logs_in_order(
+        world,
+        r"""home_index|^\[INFO\] start file sync$\nhome_index|^\[INFO\] start file sync$""",
+    )

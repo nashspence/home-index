@@ -843,6 +843,7 @@ class ComposeState:
     output_dir: Path | None = None
     stack: AsyncExitStack | None = None
     watchers: Dict[str, AsyncDockerLogWatcher] | None = None
+    prev_log_lines: list[str] | None = None
 
 
 def scenario_tag(request: pytest.FixtureRequest) -> str:
@@ -877,9 +878,16 @@ async def start_stack(
 
     tag = scenario_tag(request)
     scenario_dir = steps_file.with_name(tag)
-    compose_file, workdir, output_dir = compose_paths_for_test(
-        scenario_dir / f"test_{tag}.py"
-    )
+    if state.compose_file and state.workdir and state.output_dir:
+        compose_file, workdir, output_dir = (
+            state.compose_file,
+            state.workdir,
+            state.output_dir,
+        )
+    else:
+        compose_file, workdir, output_dir = compose_paths_for_test(
+            scenario_dir / f"test_{tag}.py"
+        )
 
     stack = AsyncExitStack()
     names = container_names(prefix, tag, services)
