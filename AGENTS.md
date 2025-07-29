@@ -121,6 +121,21 @@ repo/
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Do NOT use mocks, stubs, or dummies unless absolutely necessary.
 * On failure output test logs + relevant release‑env container logs.
+* Follow F1 patterns: asynchronous `pytest.mark.asyncio` tests using
+  `compose_paths_for_test`, `make_watchers` and `compose_up` from
+  `shared.acceptance_helpers`.
+* Always call `compose_paths_for_test` first, then create the watcher mapping
+  with `make_watchers`.
+* Close the watcher context at the end of the test.
+* Try to assert file creation events while `home-index` is down.
+* Verify logs with `EventMatcher` and `wait_for_sequence` or
+  `wait_for_line` and call `assert_no_line(lambda line: "ERROR" in line)` every
+  time a container stops unless an error is expected.
+* Bring containers up and down the minimal number of times and use 10–20 second
+  timeouts by default.
+* Use helper assertions such as `assert_file_indexed` where applicable.
+* Each `test_sY.py` file must cover exactly the Gherkin scenario tagged
+  `@sY` in the feature's `SPEC.md`; e.g. `f1s1` only implements scenario `@s1`.
 
 ### S3.2\_UNIT\_TESTS (optional)
 
