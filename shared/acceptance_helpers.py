@@ -871,7 +871,13 @@ async def start_stack(
     prefix: str,
     services: Sequence[str],
 ) -> None:
-    """Start the compose stack for the current scenario if not already started."""
+    """Start the compose stack for the current scenario.
+
+    The ``steps_file`` path determines the scenario folder (``sX``) from which
+    a docker-compose file and input/output directories are copied.  Each test
+    thus runs in an isolated temporary workdir with containers named using the
+    provided ``prefix`` and scenario tag.
+    """
 
     if state.stack is not None:
         return
