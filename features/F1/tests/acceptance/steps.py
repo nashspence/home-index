@@ -283,7 +283,8 @@ def logs_in_order(
 
     tasks = []
     for cont_re, seq in seq_map.items():
-        cre = re.compile(cont_re)
+        # spec uses underscores for container names; our compose uses hyphens
+        cre = re.compile(cont_re.replace("_", "[-_]"))
         matches = [w for name, w in world.watchers.items() if cre.search(name)]
         if not matches:
             raise AssertionError(f"no container matches pattern {cont_re!r}")
