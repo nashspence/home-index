@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from pathlib import Path
 
 import docker
@@ -19,6 +20,8 @@ from shared.acceptance_helpers import (
     assert_file_indexed,
     start_stack,
     stop_stack,
+    service_watcher,
+    AsyncDockerLogWatcher,
 )
 from .helpers import _expected_interval
 
@@ -32,6 +35,11 @@ def _run(loop: asyncio.AbstractEventLoop, coro: Awaitable[Any]) -> Any:
 
 
 World = ComposeState
+
+
+def _hi(world: World) -> AsyncDockerLogWatcher:
+    """Return the home-index watcher."""
+    return service_watcher(world, "home-index")
 
 
 @pytest.fixture(scope="session")
@@ -116,8 +124,7 @@ def file_bytes_changed(
                 services=["meilisearch", "home-index"],
             ),
         )
-        assert world.watchers is not None
-        hi = next(iter(world.watchers.values()))
+        hi = _hi(world)
         _run(
             event_loop,
             hi.wait_for_sequence(
@@ -155,8 +162,8 @@ def previous_run_succeeded(
             services=["meilisearch", "home-index"],
         ),
     )
-    assert world.watchers is not None and world.output_dir is not None
-    hi = next(iter(world.watchers.values()))
+    assert world.output_dir is not None
+    hi = _hi(world)
     _run(
         event_loop,
         hi.wait_for_sequence(
@@ -186,8 +193,7 @@ def copy_new_file(world: World) -> None:
 
 @when("the next tick runs")
 def wait_next_tick(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
-    assert world.watchers is not None
-    hi = next(iter(world.watchers.values()))
+    hi = _hi(world)
     _run(
         event_loop,
         hi.wait_for_sequence(
@@ -224,8 +230,7 @@ def restart_stack(
 
 @when("the stack runs for several ticks")
 def run_several_ticks(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
-    assert world.watchers is not None
-    hi = next(iter(world.watchers.values()))
+    hi = _hi(world)
     _run(
         event_loop,
         hi.wait_for_sequence(
@@ -241,8 +246,7 @@ def run_several_ticks(world: World, event_loop: asyncio.AbstractEventLoop) -> No
 
 @then(parsers.parse("$LOGGING_DIRECTORY/files.log is created"))
 def log_file_created(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
-    assert world.watchers is not None
-    hi = next(iter(world.watchers.values()))
+    hi = _hi(world)
     _run(
         event_loop,
         hi.wait_for_sequence(
@@ -268,15 +272,16 @@ def logs_in_order(
     for container, pattern in lines:
         seq_map.setdefault(container.strip(), []).append(EventMatcher(pattern.strip()))
 
-    _run(
-        event_loop,
-        asyncio.gather(
-            *(
-                world.watchers[c].wait_for_sequence(seq, timeout=10)
-                for c, seq in seq_map.items()
-            )
-        ),
-    )
+    tasks = []
+    for cont_re, seq in seq_map.items():
+        cre = re.compile(cont_re)
+        matches = [w for name, w in world.watchers.items() if cre.search(name)]
+        if not matches:
+            raise AssertionError(f"no container matches pattern {cont_re!r}")
+        for w in matches:
+            tasks.append(w.wait_for_sequence(seq, timeout=10))
+
+    _run(event_loop, asyncio.gather(*tasks))
 
 
 @then("for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written")
@@ -335,8 +340,7 @@ def old_directory_untouched(world: World) -> None:
 
 @then('the interval between successive "start file sync" lines matches the cron +- 3 s')
 def interval_matches(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
-    assert world.watchers is not None
-    hi = next(iter(world.watchers.values()))
+    hi = _hi(world)
     events = _run(
         event_loop,
         hi.wait_for_sequence(
@@ -362,8 +366,7 @@ def never_faster() -> None:
     'a second "start file sync" line never appears until the previous run logs "... completed file sync"'
 )
 def no_overlap(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
-    assert world.watchers is not None
-    hi = next(iter(world.watchers.values()))
+    hi = _hi(world)
     events = _run(
         event_loop,
         hi.wait_for_sequence(
@@ -384,8 +387,7 @@ def no_overlap(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
 
 @then("the container stays stopped")
 def container_stopped(world: World, event_loop: asyncio.AbstractEventLoop) -> None:
-    assert world.watchers is not None
-    hi = next(iter(world.watchers.values()))
+    hi = _hi(world)
     exit_code = _run(event_loop, hi.wait_for_container_stopped(timeout=10))
     assert exit_code != 0
 

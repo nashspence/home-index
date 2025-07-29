@@ -848,6 +848,16 @@ class ComposeState:
     prev_log_lines: list[str] | None = None
 
 
+def service_watcher(state: ComposeState, service: str) -> AsyncDockerLogWatcher:
+    """Return the log watcher for a compose service."""
+    if state.watchers is None:
+        raise RuntimeError("stack not started")
+    for name, watcher in state.watchers.items():
+        if name.endswith(service):
+            return watcher
+    raise KeyError(service)
+
+
 def scenario_tag(request: pytest.FixtureRequest) -> str:
     """Return the scenario marker (``sX``) for the current test."""
 
