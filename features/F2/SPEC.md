@@ -80,24 +80,177 @@ services:
 
 ---
 
+
 ## 4 Acceptance criteria (platform‑agnostic)
 
-| #      | Scenario & pre‑conditions                                                                                       | Steps (actions → expected result)                                                                                                                                                                                                 |
-| ------ | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1**  | **Initial sync with duplicates present**<br>`<file‑A>` and `<file‑B>` are byte‑identical; `<file‑C>` is unique. | 1 Start stack → Exactly **two** directories appear under `by-id/` (one shared by A & B, one for C).<br>2 `by-path/` contains one symlink per original *relative* path; the two for A & B resolve to the same target. ([test](tests/acceptance/test_s1.py)) |
-| **2**  | **Document fields populated**                                                                                   | 1 Open any generated `document.json` → Fields `id`, `paths`, `paths_list`, `mtime`, `size`, `type`, `copies` all exist and have correct values (e.g., duplicate shows `copies > 1`); `mtime` is a float seconds. ([test](tests/acceptance/test_s2.py))                  |
-| **3**  | **Search by single criterion**                                                                                  | 1 Query **files** index with `filter: "copies = 1"` (or any single‑field filter) → Response returns only documents whose `copies` equal 1.                                                                                         ([test](tests/acceptance/test_s3.py)) |
-| **4**  | **Search by multiple criteria**                                                                                 | 1 Query with `filter: "size >= 1024 AND type = \"application/pdf\""` → Response contains only documents satisfying **all** clauses.                                                                                                ([test](tests/acceptance/test_s4.py)) |
-| **5**  | **Add new duplicate while running**                                                                             | 1 Copy a second instance of `<file‑C>` into `/files`. <br>2 Wait ≤ 1 min → Original document’s `copies` increments by 1 and its `paths`/`paths_list` include the new relative path; no new hash directory created.                 ([test](tests/acceptance/test_s5.py)) |
-| **6**  | **Delete one duplicate but not all**                                                                            | 1 Remove one of the multiple paths that reference the same content. <br>2 Wait ≤ 1 min → Document remains; `copies` decrements; removed path no longer appears in `paths_list`.                                                    ([test](tests/acceptance/test_s6.py)) |
-| **7**  | **Delete last remaining copy**                                                                                  | 1 Remove the final path of a document. <br>2 Wait ≤ 1 min → Corresponding `by-id/<hash>` directory and all symlinks are deleted; document disappears from search results.                                                          ([test](tests/acceptance/test_s7.py)) |
-| **8**  | **File content changes (hash changes)**                                                                         | 1 Edit `<file‑B>` so its bytes differ. <br>2 Wait ≤ 1 min → A **new** document (new hash) is created; old document still exists for any other copies of the old bytes; `by-path/<relative‑path‑of‑B>` now points to the new hash.  ([test](tests/acceptance/test_s8.py)) |
-| **9**  | **Symlink integrity**                                                                                           | 1 For any path in `by-path/`, resolve the symlink → It always points to a **relative path** inside `by-id/` and never breaks across restarts or host reboots.                                                                      ([test](tests/acceptance/test_s9.py)) |
-| **10** | **Search returns latest metadata after change**                                                                 | 1 After Scenario 5, query `filter: "copies > 1"` → Newly incremented document appears without restarting Meilisearch or Home‑Index.                                                                                                ([test](tests/acceptance/test_s10.py)) |
+```gherkin
+@f2
+Feature: Search for unique files by metadata
 
-**Test‑harness note** – ensure `CRON_EXPRESSION` is set short enough (e.g. `* * * * *`) so scenarios complete within one minute between syncs.
+  Rule: Index creation
+    @s1
+    # [test](tests/acceptance/test_s1.py)
+    Scenario: Initial sync with duplicates present
+      Given <file-A> and <file-B> are identical and <file-C> is unique
+      When the stack boots
+      Then the logs contain, in order:
+        | container  | line_regex                                |
+        | home_index | ^\[INFO\] start file sync$                |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
+        | home_index | ^\[INFO\] completed file sync$            |
+      And the logs contain, in order:
+        | container  | line_regex                                |
+        | home_index | ^\[INFO\] start file sync$                |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
+        | home_index | ^\[INFO\] completed file sync$            |
+      And exactly two directories exist under $METADATA_DIRECTORY/by-id/
+      And $METADATA_DIRECTORY/by-path/a.txt and b.txt resolve to the same target
 
-All ten scenarios **must pass** on Linux, macOS, and Windows (WSL) without altering the specification wording—only concrete file names, paths, sizes and types may change in test fixtures.
+    @s2
+    # [test](tests/acceptance/test_s2.py)
+    Scenario: Document fields populated
+      Given the stack has booted
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then any generated document.json is read
+        And it contains fields id, paths, paths_list, size, mtime, type and copies
+        And duplicates show copies greater than 1
+
+  Rule: Querying documents
+    @s3
+    # [test](tests/acceptance/test_s3.py)
+    Scenario: Search by single criterion
+      Given the stack has booted
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then the files index is queried with filter "copies = 1"
+        And only documents with copies = 1 are returned
+
+    @s4
+    # [test](tests/acceptance/test_s4.py)
+    Scenario: Search by multiple criteria
+      Given the stack has booted
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then the files index is queried with filter "size >= 1024 AND type = \"application/pdf\""
+        And only documents satisfying all clauses are returned
+
+  Rule: Updating metadata
+    @s5
+    # [test](tests/acceptance/test_s5.py)
+    Scenario: Add new duplicate while running
+      Given the stack has booted
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then a second copy of <file-C> is added
+        And the logs contain, in order:
+        | container  | line_regex                                |
+        | home_index | ^\[INFO\] start file sync$                |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
+        | home_index | ^\[INFO\] completed file sync$            |
+      And the existing document's copies increment
+        And no new hash directory is created
+
+    @s6
+    # [test](tests/acceptance/test_s6.py)
+    Scenario: Delete one duplicate but not all
+      Given the stack has booted with duplicates present
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then one path is removed
+        And the logs contain, in order:
+        | container  | line_regex                                |
+        | home_index | ^\[INFO\] start file sync$                |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
+        | home_index | ^\[INFO\] completed file sync$            |
+      And the document remains with copies decremented
+        And the removed path no longer exists
+
+    @s7
+    # [test](tests/acceptance/test_s7.py)
+    Scenario: Delete last remaining copy
+      Given the stack has booted with duplicates present
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then the final path is removed
+        And the logs contain, in order:
+        | container  | line_regex                                |
+        | home_index | ^\[INFO\] start file sync$                |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
+        | home_index | ^\[INFO\] completed file sync$            |
+      And the hash directory and symlinks disappear
+        And the document vanishes from search results
+
+    @s8
+    # [test](tests/acceptance/test_s8.py)
+    Scenario: File content changes
+      Given the stack has booted with duplicates present
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then a duplicate file's bytes are modified
+        And the logs contain, in order:
+        | container  | line_regex                                |
+        | home_index | ^\[INFO\] start file sync$                |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
+        | home_index | ^\[INFO\] completed file sync$            |
+      And a new document is created for the new hash
+        And the old document remains for remaining copies
+
+  Rule: Symlinks and fresh results
+    @s9
+    # [test](tests/acceptance/test_s9.py)
+    Scenario: Symlink integrity
+      Given the stack has booted
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then the stack was stopped
+        And the stack has booted again
+        And any symlink in $METADATA_DIRECTORY/by-path/ is resolved
+        And it always points to a relative path inside $METADATA_DIRECTORY/by-id/
+        And the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+
+    @s10
+    # [test](tests/acceptance/test_s10.py)
+    Scenario: Search returns latest metadata after change
+      Given an extra copy of a file was added
+      When the logs contain, in order:
+          | container  | line_regex                                |
+          | home_index | ^\[INFO\] start file sync$                |
+          | home_index | ^\[INFO\] commit changes to meilisearch$ |
+          | home_index | ^\[INFO\] completed file sync$            |
+      Then the files index is queried with filter "copies > 1"
+        And the newly updated document appears in results
+```
+
+All ten scenarios **must pass** on Linux, macOS, and Windows (WSL) without altering the specification wording—only concrete file names, paths, sizes and types may change in test fixtures.
 
 ---
 

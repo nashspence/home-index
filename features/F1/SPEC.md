@@ -53,7 +53,7 @@ Feature: Scheduled file sync
     @s1
     # [test](tests/acceptance/s1/test_s1.py)
     Scenario: Index existing files on first run
-      Given the stack started with a valid cron expression
+      Given the stack started
         And at least one file exists in $INDEX_DIRECTORY
       When the stack boots
       Then $LOGGING_DIRECTORY/files.log is created
@@ -69,32 +69,42 @@ Feature: Scheduled file sync
           | home_index | ^\[INFO\] completed file sync$            |
         And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
         And each file becomes searchable
+
     @s2
     # [test](tests/acceptance/s2/test_s2.py)
-  Scenario: Index file added between ticks
-    Given the stack is running
-    When a new file is copied into $INDEX_DIRECTORY between ticks
-    Then at the next tick metadata and index entries for that file are created
-      And the logs contain, in order:
+    Scenario: Index file added between ticks
+      Given the stack started
+      When the logs contain, in order:
         | container  | line_regex                   |
         | home_index | ^\[INFO\] start file sync$   |
         | home_index | ^\[INFO\] completed file sync$ |
+    Then a new file is copied into $INDEX_DIRECTORY
+      And the logs contain, in order:
+        | container  | line_regex                   |
         | home_index | ^\[INFO\] start file sync$   |
         | home_index | ^\[INFO\] commit changes to meilisearch$ |
         | home_index | ^\[INFO\] completed file sync$ |
+      And $METADATA_DIRECTORY/by-id/<hash>/document.json is written for the new file
+      And the new file becomes searchable
+
     @s3
     # [test](tests/acceptance/s3/test_s3.py)
   Scenario: Track modified file by new hash
-    Given an existing file's bytes are replaced so its hash changes
-    When the next tick runs
-    Then a new metadata directory is created for the new hash
-      And the logs contain, in order:
+    Given the stack started
+      And a file exists in $INDEX_DIRECTORY with no copies
+    When the logs contain, in order:
         | container  | line_regex              |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] completed file sync$ |
+    Then an existing file's bytes are replaced so its hash changes
+      And the logs contain, in order:
+        | container  | line_regex              |
         | home_index | ^\[INFO\] start file sync$ |
+        | home_index | ^\[INFO\] commit changes to meilisearch$ |
         | home_index | ^\[INFO\] completed file sync$ |
-      And the old directory remains untouched
+      And a new metadata directory is created for the new hash
+      And the old directory is removed
+
     @s4
     # [test](tests/acceptance/s4/test_s4.py)
   Scenario: Honour configured cadence
@@ -104,8 +114,9 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
-      And the interval between successive "start file sync" lines matches the cron +- 3 s
+        And the interval between successive "start file sync" lines matches the cron +- 3 s
         And never faster
+
     @s5
     # [test](tests/acceptance/s5/test_s5.py)
   Scenario: Do not overlap sync runs
@@ -131,20 +142,24 @@ Feature: Scheduled file sync
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
         And the interval between successive "start file sync" lines matches the new cron +- 3 s
+
     @s7
     # [test](tests/acceptance/s7/test_s7.py)
   Scenario: Reuse logs on restart
-    Given a previous run succeeded
-      And the containers are stopped
-    When they start again with the identical cron expression
-    Then the service reuses the existing $LOGGING_DIRECTORY
-      And the logs contain, in order:
+    Given the stack has booted
+    When the logs contain, in order:
         | container  | line_regex          |
         | home_index | ^\[INFO\] start file sync$ |
         | home_index | ^\[INFO\] start file sync$ |
+    Then the containers are stopped
+      And they start again with the identical cron expression
+      And the service reuses the existing $LOGGING_DIRECTORY
+      And the logs contain, in order:
+        | container  | line_regex          |
         | home_index | ^\[INFO\] start file sync$ |
-      And files.log continues to append
-      And the usual bootstrap and scheduled ticks occur
+        And files.log continues to append
+        And the usual bootstrap and scheduled ticks occur
+
     @s8
     # [test](tests/acceptance/s8/test_s8.py)
   Scenario: Exit on invalid cron
