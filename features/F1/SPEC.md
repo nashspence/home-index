@@ -53,39 +53,32 @@ Feature: Scheduled file sync
     @s1
     # [test](tests/acceptance/s1/test_s1.py)
     Scenario: Index existing files on first run
-      Given the stack started
-        And at least one file exists in $INDEX_DIRECTORY
-      When the stack boots
-      Then $LOGGING_DIRECTORY/files.log is created
-        And the logs contain, in order:
-          | container  | line_regex                                |
-          | home_index | ^\[INFO\] start file sync$                |
-          | home_index | ^\[INFO\] commit changes to meilisearch$ |
-          | home_index | ^\[INFO\]\s+\* counted \d+ documents in meilisearch$ |
-          | home_index | ^\[INFO\] completed file sync$            |
-          | home_index | ^\[INFO\] start file sync$                |
-          | home_index | ^\[INFO\] commit changes to meilisearch$ |
-          | home_index | ^\[INFO\]\s+\* counted \d+ documents in meilisearch$ |
-          | home_index | ^\[INFO\] completed file sync$            |
-        And for each file $METADATA_DIRECTORY/by-id/<hash>/document.json is written
-        And each file becomes searchable
+      Given a file exists in the index directory
+      When containers start
+        And home_index container logs show, in order:
+          | [INFO] completed file sync |
+      Then $LOGGING_DIRECTORY exists
+        And files.log is created there
+        And $METADATA_DIRECTORY exists
+        And for each file in the index directory a directory named by its hash is in it
+        And document.json is written in each of those directories
+        And each file is searchable
 
     @s2
     # [test](tests/acceptance/s2/test_s2.py)
-    Scenario: Index file added between ticks
-      Given the stack started
-      When the logs contain, in order:
-        | container  | line_regex                   |
-        | home_index | ^\[INFO\] start file sync$   |
-        | home_index | ^\[INFO\] completed file sync$ |
-    Then a new file is copied into $INDEX_DIRECTORY
-      And the logs contain, in order:
-        | container  | line_regex                   |
-        | home_index | ^\[INFO\] start file sync$   |
-        | home_index | ^\[INFO\] commit changes to meilisearch$ |
-        | home_index | ^\[INFO\] completed file sync$ |
-      And $METADATA_DIRECTORY/by-id/<hash>/document.json is written for the new file
-      And the new file becomes searchable
+    Scenario: Index file added between sync ticks
+      Given a file exists in the index directory
+      When containers start
+        And home_index container logs show, in order:
+          | [INFO] completed file sync |
+        And a new unique file is copied into $INDEX_DIRECTORY
+        And home_index container logs show, in order:
+          | [INFO] completed file sync |
+      Then $METADATA_DIRECTORY exists
+        And a directory named the new file's hash is in it
+        And document.json is written in that directory
+        And the new file is searchable
+
 
     @s3
     # [test](tests/acceptance/s3/test_s3.py)
