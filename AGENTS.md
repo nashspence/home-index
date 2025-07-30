@@ -76,7 +76,17 @@ treat it as a raw GitHub Actions log from a failed CI run and follow this flow
 * Contains an `Acceptance` section - which is always the master feature specification.
 * Always link each `Acceptance` scenario to corresponding acceptance test files.
 * Present each `Acceptance` scenario as a tagged Gherkin block in Markdown. Each scenario must represent an important testable requirement of the feature.
-* Always match existing format and style when editing.
+* Specify the exact expected log sequence(s) for every scenario,
+  capturing the chronological milestones from startup through each
+  assertion. Use multiple ordered sequences when needed, keeping them
+  as sparse as possible while still including every meaningful event
+  leading up to the assertions.
+  Sequences must lead from initial boot up to every assertion in order.
+* When logs from a prior action are relevant, begin the corresponding
+  `When` block with that log sequence.
+* Use logs as the marker of elapsed time; avoid separate steps such as
+  "the next tick runs".
+* Always match existing format and style when editing non‑Acceptance sections.
 
 ### S2.3\_REPOSITORY\_LAYOUT
 
