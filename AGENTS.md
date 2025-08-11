@@ -14,7 +14,7 @@ S6_RELEASE
 
 ## S0\_HARD\_PROHIBITIONS
 
-* MUST\_NOT modify any feature spec at `features/Fx/SPEC.md` unless directly prompted.
+* MUST\_NOT modify any feature spec at `features/f?.md` unless directly prompted.
 * MUST\_NOT build dev‑ or release‑containers or run acceptance tests locally.
 * MUST\_NOT try to re-create the docker containers locally by installing all of their dependencies.
 * MUST\_NOT commit without running `check.sh` and fixing any warnings / errors.
@@ -25,7 +25,7 @@ S6_RELEASE
 
 ### S1.1\_EXPECTED\_FLOW
 
-1. Read relevant feature specs (`features/Fx/SPEC.md`) if they exist (see S2.2).
+1. Read relevant feature specs (`features/f?.md`) if they exist (see S2.2).
 2. Make changes to specs if directed by the prompt (see S2.2).
 3. Edit / add prompt indicated acceptance test skeletons as per spec (see S3.2).
 4. Implement / fix prompt indicated code as per spec.
@@ -68,26 +68,30 @@ treat it as a raw GitHub Actions log from a failed CI run and follow this flow
 ### S2.1\_FEATURES\_LIST
 
 * Location: README.md → Features section.
-* Simple ordered list of feature titles `Fx <name>` linked to corresponding `features/Fx/SPEC.md`.
+* Simple ordered list of feature titles `f? <name>` linked to corresponding `features/f?.md`.
 
 ### S2.2\_FEATURE\_SPECIFICATIONS
 
-* One markdown file per feature in `features/Fx/`, named `SPEC.md`.
-* Contains an `Acceptance` section - which is always the master feature specification.
-* Always link each `Acceptance` scenario to corresponding acceptance test files.
-* Present each `Acceptance` scenario as a tagged Gherkin block in Markdown. Each scenario must represent an important testable requirement of the feature.
+* One markdown file per feature in `features/`, named `f?.md`.
+* Scenarios must be parsable by Gauge.
+* Non-spec docs live at `features/f?/doc.md`.
+* Each scenario heading `## f?sY <short>` uses subheadings `### if`, `### when`, `### then`.
+* Keep terminology minimal; link every glossary term to `features/glossary.md`.
+* Link each scenario to its acceptance tests when editing.
 * Always match existing format and style when editing.
 
 ### S2.3\_REPOSITORY\_LAYOUT
 
 ```text
 repo/
-├── features/ F1,F2,…
-│   └── F?/
-│       ├── SPEC.md
-│       ├── ADR.md
-│       ├── tests/acceptance/docker-compose.yml
-│       └── tests/unit/
+├── features/
+│   ├── f?/
+│   │   ├── ADR.md
+│   │   ├── doc.md
+│   │   ├── tests/acceptance/docker-compose.yml
+│   │   └── tests/unit/
+│   ├── f?.md
+│   └── glossary.md
 ├── shared/
 ├── tests/
 ├── .devcontainer/(Dockerfile.devcontainer, devcontainer.json, docker-compose.yml, postStart.sh, install_dev_tools.sh)
@@ -100,10 +104,17 @@ repo/
 
 ### S2.4_ADR_FILES
 
-* Every feature directory `features/Fx/` maintains `ADR.md`.
+* Every feature directory `features/f?/` maintains `ADR.md`.
 * Record important implementation details chronologically.
 * Append new notes instead of rewriting old ones.
 * Use `### YYYY-MM-DD` headings for entries.
+### S2.5_GLOSSARY
+
+* Location: features/glossary.md.
+* File starts with `# glossary`.
+* Use `## f? <name>` sections and `### *term*` definitions.
+* Define terms as briefly as possible.
+* Link any term usage back to its heading.
 
 ---
 
@@ -113,15 +124,15 @@ repo/
 
 * Docker is **ABSOLUTELY NECESSARY** to run the acceptance tests. Do not even try without it.
 * Acceptance test script starts & stops `<repo>:ci` via compose.
-* Each scenario sits in `features/Fx/tests/acceptance/sY/`.
+* Each scenario sits in `features/f?/tests/acceptance/sY/`.
 * A compose file `test_sY.yml` resides beside the scenario test.
-* Keep scenario data in `features/Fx/tests/acceptance/sY/{input,output}`.
+* Keep scenario data in `features/f?/tests/acceptance/sY/{input,output}`.
 * Handle each acceptance scenario from the spec via env vars + input files.
-* Each acceptance scenario lives in `features/Fx/tests/acceptance/sY/test_sY.py` with a function named `test_fXsY`.
+* Each acceptance scenario lives in `features/f?/tests/acceptance/sY/test_sY.py` with a function named `test_f?sY`.
 * Assert exact user‑facing output, exactly as spec'd (logs, UI, API, exit codes).
 * Do NOT use mocks, stubs, or dummies unless absolutely necessary.
 * On failure output test logs + relevant release‑env container logs.
-* Follow F1 patterns: asynchronous `pytest.mark.asyncio` tests using
+* Follow f1 patterns: asynchronous `pytest.mark.asyncio` tests using
   `compose_paths_for_test`, `make_watchers` and `compose_up` from
   `shared.acceptance_helpers`.
 * Always call `compose_paths_for_test` first, then create the watcher mapping
@@ -134,12 +145,11 @@ repo/
 * Bring containers up and down the minimal number of times and use 10–20 second
   timeouts by default.
 * Use helper assertions such as `assert_file_indexed` where applicable.
-* Each `test_sY.py` file must cover exactly the Gherkin scenario tagged
-  `@sY` in the feature's `SPEC.md`; e.g. `f1s1` only implements scenario `@s1`.
+* Each `test_sY.py` file must cover scenario `f?sY` in `features/f?.md`; e.g. `f1s1` only implements scenario `f1s1`.
 
 ### S3.2\_UNIT\_TESTS (optional)
 
-* Location: `tests/` for shared code or `features/Fx/tests/unit/` for feature code.
+* Location: `tests/` for shared code or `features/f?/tests/unit/` for feature code.
 * Executed by `check.sh` inside dev container (local & CI).
 * Mock / stub / dummy everything except (a) code under test (b) Python built‑ins.
 * Always strive for complete coverage.
@@ -191,7 +201,7 @@ TYPING         → strict typing (S4.1)
 CLEANING       → remove dead code / files, refactor
 UNIT_COVERAGE  → full unit‑test coverage (S3.2)
 PERFORMANCE    → optimise
-ADR_HISTORY    → maintain features/Fx/ADR.md
+ADR_HISTORY    → maintain features/f?/ADR.md
 ```
 
 ---

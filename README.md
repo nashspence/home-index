@@ -4,12 +4,12 @@ Home Index is a personal file search engine that syncs and enriches metadata.
 
 ## Features
 
-1. [F1 Scheduled file‑sync](features/F1/SPEC.md)
-2. [F2 Search for unique files by metadata](features/F2/SPEC.md)
-3. [F3 Offline media to remains searchable](features/F3/SPEC.md)
-4. [F4 Modules enrich your project files](features/F4/SPEC.md)
-5. [F5 Search file chunks by concept](features/F5/SPEC.md)
-6. [F6 Remote file operations via API](features/F6/SPEC.md)
+1. [f1 scheduled file‑sync](features/f1.md)
+2. [f2 search for unique files by metadata](features/f2.md)
+3. [f3 offline media to remains searchable](features/f3.md)
+4. [f4 modules enrich your project files](features/f4.md)
+5. [f5 search file chunks by concept](features/f5.md)
+6. [f6 remote file operations via API](features/f6.md)
 
 ### Well-known modules
 
