@@ -8,11 +8,11 @@ from shared.logging_config import files_logger, setup_logging
 
 setup_logging()  # noqa: E402
 
-from features.F1 import sync as f1_sync
-from features.F2 import migrations, duplicate_finder
-from features.F3 import archive
-from features.F4 import modules as modules_f4
-from features.F6 import server as f6_server
+from features.f1 import sync as f1_sync
+from features.f2 import migrations, duplicate_finder
+from features.f3 import archive
+from features.f4 import modules as modules_f4
+from features.f6 import server as f6_server
 
 COMMIT_SHA = os.environ.get("COMMIT_SHA", "unknown")
 

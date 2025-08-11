@@ -194,7 +194,7 @@ def stub_dependencies(monkeypatch):
 
     for name, module in modules.items():
         sys.modules.setdefault(name, module)
-    for mod in ["features.F1", "features.F1.scheduler", "features.F1.sync"]:
+    for mod in ["features.f1", "features.f1.scheduler", "features.f1.sync"]:
         sys.modules.pop(mod, None)
 
     # Attempt to use real apscheduler if installed
@@ -219,7 +219,7 @@ def stub_dependencies(monkeypatch):
         for mod in modules_to_restore:
             sys.modules[mod] = importlib.import_module(mod)
 
-    import features.F1 as f1
+    import features.f1 as f1
 
     importlib.reload(f1)
     try:
